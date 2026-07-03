@@ -1,0 +1,14 @@
+[package]
+name = "aigs-project"
+description = "Loader, writer and validator of the .aigs project format"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aigs-anim = { path = "../aigs-anim" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }

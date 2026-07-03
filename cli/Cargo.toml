@@ -1,0 +1,16 @@
+[package]
+name = "aigs-cli"
+description = "Command line tool for AI Game Studio projects"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[[bin]]
+name = "aigs"
+path = "src/main.rs"
+
+[dependencies]
+aigs-project = { path = "../runtime/crates/aigs-project" }
+clap = { version = "4", features = ["derive"] }

@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = [
+    "runtime/crates/aigs-ecs",
+    "runtime/crates/aigs-render",
+    "runtime/crates/aigs-anim",
+    "runtime/crates/aigs-project",
+    "cli",
+]
+# The Tauri app manages its own build (bundling, system deps).
+exclude = ["editor/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/agilphp/ai-game-studio"
+authors = ["efrasoft and AI Game Studio contributors"]
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+
+[profile.dev]
+opt-level = 1
+
+[profile.release]
+lto = "thin"

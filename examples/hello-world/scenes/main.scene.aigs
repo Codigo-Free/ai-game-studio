@@ -1,0 +1,47 @@
+{
+  "format": { "kind": "aigs-scene", "version": 0 },
+  "name": "main",
+  "entities": [
+    {
+      "id": "camera",
+      "name": "Main Camera",
+      "components": {
+        "transform2d": { "x": 0.0, "y": 0.0 },
+        "camera2d": { "zoom": 1.0 }
+      }
+    },
+    {
+      "id": "hero",
+      "name": "Hero",
+      "components": {
+        "transform2d": { "x": 0.0, "y": 0.0 },
+        "sprite": { "asset": "hero", "opacity": 1.0, "layer": 1 }
+      }
+    }
+  ],
+  "animations": [
+    {
+      "name": "slide-in",
+      "fps": 30,
+      "loop": false,
+      "tracks": [
+        {
+          "entity": "hero",
+          "property": "transform2d.x",
+          "keyframes": [
+            { "frame": 0, "value": -200.0, "easing": "ease_out" },
+            { "frame": 30, "value": 0.0 }
+          ]
+        },
+        {
+          "entity": "hero",
+          "property": "sprite.opacity",
+          "keyframes": [
+            { "frame": 0, "value": 0.0, "easing": "linear" },
+            { "frame": 15, "value": 1.0 }
+          ]
+        }
+      ]
+    }
+  ]
+}

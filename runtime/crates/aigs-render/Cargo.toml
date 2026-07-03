@@ -1,0 +1,10 @@
+[package]
+name = "aigs-render"
+description = "2D renderer of the AI Game Studio runtime (WGPU)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
