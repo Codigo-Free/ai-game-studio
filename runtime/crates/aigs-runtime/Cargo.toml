@@ -9,6 +9,8 @@ authors.workspace = true
 
 [dependencies]
 aigs-ecs = { path = "../aigs-ecs" }
+aigs-project = { version = "0.1.0", path = "../aigs-project" }
 aigs-render = { path = "../aigs-render" }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
 thiserror = { workspace = true }
 winit = "0.30"

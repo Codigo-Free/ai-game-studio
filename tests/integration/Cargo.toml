@@ -1,0 +1,13 @@
+[package]
+name = "aigs-integration-tests"
+description = "End-to-end tests: .aigs project files loaded and instantiated by the runtime"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aigs-project = { path = "../../runtime/crates/aigs-project" }
+aigs-runtime = { path = "../../runtime/crates/aigs-runtime" }

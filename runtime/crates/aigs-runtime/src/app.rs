@@ -239,6 +239,14 @@ impl ApplicationHandler for App {
             window.request_redraw();
         }
     }
+
+    fn exiting(&mut self, _event_loop: &ActiveEventLoop) {
+        // Tear down GPU resources while the event loop (and its Wayland/X11
+        // connection) is still alive; dropping the WGPU instance after the
+        // display connection closes segfaults on Wayland + EGL (Mesa).
+        self.renderer = None;
+        self.window = None;
+    }
 }
 
 /// Copies every `Transform2D` into its `PrevTransform2D` before a tick.

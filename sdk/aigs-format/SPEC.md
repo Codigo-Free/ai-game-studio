@@ -121,7 +121,7 @@ mi-juego/
 
 **`transform2d`** — posición, rotación (grados, horario) y escala. Todos los campos con default (`0` / escala `1`).
 
-**`sprite`** — `asset` (id de un asset `image`, obligatorio), `opacity` (default `1.0`), `layer` (entero, mayor = encima, default `0`).
+**`sprite`** — `asset` (id de un asset `image`, obligatorio), `width`/`height` (tamaño base en unidades de mundo; default: tamaño de la textura), `opacity` (default `1.0`), `layer` (entero, mayor = encima, default `0`).
 
 **`camera2d`** — `zoom` (default `1.0`).
 

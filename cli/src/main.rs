@@ -20,11 +20,17 @@ enum Command {
         /// Path to the project manifest (game.aigs).
         manifest: PathBuf,
     },
+    /// Load a project and run its initial scene in a window.
+    Run {
+        /// Path to the project manifest (game.aigs).
+        manifest: PathBuf,
+    },
 }
 
 fn main() -> ExitCode {
     match Cli::parse().command {
         Command::Validate { manifest } => validate(&manifest),
+        Command::Run { manifest } => run_project(&manifest),
     }
 }
 
@@ -72,6 +78,67 @@ fn validate(manifest: &Path) -> ExitCode {
             eprintln!("error: {error}");
         }
         fail(&format!("{} problem(s) found", errors.len()))
+    }
+}
+
+/// Runs a project's initial scene: milestone M2 deliverable — the runtime
+/// executing a game defined entirely as `.aigs` data.
+fn run_project(manifest: &Path) -> ExitCode {
+    use aigs_runtime::{instantiate_scene, AppConfig, AssetStore};
+
+    let project = match Project::load(manifest) {
+        Ok(project) => project,
+        Err(err) => return fail(&format!("{}: {err}", manifest.display())),
+    };
+    let root = manifest.parent().unwrap_or(Path::new(".")).to_path_buf();
+    let scene = match Scene::load(&root.join(&project.initial_scene)) {
+        Ok(scene) => scene,
+        Err(err) => return fail(&format!("scene {}: {err}", project.initial_scene)),
+    };
+    if !scene.animations.is_empty() {
+        eprintln!(
+            "note: scene declares {} animation(s); timeline playback arrives in milestone M4",
+            scene.animations.len()
+        );
+    }
+
+    let config = AppConfig {
+        title: project.name.clone(),
+        max_frames: std::env::var("AIGS_MAX_FRAMES")
+            .ok()
+            .and_then(|value| value.parse().ok()),
+        ..AppConfig::default()
+    };
+    let assets = project.assets.clone();
+    let result = aigs_runtime::run(
+        config,
+        move |world, renderer| {
+            let store = match AssetStore::load(renderer, &root, &assets) {
+                Ok(store) => store,
+                Err(err) => {
+                    eprintln!("asset error: {err}");
+                    std::process::exit(1);
+                }
+            };
+            match instantiate_scene(world, &scene, &store) {
+                Ok(instance) => println!(
+                    "running \"{}\": {} entities, {} textures",
+                    scene.name,
+                    instance.len(),
+                    store.len()
+                ),
+                Err(err) => {
+                    eprintln!("scene error: {err}");
+                    std::process::exit(1);
+                }
+            }
+        },
+        |_, _, _| {},
+    );
+
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => fail(&format!("runtime error: {err}")),
     }
 }
 

@@ -6,13 +6,17 @@
 //! worlds from `.aigs` scenes arrives in milestone M2 (see `docs/plan.md`).
 
 mod app;
+mod assets;
 mod components;
 mod input;
+mod scene;
 mod time;
 
 pub use aigs_ecs::{Entity, Schedule, World};
 pub use aigs_render::{Color, Renderer, TextureId, Viewport};
 pub use app::{run, AppConfig, RunError, FIXED_DT};
+pub use assets::{AssetError, AssetStore, TextureInfo};
 pub use components::{Camera2D, Name, PrevTransform2D, Sprite, Transform2D, Visibility};
 pub use input::{Input, KeyCode, MouseButton};
+pub use scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
 pub use time::Time;

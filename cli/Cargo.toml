@@ -13,4 +13,5 @@ path = "src/main.rs"
 
 [dependencies]
 aigs-project = { path = "../runtime/crates/aigs-project" }
+aigs-runtime = { version = "0.1.0", path = "../runtime/crates/aigs-runtime" }
 clap = { version = "4", features = ["derive"] }

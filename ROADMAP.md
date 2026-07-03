@@ -12,8 +12,8 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 |---|---|---|
 | M0 | Fundaciones: monorepo, CI, especificación del formato `.aigs` | 🟢 Completado |
 | M1 | Núcleo del runtime: ECS, render WGPU, game loop 60 FPS | 🟢 Completado |
-| M2 | Formato de proyecto y pipeline de assets | 🔵 Siguiente |
-| M3 | Editor base: viewport, árbol, inspector, recursos, consola | ⚪ |
+| M2 | Formato de proyecto y pipeline de assets | 🟢 Completado |
+| M3 | Editor base: viewport, árbol, inspector, recursos, consola | 🔵 Siguiente |
 | M4 | Timeline y animación por keyframes | ⚪ |
 | M5 | Escenas múltiples y modo Play | ⚪ |
 | M6 | Demo, calidad y release **0.1** | ⚪ |

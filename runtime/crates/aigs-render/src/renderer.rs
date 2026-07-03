@@ -21,8 +21,9 @@ pub enum RenderError {
     UnsupportedSurface,
 }
 
-/// Handle to a texture uploaded to the GPU.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// Handle to a texture uploaded to the GPU. `Default` yields the first
+/// texture ever created (useful as a placeholder in tests).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct TextureId(u32);
 
 /// One sprite to draw this frame, in world coordinates.

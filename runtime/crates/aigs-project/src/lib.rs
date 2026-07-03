@@ -172,6 +172,12 @@ impl Default for Transform2D {
 pub struct Sprite {
     /// Id of an `Asset` of kind `image` in the project manifest.
     pub asset: String,
+    /// Base width in world units; defaults to the texture width.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<f32>,
+    /// Base height in world units; defaults to the texture height.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub height: Option<f32>,
     #[serde(default = "default_opacity")]
     pub opacity: f32,
     /// Draw order; higher layers render on top.
@@ -307,6 +313,8 @@ mod tests {
                     transform2d: Some(Transform2D::default()),
                     sprite: Some(Sprite {
                         asset: "hero".into(),
+                        width: Some(64.0),
+                        height: None,
                         opacity: 1.0,
                         layer: 0,
                     }),

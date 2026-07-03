@@ -8,10 +8,11 @@ Plataforma **AI-First open source** para crear videojuegos 2D combinando el para
 
 ## Estado actual
 
-- **Fase:** 1 (MVP) — **M0 y M1 completados**; siguiente: **M2 (Formato de proyecto y assets)**.
-- M1 entregó: ECS con columnas de componentes y consultas (`for_each*`, `Schedule`), renderer WGPU con sprite batching instanciado y orden por capas, crate `aigs-runtime` (componentes base, game loop 60 Hz a paso fijo con render interpolado vía `PrevTransform2D`, input teclado/ratón, runner winit) y el ejemplo `examples/bouncing-sprites` (cientos de sprites, sin editor; smoke test con `AIGS_MAX_FRAMES`).
-- Pendiente en M2: pipeline de assets (importación de imágenes con la crate `image`), instanciación de escenas `.aigs` → `World` (conectar `aigs-project` con `aigs-runtime`), reescribir el ejemplo como datos.
-- Deuda técnica registrada: `wgpu` fijado en serie 24 / `winit` 0.30 (actualizar tras el MVP); renderer acoplado a ventana winit (offscreen para el editor se decide en M3).
+- **Fase:** 1 (MVP) — **M0, M1 y M2 completados**; siguiente: **M3 (Editor base)**.
+- M2 entregó: `AssetStore` (PNG/JPG → texturas GPU vía crate `image`), `instantiate_scene` (`.aigs` → `World`, con jerarquía aplanada a espacio de mundo y trait `ResolveTexture` para testear sin GPU), comando **`aigs run <game.aigs>`** (el runtime ejecuta un juego definido 100% como datos), sprite opcional `width`/`height` en el formato, y test de integración en `tests/integration` sobre el proyecto real `examples/hello-world`.
+- Pendiente en M3: prototipo técnico del viewport (render del runtime embebido en Tauri — riesgo alto, primero), shell del editor, árbol de objetos, inspector, panel de recursos, consola, undo/redo, IPC editor↔runtime.
+- Deuda técnica registrada: `wgpu` serie 24 / `winit` 0.30 (actualizar tras el MVP); jerarquía de escena aplanada al instanciar (jerarquía viva llega con el editor en M3); animaciones del formato aún no se reproducen (M4).
+- Gotcha: en Wayland+EGL el `Renderer` debe soltarse en el callback `exiting()` de winit, antes de que muera el event loop, o segfaultea (ya resuelto en `aigs-runtime/src/app.rs`).
 
 ## Mapa del repositorio
 
@@ -20,7 +21,7 @@ Plataforma **AI-First open source** para crear videojuegos 2D combinando el para
 | `docs/` | Documentación de diseño (fuente de verdad del proyecto). |
 | `editor/` | Editor visual — Tauri 2 + React + Vite + TypeScript (`npm run build` / `npm run tauri dev`). |
 | `runtime/crates/` | Crates del motor: `aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`. |
-| `cli/` | Binario `aigs` (`aigs validate <game.aigs>`). |
+| `cli/` | Binario `aigs`: `validate <game.aigs>` y `run <game.aigs>` (ejecuta la escena inicial; `AIGS_MAX_FRAMES` para smoke tests). |
 | `exporters/` | Exportadores por plataforma (Fase 2+). *(vacío aún)* |
 | `sdk/aigs-format/SPEC.md` | **Especificación normativa del formato `.aigs`** — mantener en sync con `aigs-project`. |
 | `examples/hello-world/` | Proyecto `.aigs` mínimo válido; fixture del CI. |
@@ -65,3 +66,4 @@ Registro cronológico de los pasos mayores del proyecto. Añadir una línea por 
 | 2026-07-03 | Creación del monorepo (estructura de directorios, README, LICENSE MIT, CONTRIBUTING, ROADMAP, CLAUDE.md) y publicación en GitHub. | este repositorio |
 | 2026-07-03 | **M0 completado:** workspace Cargo (`aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`, `aigs-cli`), especificación v0 del formato `.aigs`, ejemplo `hello-world` validado por el CLI, scaffold del editor Tauri 2 + React, CI multiplataforma en GitHub Actions. | commit `3683636`, [sdk/aigs-format/SPEC.md](sdk/aigs-format/SPEC.md) |
 | 2026-07-03 | **M1 completado:** ECS con componentes/consultas/Schedule, renderer WGPU (batching instanciado, capas, cámara ortográfica), crate `aigs-runtime` (loop 60 Hz interpolado, input, runner winit), ejemplo `bouncing-sprites` verificado en GPU local. Decisiones nuevas en la tabla de arquitectura. | [docs/arquitectura.md](docs/arquitectura.md), [examples/bouncing-sprites/](examples/bouncing-sprites/) |
+| 2026-07-03 | **M2 completado:** pipeline de assets (`AssetStore`), instanciación de escenas `.aigs` → `World`, comando `aigs run`, test de integración sobre `hello-world` real, sprite `width`/`height` en el formato. Corregido segfault de teardown Wayland/EGL. | [tests/integration/](tests/integration/), [sdk/aigs-format/SPEC.md](sdk/aigs-format/SPEC.md) |
