@@ -1,6 +1,6 @@
 [package]
-name = "aigs-render"
-description = "2D renderer of the AI Game Studio runtime (WGPU)"
+name = "aigs-runtime"
+description = "Game loop, base components and window runner of the AI Game Studio runtime"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,9 +8,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-bytemuck = { version = "1", features = ["derive"] }
-glam = "0.29"
-pollster = "0.4"
+aigs-ecs = { path = "../aigs-ecs" }
+aigs-render = { path = "../aigs-render" }
 thiserror = { workspace = true }
-wgpu = "24"
 winit = "0.30"

@@ -1,7 +1,13 @@
 //! 2D renderer of the AI Game Studio runtime.
 //!
-//! Milestone M0 seeds the shared color/viewport types. The WGPU device,
-//! sprite batching and cameras land in milestone M1 (see `docs/plan.md`).
+//! [`Renderer`] owns the WGPU device and draws batched, instanced sprites
+//! sorted by layer. Milestone M1 couples it to a winit window; rendering to
+//! an offscreen texture for the editor viewport arrives in M3.
+
+mod renderer;
+
+pub use renderer::{CameraView, RenderError, Renderer, SpriteInstance, TextureId};
+pub use wgpu::SurfaceError;
 
 /// RGBA color with components in `0.0..=1.0`.
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -5,7 +5,9 @@ members = [
     "runtime/crates/aigs-render",
     "runtime/crates/aigs-anim",
     "runtime/crates/aigs-project",
+    "runtime/crates/aigs-runtime",
     "cli",
+    "examples/bouncing-sprites",
 ]
 # The Tauri app manages its own build (bundling, system deps).
 exclude = ["editor/src-tauri"]

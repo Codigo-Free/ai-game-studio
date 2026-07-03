@@ -1,0 +1,12 @@
+[package]
+name = "bouncing-sprites"
+description = "M1 example: hundreds of sprites bouncing at 60 FPS, no editor involved"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aigs-runtime = { path = "../../runtime/crates/aigs-runtime" }

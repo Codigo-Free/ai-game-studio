@@ -48,6 +48,7 @@ Motor de ejecución en Rust, organizado como workspace de crates:
 | `aigs-render` | Render 2D sobre WGPU: sprite batching, texturas, cámaras, capas. |
 | `aigs-anim` | Evaluación de animaciones: pistas, keyframes, tweens, easing. |
 | `aigs-project` | Carga/guardado y validación del formato `.aigs`; versionado y migraciones. |
+| `aigs-runtime` | Capa de integración: componentes base, game loop, entrada, runner de ventana. |
 
 Ver [runtime.md](runtime.md).
 
@@ -93,3 +94,7 @@ Las decisiones relevantes se registran aquí antes de implementarse:
 | 2026-07 | ECS propio en lugar de bevy_ecs/hecs | Control total del diseño y del formato serializado; revisable si los benchmarks lo desaconsejan. |
 | 2026-07 | WGPU como capa de render | Multiplataforma (Vulkan/Metal/DX12/WebGPU) y camino directo a Web en Fase 3. |
 | 2026-07 | Tauri en lugar de Electron | Menor huella, backend Rust compartido con el runtime. |
+| 2026-07 | Crate `aigs-runtime` como capa de integración (loop, componentes, runner) | Mantiene `aigs-ecs`/`aigs-render`/`aigs-anim` independientes y reutilizables. |
+| 2026-07 | Game loop a paso fijo (60 Hz) con render interpolado vía `PrevTransform2D` | Simulación determinista independiente del refresco de pantalla. |
+| 2026-07 | `wgpu` fijado en la serie 24 y `winit` en 0.30 durante el MVP | API estable conocida; la actualización a series nuevas se hará como tarea dedicada con benchmarks. |
+| 2026-07 | En M1 el renderer dibuja a la ventana (winit); render offscreen para el viewport del editor se decide en M3 | Evita diseñar la integración editor↔runtime antes del prototipo de M3. |

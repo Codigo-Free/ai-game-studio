@@ -8,9 +8,10 @@ Plataforma **AI-First open source** para crear videojuegos 2D combinando el para
 
 ## Estado actual
 
-- **Fase:** 1 (MVP) — **Hito M0 (Fundaciones)** completado; siguiente: **M1 (Núcleo del runtime)**.
-- Hecho: documentación de diseño en `docs/`, monorepo en GitHub, workspace Cargo (crates `aigs-*` + CLI), especificación v0 del formato `.aigs` en `sdk/aigs-format/SPEC.md` con implementación de referencia y tests, ejemplo `examples/hello-world`, scaffold del editor (Tauri 2 + React + Vite + TS), CI en GitHub Actions (3 SO).
-- Pendiente en M1: componentes y consultas del ECS, render WGPU (sprite batching), game loop a paso fijo, entrada básica, ejemplo renderizado sin editor.
+- **Fase:** 1 (MVP) — **M0 y M1 completados**; siguiente: **M2 (Formato de proyecto y assets)**.
+- M1 entregó: ECS con columnas de componentes y consultas (`for_each*`, `Schedule`), renderer WGPU con sprite batching instanciado y orden por capas, crate `aigs-runtime` (componentes base, game loop 60 Hz a paso fijo con render interpolado vía `PrevTransform2D`, input teclado/ratón, runner winit) y el ejemplo `examples/bouncing-sprites` (cientos de sprites, sin editor; smoke test con `AIGS_MAX_FRAMES`).
+- Pendiente en M2: pipeline de assets (importación de imágenes con la crate `image`), instanciación de escenas `.aigs` → `World` (conectar `aigs-project` con `aigs-runtime`), reescribir el ejemplo como datos.
+- Deuda técnica registrada: `wgpu` fijado en serie 24 / `winit` 0.30 (actualizar tras el MVP); renderer acoplado a ventana winit (offscreen para el editor se decide en M3).
 
 ## Mapa del repositorio
 
@@ -63,3 +64,4 @@ Registro cronológico de los pasos mayores del proyecto. Añadir una línea por 
 | 2026-07-03 | Decisiones fundacionales: formato `.aigs` AI-Ready, ECS propio, WGPU, Tauri. | [docs/arquitectura.md](docs/arquitectura.md) |
 | 2026-07-03 | Creación del monorepo (estructura de directorios, README, LICENSE MIT, CONTRIBUTING, ROADMAP, CLAUDE.md) y publicación en GitHub. | este repositorio |
 | 2026-07-03 | **M0 completado:** workspace Cargo (`aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`, `aigs-cli`), especificación v0 del formato `.aigs`, ejemplo `hello-world` validado por el CLI, scaffold del editor Tauri 2 + React, CI multiplataforma en GitHub Actions. | commit `3683636`, [sdk/aigs-format/SPEC.md](sdk/aigs-format/SPEC.md) |
+| 2026-07-03 | **M1 completado:** ECS con componentes/consultas/Schedule, renderer WGPU (batching instanciado, capas, cámara ortográfica), crate `aigs-runtime` (loop 60 Hz interpolado, input, runner winit), ejemplo `bouncing-sprites` verificado en GPU local. Decisiones nuevas en la tabla de arquitectura. | [docs/arquitectura.md](docs/arquitectura.md), [examples/bouncing-sprites/](examples/bouncing-sprites/) |

@@ -8,10 +8,11 @@ Motor de ejecución 2D en **Rust**, ligero y altamente optimizado. Ejecuta los v
 
 | Crate | Responsabilidad |
 |---|---|
-| `aigs-ecs` | Entity Component System: entidades, componentes, sistemas, consultas. |
-| `aigs-render` | Render 2D sobre **WGPU**: sprite batching, texturas, cámaras 2D, capas/orden Z. |
+| `aigs-ecs` | Entity Component System: entidades generacionales, columnas de componentes, consultas (`for_each*`), `Schedule` de sistemas. |
+| `aigs-render` | Render 2D sobre **WGPU**: sprite batching instanciado, texturas, cámara ortográfica, capas/orden Z. |
 | `aigs-anim` | Animación: pistas, keyframes, interpolación (lineal + easing), evaluación por tiempo. |
 | `aigs-project` | Formato `.aigs`: carga/guardado, validación por esquema, versionado y migraciones. |
+| `aigs-runtime` | Integración: componentes base, game loop a paso fijo con render interpolado, entrada, runner de ventana (winit). |
 
 ---
 
@@ -19,7 +20,7 @@ Motor de ejecución 2D en **Rust**, ligero y altamente optimizado. Ejecuta los v
 
 Arquitectura Entity Component System propia para garantizar escalabilidad, alto rendimiento, bajo acoplamiento y fácil mantenimiento.
 
-**Componentes del MVP:** `Transform2D`, `Sprite`, `Camera2D`, `Visibility`, `Name`, `AnimationPlayer`.
+**Componentes del MVP:** `Transform2D`, `Sprite`, `Camera2D`, `Visibility`, `Name` (implementados en M1, en `aigs-runtime`); `AnimationPlayer` llega en M4. El runner mantiene además `PrevTransform2D` automáticamente para el render interpolado.
 
 Todos los componentes son serializables ↔ JSON: el estado del juego es siempre representable en el formato de proyecto (principio AI-Ready, ver [arquitectura.md](arquitectura.md)).
 
