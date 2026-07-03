@@ -8,22 +8,24 @@ Plataforma **AI-First open source** para crear videojuegos 2D combinando el para
 
 ## Estado actual
 
-- **Fase:** 1 (MVP) — **Hito M0 (Fundaciones)** en curso.
-- Hecho: documentación de diseño completa en `docs/`, estructura del monorepo, repositorio GitHub.
-- Pendiente en M0: workspace Cargo en `runtime/`, proyecto Tauri+React en `editor/`, CI en GitHub Actions, especificación v0 del formato `.aigs` en `sdk/`.
+- **Fase:** 1 (MVP) — **Hito M0 (Fundaciones)** completado; siguiente: **M1 (Núcleo del runtime)**.
+- Hecho: documentación de diseño en `docs/`, monorepo en GitHub, workspace Cargo (crates `aigs-*` + CLI), especificación v0 del formato `.aigs` en `sdk/aigs-format/SPEC.md` con implementación de referencia y tests, ejemplo `examples/hello-world`, scaffold del editor (Tauri 2 + React + Vite + TS), CI en GitHub Actions (3 SO).
+- Pendiente en M1: componentes y consultas del ECS, render WGPU (sprite batching), game loop a paso fijo, entrada básica, ejemplo renderizado sin editor.
 
 ## Mapa del repositorio
 
 | Ruta | Contenido |
 |---|---|
 | `docs/` | Documentación de diseño (fuente de verdad del proyecto). |
-| `editor/` | Editor visual — Tauri + React + TypeScript. *(vacío aún)* |
-| `runtime/` | Motor — workspace Rust: `aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`. *(vacío aún)* |
-| `cli/` | Herramienta CLI. *(vacío aún)* |
+| `editor/` | Editor visual — Tauri 2 + React + Vite + TypeScript (`npm run build` / `npm run tauri dev`). |
+| `runtime/crates/` | Crates del motor: `aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`. |
+| `cli/` | Binario `aigs` (`aigs validate <game.aigs>`). |
 | `exporters/` | Exportadores por plataforma (Fase 2+). *(vacío aún)* |
-| `sdk/` | Contrato público: especificación `.aigs` y APIs de extensión. *(vacío aún)* |
-| `examples/` | Proyectos de ejemplo y demos. *(vacío aún)* |
+| `sdk/aigs-format/SPEC.md` | **Especificación normativa del formato `.aigs`** — mantener en sync con `aigs-project`. |
+| `examples/hello-world/` | Proyecto `.aigs` mínimo válido; fixture del CI. |
 | `tests/` | Tests de integración del sistema completo. *(vacío aún)* |
+
+El workspace Cargo vive en la raíz (`Cargo.toml`); `editor/src-tauri` queda excluido y se compila aparte. Comandos: `cargo test --workspace`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo fmt --all`.
 
 ## Mapa de documentación (leer antes de trabajar)
 
@@ -60,3 +62,4 @@ Registro cronológico de los pasos mayores del proyecto. Añadir una línea por 
 | 2026-07-03 | Definición del plan maestro del MVP: hitos M0–M6, criterio de éxito, riesgos. | [docs/plan.md](docs/plan.md) |
 | 2026-07-03 | Decisiones fundacionales: formato `.aigs` AI-Ready, ECS propio, WGPU, Tauri. | [docs/arquitectura.md](docs/arquitectura.md) |
 | 2026-07-03 | Creación del monorepo (estructura de directorios, README, LICENSE MIT, CONTRIBUTING, ROADMAP, CLAUDE.md) y publicación en GitHub. | este repositorio |
+| 2026-07-03 | **M0 completado:** workspace Cargo (`aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`, `aigs-cli`), especificación v0 del formato `.aigs`, ejemplo `hello-world` validado por el CLI, scaffold del editor Tauri 2 + React, CI multiplataforma en GitHub Actions. | commit `3683636`, [sdk/aigs-format/SPEC.md](sdk/aigs-format/SPEC.md) |
