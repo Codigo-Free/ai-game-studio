@@ -1,10 +1,19 @@
 {
-  "format": { "kind": "aigs-project", "version": 0 },
+  "format": {
+    "kind": "aigs-project",
+    "version": 0
+  },
   "name": "Hello World",
   "description": "Minimal example project: one scene, one animated sprite.",
   "initial_scene": "scenes/main.scene.aigs",
-  "scenes": ["scenes/main.scene.aigs"],
+  "scenes": [
+    "scenes/main.scene.aigs"
+  ],
   "assets": [
-    { "id": "hero", "kind": "image", "path": "assets/hero.png" }
+    {
+      "id": "hero",
+      "kind": "image",
+      "path": "assets/hero.png"
+    }
   ]
 }

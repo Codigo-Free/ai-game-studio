@@ -1,29 +1,60 @@
 {
-  "format": { "kind": "aigs-scene", "version": 0 },
+  "format": {
+    "kind": "aigs-scene",
+    "version": 0
+  },
   "name": "main",
   "entities": [
     {
       "id": "camera",
       "name": "Main Camera",
       "components": {
-        "transform2d": { "x": 0.0, "y": 0.0 },
-        "camera2d": { "zoom": 1.0 }
+        "transform2d": {
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "scale_x": 1.0,
+          "scale_y": 1.0
+        },
+        "camera2d": {
+          "zoom": 1.0
+        }
       }
     },
     {
       "id": "hero",
       "name": "Hero",
       "components": {
-        "transform2d": { "x": 0.0, "y": 0.0, "scale_x": 2.0, "scale_y": 2.0 },
-        "sprite": { "asset": "hero", "opacity": 1.0, "layer": 2 }
+        "transform2d": {
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "scale_x": 2.0,
+          "scale_y": 2.0
+        },
+        "sprite": {
+          "asset": "hero",
+          "opacity": 1.0,
+          "layer": 2
+        }
       },
       "children": [
         {
           "id": "hero-shadow",
           "name": "Shadow",
           "components": {
-            "transform2d": { "x": 10.0, "y": -10.0 },
-            "sprite": { "asset": "hero", "opacity": 0.25, "layer": 1 }
+            "transform2d": {
+              "x": 10.0,
+              "y": -10.0,
+              "rotation": 0.0,
+              "scale_x": 1.0,
+              "scale_y": 1.0
+            },
+            "sprite": {
+              "asset": "hero",
+              "opacity": 0.25,
+              "layer": 1
+            }
           }
         }
       ]
@@ -32,16 +63,38 @@
       "id": "moon-left",
       "name": "Moon Left",
       "components": {
-        "transform2d": { "x": -320.0, "y": 140.0, "scale_x": 0.8, "scale_y": 0.8 },
-        "sprite": { "asset": "hero", "opacity": 0.8, "layer": 0 }
+        "transform2d": {
+          "x": -320.0,
+          "y": 140.0,
+          "rotation": 0.0,
+          "scale_x": 0.8,
+          "scale_y": 0.8
+        },
+        "sprite": {
+          "asset": "hero",
+          "opacity": 0.8,
+          "layer": 0
+        }
       }
     },
     {
       "id": "moon-right",
       "name": "Moon Right",
       "components": {
-        "transform2d": { "x": 300.0, "y": -120.0 },
-        "sprite": { "asset": "hero", "width": 48.0, "height": 48.0, "opacity": 0.6, "layer": 0 }
+        "transform2d": {
+          "x": 300.0,
+          "y": -120.0,
+          "rotation": 0.0,
+          "scale_x": 1.0,
+          "scale_y": 1.0
+        },
+        "sprite": {
+          "asset": "hero",
+          "width": 48.0,
+          "height": 48.0,
+          "opacity": 0.6,
+          "layer": 0
+        }
       }
     }
   ],
@@ -55,16 +108,32 @@
           "entity": "hero",
           "property": "transform2d.x",
           "keyframes": [
-            { "frame": 0, "value": -200.0, "easing": "ease_out" },
-            { "frame": 30, "value": 0.0 }
+            {
+              "frame": 0,
+              "value": -200.0,
+              "easing": "ease_out"
+            },
+            {
+              "frame": 30,
+              "value": 0.0,
+              "easing": "linear"
+            }
           ]
         },
         {
           "entity": "hero",
           "property": "sprite.opacity",
           "keyframes": [
-            { "frame": 0, "value": 0.0, "easing": "linear" },
-            { "frame": 15, "value": 1.0 }
+            {
+              "frame": 0,
+              "value": 0.0,
+              "easing": "linear"
+            },
+            {
+              "frame": 15,
+              "value": 1.0,
+              "easing": "linear"
+            }
           ]
         }
       ]
