@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { removeEntity } from "./document";
 import { AssetsPanel } from "./panels/AssetsPanel";
 import { ConsolePanel } from "./panels/ConsolePanel";
 import { Inspector } from "./panels/Inspector";
 import { SceneTree } from "./panels/SceneTree";
+import { Timeline } from "./panels/Timeline";
 import { Toolbar, useProjectActions } from "./panels/Toolbar";
 import { Viewport } from "./panels/Viewport";
 import { StoreProvider, useStore } from "./store";
@@ -73,6 +74,9 @@ function Welcome() {
 
 function Layout() {
   const { state } = useStore();
+  const [bottomTab, setBottomTab] = useState<"timeline" | "console">(
+    "timeline",
+  );
   if (!state.loaded) {
     return (
       <div className="app">
@@ -94,7 +98,23 @@ function Layout() {
         <Viewport />
         <Inspector />
       </div>
-      <ConsolePanel />
+      <div className="bottom-area">
+        <div className="bottom-tabs">
+          <button
+            className={bottomTab === "timeline" ? "active" : ""}
+            onClick={() => setBottomTab("timeline")}
+          >
+            Timeline
+          </button>
+          <button
+            className={bottomTab === "console" ? "active" : ""}
+            onClick={() => setBottomTab("console")}
+          >
+            Consola
+          </button>
+        </div>
+        {bottomTab === "timeline" ? <Timeline /> : <ConsolePanel />}
+      </div>
     </div>
   );
 }

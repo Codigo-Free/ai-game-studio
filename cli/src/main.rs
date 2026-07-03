@@ -84,7 +84,9 @@ fn validate(manifest: &Path) -> ExitCode {
 /// Runs a project's initial scene: milestone M2 deliverable — the runtime
 /// executing a game defined entirely as `.aigs` data.
 fn run_project(manifest: &Path) -> ExitCode {
-    use aigs_runtime::{instantiate_scene, AppConfig, AssetStore};
+    use aigs_runtime::{instantiate_scene, AnimationPlayback, AppConfig, AssetStore};
+    use std::cell::RefCell;
+    use std::rc::Rc;
 
     let project = match Project::load(manifest) {
         Ok(project) => project,
@@ -95,12 +97,6 @@ fn run_project(manifest: &Path) -> ExitCode {
         Ok(scene) => scene,
         Err(err) => return fail(&format!("scene {}: {err}", project.initial_scene)),
     };
-    if !scene.animations.is_empty() {
-        eprintln!(
-            "note: scene declares {} animation(s); timeline playback arrives in milestone M4",
-            scene.animations.len()
-        );
-    }
 
     let config = AppConfig {
         title: project.name.clone(),
@@ -110,6 +106,10 @@ fn run_project(manifest: &Path) -> ExitCode {
         ..AppConfig::default()
     };
     let assets = project.assets.clone();
+    // Playback is created in `setup` (it needs the instantiated entities)
+    // and driven from `update`; the Rc bridges the two closures.
+    let playback: Rc<RefCell<AnimationPlayback>> = Rc::default();
+    let playback_setup = Rc::clone(&playback);
     let result = aigs_runtime::run(
         config,
         move |world, renderer| {
@@ -121,19 +121,29 @@ fn run_project(manifest: &Path) -> ExitCode {
                 }
             };
             match instantiate_scene(world, &scene, &store) {
-                Ok(instance) => println!(
-                    "running \"{}\": {} entities, {} textures",
-                    scene.name,
-                    instance.len(),
-                    store.len()
-                ),
+                Ok(instance) => {
+                    let bound = AnimationPlayback::bind(&scene, &instance);
+                    for warning in bound.warnings() {
+                        eprintln!("warning: {warning}");
+                    }
+                    println!(
+                        "running \"{}\": {} entities, {} textures, {} animation(s)",
+                        scene.name,
+                        instance.len(),
+                        store.len(),
+                        bound.len()
+                    );
+                    *playback_setup.borrow_mut() = bound;
+                }
                 Err(err) => {
                     eprintln!("scene error: {err}");
                     std::process::exit(1);
                 }
             }
         },
-        |_, _, _| {},
+        move |world, time, _| {
+            playback.borrow_mut().advance(world, time.delta);
+        },
     );
 
     match result {

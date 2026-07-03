@@ -142,6 +142,14 @@ mi-juego/
 
 **Propiedades animables en v0:** `transform2d.x`, `transform2d.y`, `transform2d.rotation`, `transform2d.scale_x`, `transform2d.scale_y`, `sprite.opacity`.
 
+### Semántica de reproducción
+
+- **Todas las animaciones de la escena comienzan al cargarse la escena.** (Los disparadores por eventos llegan en M5.)
+- Una animación con `loop: true` se repite indefinidamente (el tiempo hace *wrap* sobre su duración); con `loop: false` se reproduce una vez y **mantiene el valor final**.
+- La duración de una animación es el frame más alto entre sus keyframes; antes del primer keyframe rige su valor, después del último rige el del último.
+- Pistas que referencian entidades o propiedades desconocidas se ignoran con una advertencia (no son error fatal).
+- Implementación de referencia: `aigs_anim::sample` + `aigs_runtime::AnimationPlayback`; el editor usa un espejo TypeScript (`editor/src/anim.ts`) que debe mantenerse en sync.
+
 ---
 
 ## Validación

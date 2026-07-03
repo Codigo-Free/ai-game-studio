@@ -9,6 +9,7 @@ mod app;
 mod assets;
 mod components;
 mod input;
+mod playback;
 mod scene;
 mod time;
 
@@ -18,5 +19,6 @@ pub use app::{run, AppConfig, RunError, FIXED_DT};
 pub use assets::{AssetError, AssetStore, TextureInfo};
 pub use components::{Camera2D, Name, PrevTransform2D, Sprite, Transform2D, Visibility};
 pub use input::{Input, KeyCode, MouseButton};
+pub use playback::AnimationPlayback;
 pub use scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
 pub use time::Time;

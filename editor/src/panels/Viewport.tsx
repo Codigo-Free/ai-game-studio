@@ -79,6 +79,8 @@ export function Viewport() {
 
   const loaded = state.loaded;
   const assets = loaded?.project.assets ?? [];
+  // During timeline scrub/playback the viewport shows the animated preview.
+  const displayScene = state.preview ?? currentScene;
 
   // Load sprite images into the cache as data URLs.
   useEffect(() => {
@@ -116,9 +118,9 @@ export function Viewport() {
   };
 
   const hitTest = (worldX: number, worldY: number): string | null => {
-    if (!currentScene) return null;
+    if (!displayScene) return null;
     const items: RenderItem[] = [];
-    collectRenderList(currentScene.entities, IDENTITY, items);
+    collectRenderList(displayScene.entities, IDENTITY, items);
     items.sort((a, b) => (a.sprite.layer ?? 0) - (b.sprite.layer ?? 0) || a.order - b.order);
     for (let i = items.length - 1; i >= 0; i -= 1) {
       const { world, sprite } = items[i];
@@ -180,7 +182,7 @@ export function Viewport() {
     ctx.lineTo(width, originY);
     ctx.stroke();
 
-    if (!currentScene) return;
+    if (!displayScene) return;
 
     const toScreen = (wx: number, wy: number) => ({
       x: width / 2 + (wx - view.x) * view.zoom,
@@ -189,7 +191,7 @@ export function Viewport() {
 
     // Sprites, sorted by layer (painter's algorithm, like the runtime).
     const items: RenderItem[] = [];
-    collectRenderList(currentScene.entities, IDENTITY, items);
+    collectRenderList(displayScene.entities, IDENTITY, items);
     items.sort((a, b) => (a.sprite.layer ?? 0) - (b.sprite.layer ?? 0) || a.order - b.order);
     for (const item of items) {
       const { world, sprite } = item;
@@ -227,7 +229,7 @@ export function Viewport() {
 
     // Camera markers.
     const cameras: { id: string; world: WorldTransform }[] = [];
-    collectCameras(currentScene.entities, IDENTITY, cameras);
+    collectCameras(displayScene.entities, IDENTITY, cameras);
     for (const camera of cameras) {
       const screen = toScreen(camera.world.x, camera.world.y);
       const selected = camera.id === state.selection;
@@ -255,7 +257,8 @@ export function Viewport() {
     const world = toWorld(event.clientX, event.clientY);
     const hit = hitTest(world.x, world.y);
     dispatch({ type: "SELECT", id: hit });
-    if (hit) {
+    // While the timeline preview is active the scene is read-only.
+    if (hit && !state.preview) {
       dragRef.current = {
         id: hit,
         lastX: event.clientX,

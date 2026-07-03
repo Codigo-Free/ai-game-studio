@@ -100,6 +100,30 @@
   ],
   "animations": [
     {
+      "name": "float",
+      "fps": 30,
+      "loop": true,
+      "tracks": [
+        {
+          "entity": "moon-left",
+          "property": "transform2d.y",
+          "keyframes": [
+            { "frame": 0, "value": 140.0, "easing": "ease_in_out" },
+            { "frame": 45, "value": 170.0, "easing": "ease_in_out" },
+            { "frame": 90, "value": 140.0, "easing": "linear" }
+          ]
+        },
+        {
+          "entity": "moon-right",
+          "property": "transform2d.rotation",
+          "keyframes": [
+            { "frame": 0, "value": 0.0, "easing": "linear" },
+            { "frame": 90, "value": 360.0, "easing": "linear" }
+          ]
+        }
+      ]
+    },
+    {
       "name": "slide-in",
       "fps": 30,
       "loop": false,

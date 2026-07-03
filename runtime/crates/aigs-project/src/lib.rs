@@ -10,7 +10,7 @@ use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
-pub use aigs_anim::Easing;
+pub use aigs_anim::{Easing, Keyframe};
 
 /// Version of the `.aigs` format implemented by this crate.
 pub const FORMAT_VERSION: u32 = 0;
@@ -223,15 +223,6 @@ pub struct Track {
     /// Animated property path, e.g. `"transform2d.x"` or `"sprite.opacity"`.
     pub property: String,
     pub keyframes: Vec<Keyframe>,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Keyframe {
-    pub frame: u32,
-    pub value: f32,
-    /// Easing towards the next keyframe.
-    #[serde(default)]
-    pub easing: Easing,
 }
 
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+aigs-anim = { path = "../aigs-anim" }
 aigs-ecs = { path = "../aigs-ecs" }
 aigs-project = { version = "0.1.0", path = "../aigs-project" }
 aigs-render = { path = "../aigs-render" }

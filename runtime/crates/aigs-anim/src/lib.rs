@@ -1,8 +1,8 @@
 //! Timeline animation engine of the AI Game Studio runtime.
 //!
-//! Milestone M0 seeds the easing curves and interpolation primitives shared
-//! with the `.aigs` format. Tracks, keyframes and timeline evaluation land in
-//! milestone M4 (see `docs/plan.md`).
+//! Provides the easing curves, the [`Keyframe`] type shared with the `.aigs`
+//! format and [`sample`], the track evaluator used by both the runtime
+//! playback (`aigs-runtime`) and mirrored by the editor timeline.
 
 use serde::{Deserialize, Serialize};
 
@@ -48,6 +48,37 @@ pub fn tween(from: f32, to: f32, t: f32, easing: Easing) -> f32 {
     lerp(from, to, easing.apply(t))
 }
 
+/// A keyframe on a timeline track, as authored in `.aigs` files.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Keyframe {
+    pub frame: u32,
+    pub value: f32,
+    /// Easing towards the next keyframe.
+    #[serde(default)]
+    pub easing: Easing,
+}
+
+/// Samples a track at `frame` (fractional frames interpolate).
+///
+/// `keyframes` must be sorted by `frame`. Before the first keyframe the
+/// first value holds; after the last one, the last value holds. Returns
+/// `None` for an empty track.
+pub fn sample(keyframes: &[Keyframe], frame: f32) -> Option<f32> {
+    let first = keyframes.first()?;
+    if frame <= first.frame as f32 {
+        return Some(first.value);
+    }
+    for pair in keyframes.windows(2) {
+        let (from, to) = (pair[0], pair[1]);
+        if frame < to.frame as f32 {
+            let span = (to.frame - from.frame).max(1) as f32;
+            let t = (frame - from.frame as f32) / span;
+            return Some(tween(from.value, to.value, t, from.easing));
+        }
+    }
+    keyframes.last().map(|keyframe| keyframe.value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,5 +109,47 @@ mod tests {
         assert_eq!(tween(0.0, 10.0, 1.0, Easing::EaseInOut), 10.0);
         assert!(tween(0.0, 10.0, 0.25, Easing::EaseIn) < 2.5);
         assert!(tween(0.0, 10.0, 0.25, Easing::EaseOut) > 2.5);
+    }
+
+    fn keyframe(frame: u32, value: f32) -> Keyframe {
+        Keyframe {
+            frame,
+            value,
+            easing: Easing::Linear,
+        }
+    }
+
+    #[test]
+    fn sample_holds_endpoints_and_interpolates() {
+        let track = [keyframe(10, 0.0), keyframe(20, 100.0)];
+        assert_eq!(sample(&track, 0.0), Some(0.0), "holds before first");
+        assert_eq!(sample(&track, 10.0), Some(0.0));
+        assert_eq!(sample(&track, 15.0), Some(50.0), "interpolates");
+        assert_eq!(sample(&track, 20.0), Some(100.0));
+        assert_eq!(sample(&track, 99.0), Some(100.0), "holds after last");
+    }
+
+    #[test]
+    fn sample_edge_cases() {
+        assert_eq!(sample(&[], 5.0), None, "empty track");
+        assert_eq!(sample(&[keyframe(3, 7.0)], 0.0), Some(7.0));
+        assert_eq!(sample(&[keyframe(3, 7.0)], 30.0), Some(7.0));
+        // Duplicated frames must not divide by zero.
+        let dup = [keyframe(5, 1.0), keyframe(5, 2.0)];
+        assert!(sample(&dup, 5.0).is_some());
+    }
+
+    #[test]
+    fn sample_respects_easing_of_leading_keyframe() {
+        let track = [
+            Keyframe {
+                frame: 0,
+                value: 0.0,
+                easing: Easing::EaseIn,
+            },
+            keyframe(10, 10.0),
+        ];
+        let quarter = sample(&track, 2.5).unwrap();
+        assert!(quarter < 2.5, "ease-in starts slow, got {quarter}");
     }
 }

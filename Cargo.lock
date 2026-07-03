@@ -91,6 +91,7 @@ dependencies = [
 name = "aigs-runtime"
 version = "0.1.0"
 dependencies = [
+ "aigs-anim",
  "aigs-ecs",
  "aigs-project",
  "aigs-render",

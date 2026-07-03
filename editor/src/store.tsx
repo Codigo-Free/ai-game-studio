@@ -33,6 +33,8 @@ export interface EditorState {
   past: string[];
   future: string[];
   logs: LogEntry[];
+  /** Animated view of the current scene (timeline scrub/playback); not undoable. */
+  preview: Scene | null;
 }
 
 export type EditorAction =
@@ -46,6 +48,7 @@ export type EditorAction =
   | { type: "PUSH_HISTORY"; snapshot: string }
   | { type: "UNDO" }
   | { type: "REDO" }
+  | { type: "SET_PREVIEW"; scene: Scene | null }
   | { type: "MARK_SAVED" };
 
 const MAX_HISTORY = 100;
@@ -115,6 +118,7 @@ export function reducer(
         dirty: false,
         past: [],
         future: [],
+        preview: null,
         logs: log(
           state,
           "info",
@@ -128,7 +132,14 @@ export function reducer(
     case "SELECT":
       return { ...state, selection: action.id };
     case "SWITCH_SCENE":
-      return { ...state, currentScenePath: action.path, selection: null };
+      return {
+        ...state,
+        currentScenePath: action.path,
+        selection: null,
+        preview: null,
+      };
+    case "SET_PREVIEW":
+      return { ...state, preview: action.scene };
     case "UPDATE_SCENE": {
       if (!state.loaded || !state.currentScenePath) return state;
       const base = action.commit ? pushHistory(state, snapshotOf(state)) : state;
@@ -196,6 +207,7 @@ export const initialState: EditorState = {
   past: [],
   future: [],
   logs: [],
+  preview: null,
 };
 
 interface StoreValue {
