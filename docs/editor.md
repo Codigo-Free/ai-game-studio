@@ -41,8 +41,9 @@ El editor no contiene lógica de juego: opera sobre el modelo de documento (form
 
 ---
 
-## Arquitectura interna
+## Arquitectura interna (estado en M3)
 
-- **Modelo de documento** en el frontend: representación en memoria del `.aigs` con historial de cambios (undo/redo).
-- Cada mutación del documento se refleja en el runtime vía comandos IPC; el runtime emite eventos (selección desde viewport, logs, métricas).
-- Los paneles son módulos independientes sobre un sistema de docking, pensados para que futuros plugins (Fase 5) aporten paneles propios.
+- **Modelo de documento** en el frontend (`src/store.tsx`): réplica en memoria del `.aigs` con undo/redo global por snapshots (Ctrl+Z / Ctrl+Shift+Z / Ctrl+S).
+- **Viewport** (`src/panels/Viewport.tsx`): Canvas 2D que dibuja el documento con la misma composición TRS que el runtime (selección, arrastre, zoom a cursor, pan, drop de assets). El runtime WGPU real se usa en Play (`aigs run`); ver decisión en [arquitectura.md](arquitectura.md).
+- **Backend Tauri** (`src-tauri/src/lib.rs`): puente a disco y procesos — `load_project`, `create_project`, `save_project` (revalida con `aigs-project` antes de escribir), `import_asset`, `read_file_base64` (miniaturas), `play_project` (lanza `aigs run`; requiere el CLI en PATH o `AIGS_CLI`).
+- Layout de paneles fijo con CSS grid en M3; docking arrastrable y jerarquía viva con reparenting quedan como refinamiento (los paneles ya son componentes independientes).

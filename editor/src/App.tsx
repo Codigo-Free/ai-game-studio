@@ -1,51 +1,108 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import { useEffect } from "react";
+import { removeEntity } from "./document";
+import { AssetsPanel } from "./panels/AssetsPanel";
+import { ConsolePanel } from "./panels/ConsolePanel";
+import { Inspector } from "./panels/Inspector";
+import { SceneTree } from "./panels/SceneTree";
+import { Toolbar, useProjectActions } from "./panels/Toolbar";
+import { Viewport } from "./panels/Viewport";
+import { StoreProvider, useStore } from "./store";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+function Shortcuts() {
+  const { state, dispatch, currentScene } = useStore();
+  const { save } = useProjectActions();
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      const typing =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.tagName === "SELECT";
+      if (event.ctrlKey || event.metaKey) {
+        const key = event.key.toLowerCase();
+        if (key === "z" && !event.shiftKey) {
+          event.preventDefault();
+          dispatch({ type: "UNDO" });
+        } else if (key === "y" || (key === "z" && event.shiftKey)) {
+          event.preventDefault();
+          dispatch({ type: "REDO" });
+        } else if (key === "s") {
+          event.preventDefault();
+          void save();
+        }
+        return;
+      }
+      if (event.key === "Delete" && !typing && state.selection && currentScene) {
+        dispatch({
+          type: "UPDATE_SCENE",
+          scene: {
+            ...currentScene,
+            entities: removeEntity(currentScene.entities, state.selection),
+          },
+          commit: true,
+        });
+        dispatch({ type: "SELECT", id: null });
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [state.selection, currentScene, dispatch, save]);
 
+  return null;
+}
+
+function Welcome() {
+  const { openProject, newProject } = useProjectActions();
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
+    <div className="welcome">
+      <h1>AI Game Studio</h1>
+      <p>Build Games at the Speed of Imagination</p>
+      <div className="welcome-actions">
+        <button onClick={newProject}>Nuevo proyecto…</button>
+        <button onClick={openProject}>Abrir proyecto…</button>
       </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+      <p className="hint">
+        Abre el <code>game.aigs</code> de un proyecto, por ejemplo{" "}
+        <code>examples/hello-world/game.aigs</code>
+      </p>
+    </div>
   );
 }
 
-export default App;
+function Layout() {
+  const { state } = useStore();
+  if (!state.loaded) {
+    return (
+      <div className="app">
+        <Toolbar />
+        <Welcome />
+        <ConsolePanel />
+      </div>
+    );
+  }
+  return (
+    <div className="app">
+      <Toolbar />
+      <Shortcuts />
+      <div className="workspace">
+        <div className="left-column">
+          <SceneTree />
+          <AssetsPanel />
+        </div>
+        <Viewport />
+        <Inspector />
+      </div>
+      <ConsolePanel />
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <StoreProvider>
+      <Layout />
+    </StoreProvider>
+  );
+}

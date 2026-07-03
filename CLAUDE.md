@@ -8,11 +8,12 @@ Plataforma **AI-First open source** para crear videojuegos 2D combinando el para
 
 ## Estado actual
 
-- **Fase:** 1 (MVP) — **M0, M1 y M2 completados**; siguiente: **M3 (Editor base)**.
-- M2 entregó: `AssetStore` (PNG/JPG → texturas GPU vía crate `image`), `instantiate_scene` (`.aigs` → `World`, con jerarquía aplanada a espacio de mundo y trait `ResolveTexture` para testear sin GPU), comando **`aigs run <game.aigs>`** (el runtime ejecuta un juego definido 100% como datos), sprite opcional `width`/`height` en el formato, y test de integración en `tests/integration` sobre el proyecto real `examples/hello-world`.
-- Pendiente en M3: prototipo técnico del viewport (render del runtime embebido en Tauri — riesgo alto, primero), shell del editor, árbol de objetos, inspector, panel de recursos, consola, undo/redo, IPC editor↔runtime.
-- Deuda técnica registrada: `wgpu` serie 24 / `winit` 0.30 (actualizar tras el MVP); jerarquía de escena aplanada al instanciar (jerarquía viva llega con el editor en M3); animaciones del formato aún no se reproducen (M4).
-- Gotcha: en Wayland+EGL el `Renderer` debe soltarse en el callback `exiting()` de winit, antes de que muera el event loop, o segfaultea (ya resuelto en `aigs-runtime/src/app.rs`).
+- **Fase:** 1 (MVP) — **M0, M1 y M2 completados; M3 con código completo** (pendiente validación manual del editor); siguiente: validar M3 y arrancar **M4 (Timeline)**.
+- M3 entregó: editor funcional — backend Tauri (`load/create/save_project` revalidando con `aigs-project`, `import_asset`, `play_project` que lanza `aigs run`), modelo de documento en React con undo/redo por snapshots, viewport Canvas 2D (selección, arrastre, zoom, pan, drop de assets, marcadores de cámara), árbol de escena (crear/renombrar/eliminar/reordenar/hijos), inspector (transform/sprite/camera), panel de recursos con miniaturas e importación, consola y atajos (Ctrl+S/Z/Shift+Z, Supr).
+- **Para ejecutar el editor:** `cd editor && npm run tauri dev`. Requiere `webkit2gtk-4.1` del sistema (`sudo pacman -S webkit2gtk-4.1`) — no está instalado en esta máquina, por eso la validación manual está pendiente. El botón Play necesita el CLI: `cargo install --path cli` o `AIGS_CLI=<ruta>`.
+- Decisión clave M3: viewport de edición en Canvas 2D (misma matemática TRS que el runtime); el runtime WGPU real corre en Play vía `aigs run`. Ver tabla en `docs/arquitectura.md`.
+- Deuda técnica: `wgpu` 24 / `winit` 0.30 (actualizar tras MVP); jerarquía aplanada al instanciar en runtime; docking fijo (CSS grid) sin paneles arrastrables; animaciones no se reproducen aún (M4).
+- Gotcha: en Wayland+EGL el `Renderer` debe soltarse en `exiting()` de winit o segfaultea (resuelto en `aigs-runtime/src/app.rs`).
 
 ## Mapa del repositorio
 
@@ -67,3 +68,4 @@ Registro cronológico de los pasos mayores del proyecto. Añadir una línea por 
 | 2026-07-03 | **M0 completado:** workspace Cargo (`aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`, `aigs-cli`), especificación v0 del formato `.aigs`, ejemplo `hello-world` validado por el CLI, scaffold del editor Tauri 2 + React, CI multiplataforma en GitHub Actions. | commit `3683636`, [sdk/aigs-format/SPEC.md](sdk/aigs-format/SPEC.md) |
 | 2026-07-03 | **M1 completado:** ECS con componentes/consultas/Schedule, renderer WGPU (batching instanciado, capas, cámara ortográfica), crate `aigs-runtime` (loop 60 Hz interpolado, input, runner winit), ejemplo `bouncing-sprites` verificado en GPU local. Decisiones nuevas en la tabla de arquitectura. | [docs/arquitectura.md](docs/arquitectura.md), [examples/bouncing-sprites/](examples/bouncing-sprites/) |
 | 2026-07-03 | **M2 completado:** pipeline de assets (`AssetStore`), instanciación de escenas `.aigs` → `World`, comando `aigs run`, test de integración sobre `hello-world` real, sprite `width`/`height` en el formato. Corregido segfault de teardown Wayland/EGL. | [tests/integration/](tests/integration/), [sdk/aigs-format/SPEC.md](sdk/aigs-format/SPEC.md) |
+| 2026-07-03 | **M3 código completo:** editor base — backend Tauri con guardado revalidado por `aigs-project`, documento con undo/redo, viewport Canvas 2D, árbol, inspector, recursos con importación, consola, Play → `aigs run`. Decisión de viewport registrada en arquitectura. Validación manual pendiente (falta `webkit2gtk-4.1` local). | [editor/](editor/), [docs/editor.md](docs/editor.md) |
