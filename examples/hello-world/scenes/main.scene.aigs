@@ -36,7 +36,13 @@
           "asset": "hero",
           "opacity": 1.0,
           "layer": 2
-        }
+        },
+        "behaviors": [
+          { "on": { "type": "click" },
+            "do": { "type": "goto_scene", "scene": "scenes/level1.scene.aigs" } },
+          { "on": { "type": "key_pressed", "key": "Enter" },
+            "do": { "type": "goto_scene", "scene": "scenes/level1.scene.aigs" } }
+        ]
       },
       "children": [
         {

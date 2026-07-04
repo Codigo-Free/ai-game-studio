@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { removeEntity } from "./document";
 import { AssetsPanel } from "./panels/AssetsPanel";
 import { ConsolePanel } from "./panels/ConsolePanel";
@@ -72,11 +73,37 @@ function Welcome() {
   );
 }
 
+/** Streams the player's stdout/stderr (aigs run) into the editor console. */
+function usePlayerLogs() {
+  const { dispatch } = useStore();
+  useEffect(() => {
+    const unlistenLog = listen<string>("player-log", (event) => {
+      dispatch({
+        type: "LOG",
+        level: "info",
+        message: `[player] ${event.payload}`,
+      });
+    });
+    const unlistenErr = listen<string>("player-err", (event) => {
+      dispatch({
+        type: "LOG",
+        level: "warn",
+        message: `[player] ${event.payload}`,
+      });
+    });
+    return () => {
+      void unlistenLog.then((f) => f());
+      void unlistenErr.then((f) => f());
+    };
+  }, [dispatch]);
+}
+
 function Layout() {
   const { state } = useStore();
   const [bottomTab, setBottomTab] = useState<"timeline" | "console">(
     "timeline",
   );
+  usePlayerLogs();
   if (!state.loaded) {
     return (
       <div className="app">

@@ -5,12 +5,14 @@
 //! `aigs-project`, the format's reference implementation), imports assets
 //! into the project and launches the runtime player.
 
+use std::io::BufRead;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use aigs_project::{Project, Scene};
 use base64::Engine;
 use serde::Serialize;
+use tauri::Emitter;
 
 /// A project loaded from disk: the manifest plus every scene, already parsed
 /// and re-serialized so the frontend always sees canonical format JSON.
@@ -164,21 +166,58 @@ fn read_file_base64(path: String) -> Result<String, String> {
 }
 
 /// Launches the project in the runtime player (`aigs run`). The binary is
-/// resolved from `AIGS_CLI`, then `aigs` on PATH.
+/// resolved from `AIGS_CLI`, then `aigs` on PATH. The player's stdout and
+/// stderr are streamed to the editor console as `player-log` / `player-err`
+/// events (scene switches, per-second stats, warnings).
 #[tauri::command]
-fn play_project(manifest_path: String) -> Result<String, String> {
+fn play_project(app: tauri::AppHandle, manifest_path: String) -> Result<String, String> {
     let binary = std::env::var("AIGS_CLI").unwrap_or_else(|_| "aigs".to_string());
-    Command::new(&binary)
+    let mut child = Command::new(&binary)
         .arg("run")
         .arg(&manifest_path)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .spawn()
-        .map(|child| format!("player started (pid {}, {binary})", child.id()))
         .map_err(|e| {
             format!(
                 "could not launch \"{binary} run\": {e}. Install the CLI with \
                  `cargo install --path cli` or set AIGS_CLI to the binary path."
             )
-        })
+        })?;
+    let pid = child.id();
+
+    if let Some(stdout) = child.stdout.take() {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            for line in std::io::BufReader::new(stdout)
+                .lines()
+                .map_while(Result::ok)
+            {
+                let _ = app.emit("player-log", line);
+            }
+        });
+    }
+    if let Some(stderr) = child.stderr.take() {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            for line in std::io::BufReader::new(stderr)
+                .lines()
+                .map_while(Result::ok)
+            {
+                let _ = app.emit("player-err", line);
+            }
+        });
+    }
+    std::thread::spawn(move || {
+        let message = match child.wait() {
+            Ok(status) if status.success() => "player finished".to_string(),
+            Ok(status) => format!("player exited with {status}"),
+            Err(e) => format!("player wait error: {e}"),
+        };
+        let _ = app.emit("player-log", message);
+    });
+
+    Ok(format!("player started (pid {pid})"))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

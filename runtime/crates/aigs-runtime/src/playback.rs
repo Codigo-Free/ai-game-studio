@@ -44,6 +44,7 @@ struct BoundTrack {
 }
 
 struct PlayingAnimation {
+    name: String,
     fps: f32,
     looped: bool,
     duration_frames: f32,
@@ -93,6 +94,7 @@ impl AnimationPlayback {
             }
             if !tracks.is_empty() {
                 playback.animations.push(PlayingAnimation {
+                    name: animation.name.clone(),
                     fps: animation.fps.max(1) as f32,
                     looped: animation.looped,
                     duration_frames: duration as f32,
@@ -106,8 +108,10 @@ impl AnimationPlayback {
     }
 
     /// Advances every playing animation by `dt` seconds and writes the
-    /// sampled values into the world.
-    pub fn advance(&mut self, world: &World, dt: f32) {
+    /// sampled values into the world. Returns the names of the animations
+    /// that finished during this tick (for `animation_end` behaviors).
+    pub fn advance(&mut self, world: &World, dt: f32) -> Vec<String> {
+        let mut finished_now = Vec::new();
         for animation in &mut self.animations {
             if animation.finished {
                 continue;
@@ -121,6 +125,7 @@ impl AnimationPlayback {
                 } else {
                     frame = animation.duration_frames;
                     animation.finished = true;
+                    finished_now.push(animation.name.clone());
                 }
             }
             for track in &animation.tracks {
@@ -129,6 +134,21 @@ impl AnimationPlayback {
                 }
             }
         }
+        finished_now
+    }
+
+    /// Restarts an animation by name (used by the `play_animation` action).
+    /// Returns `false` if no animation has that name.
+    pub fn restart(&mut self, name: &str) -> bool {
+        let mut found = false;
+        for animation in &mut self.animations {
+            if animation.name == name {
+                animation.time = 0.0;
+                animation.finished = false;
+                found = true;
+            }
+        }
+        found
     }
 
     /// Number of animations that still advance.

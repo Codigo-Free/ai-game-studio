@@ -4,10 +4,11 @@
     "version": 0
   },
   "name": "Hello World",
-  "description": "Minimal example project: one scene, one animated sprite.",
+  "description": "Example project: a menu and a playable level, defined entirely as .aigs data.",
   "initial_scene": "scenes/main.scene.aigs",
   "scenes": [
-    "scenes/main.scene.aigs"
+    "scenes/main.scene.aigs",
+    "scenes/level1.scene.aigs"
   ],
   "assets": [
     {

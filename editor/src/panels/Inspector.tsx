@@ -1,7 +1,142 @@
 import { useEffect, useState } from "react";
 import { findEntity, patchComponents, updateEntity } from "../document";
 import { useStore } from "../store";
-import type { Components } from "../types";
+import type { ActionSpec, Behavior, Components, EventSpec } from "../types";
+
+const COMMON_KEYS = [
+  "ArrowLeft",
+  "ArrowRight",
+  "ArrowUp",
+  "ArrowDown",
+  "Space",
+  "Enter",
+  "Escape",
+];
+
+function describeBehavior(behavior: Behavior): string {
+  const on = behavior.on;
+  const event =
+    on.type === "key_down"
+      ? `tecla ${on.key} (mantenida)`
+      : on.type === "key_pressed"
+        ? `tecla ${on.key}`
+        : on.type === "click"
+          ? "clic"
+          : on.type === "scene_start"
+            ? "inicio de escena"
+            : `fin de "${on.animation}"`;
+  const act = behavior.do;
+  const action =
+    act.type === "move"
+      ? `mover (${act.dx}, ${act.dy})`
+      : act.type === "goto_scene"
+        ? `ir a ${act.scene.split("/").pop()?.replace(".scene.aigs", "")}`
+        : `animar "${act.animation}"`;
+  return `${event} → ${action}`;
+}
+
+/** Small form to append a new behavior to the selected entity. */
+function BehaviorForm({
+  scenes,
+  animations,
+  onAdd,
+}: {
+  scenes: string[];
+  animations: string[];
+  onAdd: (behavior: Behavior) => void;
+}) {
+  const [eventType, setEventType] = useState<EventSpec["type"]>("key_down");
+  const [key, setKey] = useState("ArrowRight");
+  const [eventAnim, setEventAnim] = useState("");
+  const [actionType, setActionType] = useState<ActionSpec["type"]>("move");
+  const [dx, setDx] = useState("200");
+  const [dy, setDy] = useState("0");
+  const [scene, setScene] = useState(scenes[0] ?? "");
+  const [actionAnim, setActionAnim] = useState("");
+
+  const add = () => {
+    const on: EventSpec =
+      eventType === "key_down" || eventType === "key_pressed"
+        ? { type: eventType, key }
+        : eventType === "animation_end"
+          ? { type: "animation_end", animation: eventAnim || animations[0] || "" }
+          : { type: eventType };
+    const run: ActionSpec =
+      actionType === "move"
+        ? { type: "move", dx: Number(dx) || 0, dy: Number(dy) || 0 }
+        : actionType === "goto_scene"
+          ? { type: "goto_scene", scene: scene || scenes[0] || "" }
+          : {
+              type: "play_animation",
+              animation: actionAnim || animations[0] || "",
+            };
+    onAdd({ on, do: run });
+  };
+
+  return (
+    <div className="behavior-form">
+      <div className="behavior-form-row">
+        <span>Cuando</span>
+        <select value={eventType} onChange={(e) => setEventType(e.target.value as EventSpec["type"])}>
+          <option value="key_down">tecla mantenida</option>
+          <option value="key_pressed">tecla pulsada</option>
+          <option value="click">clic en la entidad</option>
+          <option value="scene_start">inicia la escena</option>
+          <option value="animation_end">termina animación</option>
+        </select>
+        {(eventType === "key_down" || eventType === "key_pressed") && (
+          <input
+            list="common-keys"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            style={{ width: 90 }}
+          />
+        )}
+        {eventType === "animation_end" && (
+          <select value={eventAnim} onChange={(e) => setEventAnim(e.target.value)}>
+            {animations.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        )}
+        <datalist id="common-keys">
+          {COMMON_KEYS.map((k) => (
+            <option key={k} value={k} />
+          ))}
+        </datalist>
+      </div>
+      <div className="behavior-form-row">
+        <span>hacer</span>
+        <select value={actionType} onChange={(e) => setActionType(e.target.value as ActionSpec["type"])}>
+          <option value="move">mover</option>
+          <option value="goto_scene">ir a escena</option>
+          <option value="play_animation">reproducir animación</option>
+        </select>
+        {actionType === "move" && (
+          <>
+            <input type="number" value={dx} onChange={(e) => setDx(e.target.value)} style={{ width: 60 }} title="dx (unidades/s si es continua)" />
+            <input type="number" value={dy} onChange={(e) => setDy(e.target.value)} style={{ width: 60 }} title="dy" />
+          </>
+        )}
+        {actionType === "goto_scene" && (
+          <select value={scene} onChange={(e) => setScene(e.target.value)}>
+            {scenes.map((path) => (
+              <option key={path} value={path}>{path.split("/").pop()}</option>
+            ))}
+          </select>
+        )}
+        {actionType === "play_animation" && (
+          <select value={actionAnim} onChange={(e) => setActionAnim(e.target.value)}>
+            {animations.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        )}
+        <button onClick={add}>Añadir</button>
+      </div>
+    </div>
+  );
+}
 
 /** Numeric field that commits on blur/Enter (keeps undo history clean). */
 function NumberField({
@@ -152,6 +287,36 @@ export function Inspector() {
               <p className="hint">Ancho/alto 0 = tamaño de la textura</p>
             </div>
           )}
+        </section>
+
+        <section>
+          <h4>Comportamientos</h4>
+          {(node.components?.behaviors ?? []).map((behavior, index) => (
+            <div key={index} className="behavior-row">
+              <span className="behavior-text">{describeBehavior(behavior)}</span>
+              <button
+                onClick={() =>
+                  patch({
+                    behaviors: (node.components?.behaviors ?? []).filter(
+                      (_, i) => i !== index,
+                    ),
+                  })
+                }
+                title="Eliminar comportamiento"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <BehaviorForm
+            scenes={state.loaded?.project.scenes ?? []}
+            animations={(currentScene.animations ?? []).map((a) => a.name)}
+            onAdd={(behavior) =>
+              patch({
+                behaviors: [...(node.components?.behaviors ?? []), behavior],
+              })
+            }
+          />
         </section>
 
         <section>

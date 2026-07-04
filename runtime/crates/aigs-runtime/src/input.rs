@@ -16,6 +16,7 @@ pub struct Input {
     mouse_pressed: HashSet<MouseButton>,
     mouse_just_pressed: HashSet<MouseButton>,
     mouse_position: (f32, f32),
+    viewport: (f32, f32),
 }
 
 impl Input {
@@ -40,6 +41,12 @@ impl Input {
     /// Cursor position in window pixels, origin at the top-left corner.
     pub fn mouse_position(&self) -> (f32, f32) {
         self.mouse_position
+    }
+
+    /// Current window size in pixels (needed to map the cursor to world
+    /// coordinates).
+    pub fn viewport(&self) -> (f32, f32) {
+        self.viewport
     }
 
     // -- fed by the runner ---------------------------------------------------
@@ -75,6 +82,35 @@ impl Input {
 
     pub(crate) fn set_mouse_position(&mut self, x: f32, y: f32) {
         self.mouse_position = (x, y);
+    }
+
+    pub(crate) fn set_viewport(&mut self, width: f32, height: f32) {
+        self.viewport = (width, height);
+    }
+
+    /// Test helpers: simulate device input without a window.
+    #[cfg(test)]
+    pub(crate) fn simulate_key(&mut self, code: KeyCode, pressed: bool) {
+        if pressed {
+            if self.pressed.insert(code) {
+                self.just_pressed.insert(code);
+            }
+        } else {
+            self.pressed.remove(&code);
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn simulate_mouse(&mut self, button: MouseButton) {
+        if self.mouse_pressed.insert(button) {
+            self.mouse_just_pressed.insert(button);
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn simulate_end_tick(&mut self) {
+        self.end_tick();
+        self.mouse_pressed.clear();
     }
 
     /// Clears per-tick state; called after each simulation tick.

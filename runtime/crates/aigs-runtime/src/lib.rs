@@ -10,6 +10,7 @@ mod assets;
 mod components;
 mod input;
 mod playback;
+mod player;
 mod scene;
 mod time;
 
@@ -20,5 +21,6 @@ pub use assets::{AssetError, AssetStore, TextureInfo};
 pub use components::{Camera2D, Name, PrevTransform2D, Sprite, Transform2D, Visibility};
 pub use input::{Input, KeyCode, MouseButton};
 pub use playback::AnimationPlayback;
+pub use player::{parse_key, GamePlayer, PlayerError};
 pub use scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
 pub use time::Time;

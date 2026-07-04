@@ -141,8 +141,48 @@ pub struct Components {
     pub sprite: Option<Sprite>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub camera2d: Option<Camera2D>,
+    /// Code-free event → action rules (see `Behavior`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub behaviors: Vec<Behavior>,
     #[serde(flatten)]
     pub extra: BTreeMap<String, serde_json::Value>,
+}
+
+/// A code-free rule: when `on` happens, run `do`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Behavior {
+    pub on: EventSpec,
+    #[serde(rename = "do")]
+    pub action: ActionSpec,
+}
+
+/// Events a behavior can react to (format v0).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum EventSpec {
+    /// The key is held down (fires every tick).
+    KeyDown { key: String },
+    /// The key went down this tick.
+    KeyPressed { key: String },
+    /// The entity was clicked with the left mouse button.
+    Click,
+    /// The scene just started (fires once).
+    SceneStart,
+    /// A non-looping animation of the scene just finished.
+    AnimationEnd { animation: String },
+}
+
+/// Actions a behavior can run (format v0).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ActionSpec {
+    /// Moves the entity. For continuous events (`key_down`) `dx`/`dy` are
+    /// units per second; for discrete events they are an instant offset.
+    Move { dx: f32, dy: f32 },
+    /// Switches to another scene of the project (path as listed in `scenes`).
+    GotoScene { scene: String },
+    /// Restarts a scene animation by name.
+    PlayAnimation { animation: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -386,6 +426,43 @@ mod tests {
             Project::from_json(json),
             Err(FormatError::UnsupportedVersion { found: 999, .. })
         ));
+    }
+
+    #[test]
+    fn behaviors_round_trip() {
+        let json = r#"{
+            "format": { "kind": "aigs-scene", "version": 0 },
+            "name": "menu",
+            "entities": [{
+                "id": "start-button", "name": "Start",
+                "components": {
+                    "sprite": { "asset": "button" },
+                    "behaviors": [
+                        { "on": { "type": "click" },
+                          "do": { "type": "goto_scene", "scene": "scenes/level1.scene.aigs" } },
+                        { "on": { "type": "key_down", "key": "ArrowRight" },
+                          "do": { "type": "move", "dx": 200.0, "dy": 0.0 } },
+                        { "on": { "type": "animation_end", "animation": "intro" },
+                          "do": { "type": "play_animation", "animation": "idle" } }
+                    ]
+                }
+            }]
+        }"#;
+        let scene = Scene::from_json(json).unwrap();
+        let behaviors = &scene.entities[0].components.behaviors;
+        assert_eq!(behaviors.len(), 3);
+        assert_eq!(
+            behaviors[0].action,
+            ActionSpec::GotoScene {
+                scene: "scenes/level1.scene.aigs".into()
+            }
+        );
+        assert!(matches!(
+            behaviors[1].on,
+            EventSpec::KeyDown { ref key } if key == "ArrowRight"
+        ));
+        let saved = scene.to_json().unwrap();
+        assert_eq!(Scene::from_json(&saved).unwrap(), scene);
     }
 
     #[test]

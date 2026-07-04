@@ -44,6 +44,13 @@ export type EditorAction =
   | { type: "SELECT"; id: string | null }
   | { type: "SWITCH_SCENE"; path: string }
   | { type: "UPDATE_SCENE"; scene: Scene; commit: boolean }
+  | {
+      type: "UPDATE_DOCUMENT";
+      project: Project;
+      scenes: { path: string; scene: Scene }[];
+      switchTo?: string;
+      commit: boolean;
+    }
   | { type: "UPDATE_ASSETS"; assets: Asset[] }
   | { type: "PUSH_HISTORY"; snapshot: string }
   | { type: "UNDO" }
@@ -153,6 +160,28 @@ export function reducer(
               ? { ...entry, scene: action.scene }
               : entry,
           ),
+        },
+      };
+    }
+    case "UPDATE_DOCUMENT": {
+      if (!state.loaded) return state;
+      const base = action.commit ? pushHistory(state, snapshotOf(state)) : state;
+      const paths = action.scenes.map((entry) => entry.path);
+      const current =
+        action.switchTo ??
+        (state.currentScenePath && paths.includes(state.currentScenePath)
+          ? state.currentScenePath
+          : (paths[0] ?? null));
+      return {
+        ...base,
+        dirty: true,
+        currentScenePath: current,
+        selection: null,
+        preview: null,
+        loaded: {
+          ...base.loaded!,
+          project: action.project,
+          scenes: action.scenes,
         },
       };
     }

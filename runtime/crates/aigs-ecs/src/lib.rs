@@ -100,6 +100,15 @@ impl World {
         self.len() == 0
     }
 
+    /// Despawns every entity (used when switching scenes). Existing handles
+    /// become stale; component columns are kept allocated for reuse.
+    pub fn clear(&mut self) {
+        let live: Vec<Entity> = self.entities().collect();
+        for entity in live {
+            self.despawn(entity);
+        }
+    }
+
     /// Iterates every live entity.
     pub fn entities(&self) -> impl Iterator<Item = Entity> + '_ {
         self.alive

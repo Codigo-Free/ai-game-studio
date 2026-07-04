@@ -1,6 +1,31 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { loadProject, createProject, playProject, saveProject } from "../ipc";
 import { useStore } from "../store";
+import type { Scene } from "../types";
+
+function sceneSlug(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "escena"
+  );
+}
+
+function emptyScene(name: string): Scene {
+  return {
+    format: { kind: "aigs-scene", version: 0 },
+    name,
+    entities: [
+      {
+        id: "camera",
+        name: "Main Camera",
+        components: { transform2d: {}, camera2d: { zoom: 1 } },
+      },
+    ],
+    animations: [],
+  };
+}
 
 export function useProjectActions() {
   const { state, dispatch } = useStore();
@@ -70,9 +95,90 @@ export function useProjectActions() {
   return { openProject, newProject, save, play };
 }
 
+function useSceneActions() {
+  const { state, dispatch, currentScene } = useStore();
+  const loaded = state.loaded;
+
+  const uniquePath = (base: string): string => {
+    const taken = new Set(loaded?.project.scenes ?? []);
+    let path = `scenes/${base}.scene.aigs`;
+    let counter = 2;
+    while (taken.has(path)) {
+      path = `scenes/${base}-${counter}.scene.aigs`;
+      counter += 1;
+    }
+    return path;
+  };
+
+  const addScene = (name: string, scene: Scene) => {
+    if (!loaded) return;
+    const path = uniquePath(sceneSlug(name));
+    dispatch({
+      type: "UPDATE_DOCUMENT",
+      project: {
+        ...loaded.project,
+        scenes: [...loaded.project.scenes, path],
+      },
+      scenes: [...loaded.scenes, { path, scene: { ...scene, name } }],
+      switchTo: path,
+      commit: true,
+    });
+    dispatch({ type: "LOG", level: "info", message: `Escena "${name}" creada (${path})` });
+  };
+
+  const newScene = () => {
+    const name = window.prompt("Nombre de la nueva escena", "nivel");
+    if (name) addScene(name, emptyScene(name));
+  };
+
+  const duplicateScene = () => {
+    if (!currentScene) return;
+    const name = window.prompt("Nombre de la copia", `${currentScene.name}-copia`);
+    if (name) addScene(name, structuredClone(currentScene));
+  };
+
+  const deleteScene = () => {
+    if (!loaded || !state.currentScenePath) return;
+    if (loaded.scenes.length <= 1) {
+      dispatch({ type: "LOG", level: "warn", message: "No se puede eliminar la única escena" });
+      return;
+    }
+    if (!window.confirm(`¿Eliminar la escena "${currentScene?.name}"?`)) return;
+    const path = state.currentScenePath;
+    const scenes = loaded.scenes.filter((entry) => entry.path !== path);
+    const scenePaths = loaded.project.scenes.filter((p) => p !== path);
+    const initial =
+      loaded.project.initial_scene === path
+        ? scenePaths[0]
+        : loaded.project.initial_scene;
+    dispatch({
+      type: "UPDATE_DOCUMENT",
+      project: { ...loaded.project, scenes: scenePaths, initial_scene: initial },
+      scenes,
+      commit: true,
+    });
+    dispatch({ type: "LOG", level: "info", message: `Escena eliminada (${path})` });
+  };
+
+  const setInitialScene = () => {
+    if (!loaded || !state.currentScenePath) return;
+    dispatch({
+      type: "UPDATE_DOCUMENT",
+      project: { ...loaded.project, initial_scene: state.currentScenePath },
+      scenes: loaded.scenes,
+      switchTo: state.currentScenePath,
+      commit: true,
+    });
+  };
+
+  return { newScene, duplicateScene, deleteScene, setInitialScene };
+}
+
 export function Toolbar() {
   const { state, dispatch } = useStore();
   const { openProject, newProject, save, play } = useProjectActions();
+  const { newScene, duplicateScene, deleteScene, setInitialScene } =
+    useSceneActions();
   const loaded = state.loaded;
 
   return (
@@ -100,18 +206,31 @@ export function Toolbar() {
       </button>
       <span className="separator" />
       {loaded && loaded.scenes.length > 0 && (
-        <select
-          value={state.currentScenePath ?? ""}
-          onChange={(event) =>
-            dispatch({ type: "SWITCH_SCENE", path: event.target.value })
-          }
-        >
-          {loaded.scenes.map((entry) => (
-            <option key={entry.path} value={entry.path}>
-              {entry.scene.name}
-            </option>
-          ))}
-        </select>
+        <>
+          <select
+            value={state.currentScenePath ?? ""}
+            onChange={(event) =>
+              dispatch({ type: "SWITCH_SCENE", path: event.target.value })
+            }
+          >
+            {loaded.scenes.map((entry) => (
+              <option key={entry.path} value={entry.path}>
+                {entry.path === loaded.project.initial_scene ? "★ " : ""}
+                {entry.scene.name}
+              </option>
+            ))}
+          </select>
+          <button onClick={newScene} title="Nueva escena">＋</button>
+          <button onClick={duplicateScene} title="Duplicar escena">⧉</button>
+          <button
+            onClick={setInitialScene}
+            title="Marcar como escena inicial"
+            disabled={state.currentScenePath === loaded.project.initial_scene}
+          >
+            ★
+          </button>
+          <button onClick={deleteScene} title="Eliminar escena">✕</button>
+        </>
       )}
       <span className="spacer" />
       {loaded && <span className="project-name">{loaded.project.name}</span>}

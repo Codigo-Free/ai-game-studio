@@ -196,6 +196,9 @@ impl ApplicationHandler for App {
         };
         match Renderer::new(window.clone()) {
             Ok(mut renderer) => {
+                let viewport = renderer.viewport();
+                self.input
+                    .set_viewport(viewport.width as f32, viewport.height as f32);
                 if let Some(setup) = self.setup.take() {
                     setup(&mut self.world, &mut renderer);
                 }
@@ -218,6 +221,8 @@ impl ApplicationHandler for App {
         match event {
             WindowEvent::CloseRequested => event_loop.exit(),
             WindowEvent::Resized(size) => {
+                self.input
+                    .set_viewport(size.width as f32, size.height as f32);
                 if let Some(renderer) = self.renderer.as_mut() {
                     renderer.resize(size.width, size.height);
                 }

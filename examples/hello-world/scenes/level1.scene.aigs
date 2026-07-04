@@ -1,0 +1,73 @@
+{
+  "format": { "kind": "aigs-scene", "version": 0 },
+  "name": "level1",
+  "entities": [
+    {
+      "id": "camera",
+      "name": "Main Camera",
+      "components": {
+        "transform2d": { "x": 0.0, "y": 0.0 },
+        "camera2d": { "zoom": 1.0 }
+      }
+    },
+    {
+      "id": "player",
+      "name": "Player",
+      "components": {
+        "transform2d": { "x": 0.0, "y": -200.0, "scale_x": 1.5, "scale_y": 1.5 },
+        "sprite": { "asset": "hero", "opacity": 1.0, "layer": 2 },
+        "behaviors": [
+          { "on": { "type": "key_down", "key": "ArrowLeft" },
+            "do": { "type": "move", "dx": -300.0, "dy": 0.0 } },
+          { "on": { "type": "key_down", "key": "ArrowRight" },
+            "do": { "type": "move", "dx": 300.0, "dy": 0.0 } },
+          { "on": { "type": "key_down", "key": "ArrowUp" },
+            "do": { "type": "move", "dx": 0.0, "dy": 300.0 } },
+          { "on": { "type": "key_down", "key": "ArrowDown" },
+            "do": { "type": "move", "dx": 0.0, "dy": -300.0 } },
+          { "on": { "type": "key_pressed", "key": "Escape" },
+            "do": { "type": "goto_scene", "scene": "scenes/main.scene.aigs" } }
+        ]
+      }
+    },
+    {
+      "id": "goal",
+      "name": "Goal",
+      "components": {
+        "transform2d": { "x": 350.0, "y": 200.0 },
+        "sprite": { "asset": "hero", "width": 40.0, "height": 40.0, "opacity": 0.5, "layer": 1 },
+        "behaviors": [
+          { "on": { "type": "click" },
+            "do": { "type": "play_animation", "animation": "goal-pulse" } }
+        ]
+      }
+    }
+  ],
+  "animations": [
+    {
+      "name": "goal-pulse",
+      "fps": 30,
+      "loop": false,
+      "tracks": [
+        {
+          "entity": "goal",
+          "property": "transform2d.scale_x",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 10, "value": 1.8, "easing": "ease_in" },
+            { "frame": 20, "value": 1.0, "easing": "linear" }
+          ]
+        },
+        {
+          "entity": "goal",
+          "property": "transform2d.scale_y",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 10, "value": 1.8, "easing": "ease_in" },
+            { "frame": 20, "value": 1.0, "easing": "linear" }
+          ]
+        }
+      ]
+    }
+  ]
+}

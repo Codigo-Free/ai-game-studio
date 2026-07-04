@@ -27,10 +27,29 @@ export interface Camera2DComponent {
   zoom?: number;
 }
 
+export type EventSpec =
+  | { type: "key_down"; key: string }
+  | { type: "key_pressed"; key: string }
+  | { type: "click" }
+  | { type: "scene_start" }
+  | { type: "animation_end"; animation: string };
+
+export type ActionSpec =
+  | { type: "move"; dx: number; dy: number }
+  | { type: "goto_scene"; scene: string }
+  | { type: "play_animation"; animation: string };
+
+/** Code-free rule: when `on` happens, run `do`. */
+export interface Behavior {
+  on: EventSpec;
+  do: ActionSpec;
+}
+
 export interface Components {
   transform2d?: Transform2D;
   sprite?: SpriteComponent;
   camera2d?: Camera2DComponent;
+  behaviors?: Behavior[];
   // Plugin components (namespaced keys) must survive round-trips.
   [key: string]: unknown;
 }

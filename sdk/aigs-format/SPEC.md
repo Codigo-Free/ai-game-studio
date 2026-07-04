@@ -125,7 +125,42 @@ mi-juego/
 
 **`camera2d`** — `zoom` (default `1.0`).
 
+**`behaviors`** — lista de reglas sin código `{ "on": Evento, "do": Acción }` (ver sección Comportamientos).
+
 **Componentes de plugin:** cualquier otra clave con namespace (`"mi_plugin.iman"`) es válida y debe preservarse aunque el lector no la entienda.
+
+### Comportamientos (v0)
+
+```json
+"behaviors": [
+  { "on": { "type": "key_down", "key": "ArrowRight" },
+    "do": { "type": "move", "dx": 300.0, "dy": 0.0 } },
+  { "on": { "type": "click" },
+    "do": { "type": "goto_scene", "scene": "scenes/level1.scene.aigs" } }
+]
+```
+
+**Eventos** (`on.type`):
+
+| Evento | Parámetros | Dispara |
+|---|---|---|
+| `key_down` | `key` | Cada tick mientras la tecla está pulsada (continuo). |
+| `key_pressed` | `key` | El tick en que la tecla baja. |
+| `click` | — | Clic izquierdo sobre el sprite de la entidad (hit-test con rotación/escala, capa superior gana). |
+| `scene_start` | — | Una vez, al cargar la escena. |
+| `animation_end` | `animation` | Cuando una animación sin loop termina. |
+
+Nombres de tecla: estilo winit/W3C — `ArrowLeft/Right/Up/Down`, `Space`, `Enter`, `Escape`, `Tab`, letras (`a`/`KeyA`) y dígitos (`1`/`Digit1`).
+
+**Acciones** (`do.type`):
+
+| Acción | Parámetros | Efecto |
+|---|---|---|
+| `move` | `dx`, `dy` | Con eventos continuos (`key_down`): unidades/segundo. Con eventos discretos: desplazamiento instantáneo. |
+| `goto_scene` | `scene` | Cambia a otra escena del manifiesto (al final del tick; el mundo se repuebla). |
+| `play_animation` | `animation` | Reinicia una animación de la escena por nombre. |
+
+Reglas con teclas, entidades, escenas o animaciones desconocidas generan advertencia y se ignoran (no son error fatal).
 
 ### Animaciones
 
@@ -165,4 +200,4 @@ Comprueba: JSON bien formado, cabeceras y versiones, `initial_scene` listada, es
 ## Evolución del formato
 
 - Los cambios de esquema incrementan `version` y añaden una migración en `aigs-project`.
-- Cambios pendientes conocidos: spritesheets/frames de sprite (M4), eventos y comportamientos (M5), física/audio/partículas (Fase 2).
+- Cambios pendientes conocidos: spritesheets/frames de sprite, física/audio/partículas (Fase 2).

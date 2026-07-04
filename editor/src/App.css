@@ -307,3 +307,35 @@ code { background: #10121a; padding: 1px 5px; border-radius: 3px; }
   background: #ff5f5f;
   pointer-events: none;
 }
+
+/* --- behaviors --- */
+.behavior-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  background: #10121a;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+}
+.behavior-text { overflow: hidden; text-overflow: ellipsis; }
+.behavior-row button { padding: 0 5px; font-size: 10px; flex-shrink: 0; }
+.behavior-form {
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+}
+.behavior-form-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-wrap: wrap;
+}
+.behavior-form-row select, .behavior-form-row input { width: auto; }

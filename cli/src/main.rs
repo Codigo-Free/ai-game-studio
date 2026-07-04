@@ -84,8 +84,9 @@ fn validate(manifest: &Path) -> ExitCode {
 /// Runs a project's initial scene: milestone M2 deliverable — the runtime
 /// executing a game defined entirely as `.aigs` data.
 fn run_project(manifest: &Path) -> ExitCode {
-    use aigs_runtime::{instantiate_scene, AnimationPlayback, AppConfig, AssetStore};
+    use aigs_runtime::{AppConfig, AssetStore, GamePlayer};
     use std::cell::RefCell;
+    use std::collections::HashMap;
     use std::rc::Rc;
 
     let project = match Project::load(manifest) {
@@ -93,10 +94,15 @@ fn run_project(manifest: &Path) -> ExitCode {
         Err(err) => return fail(&format!("{}: {err}", manifest.display())),
     };
     let root = manifest.parent().unwrap_or(Path::new(".")).to_path_buf();
-    let scene = match Scene::load(&root.join(&project.initial_scene)) {
-        Ok(scene) => scene,
-        Err(err) => return fail(&format!("scene {}: {err}", project.initial_scene)),
-    };
+    let mut scenes = HashMap::new();
+    for path in &project.scenes {
+        match Scene::load(&root.join(path)) {
+            Ok(scene) => {
+                scenes.insert(path.clone(), scene);
+            }
+            Err(err) => return fail(&format!("scene {path}: {err}")),
+        }
+    }
 
     let config = AppConfig {
         title: project.name.clone(),
@@ -105,11 +111,12 @@ fn run_project(manifest: &Path) -> ExitCode {
             .and_then(|value| value.parse().ok()),
         ..AppConfig::default()
     };
+    // The player is created in `setup` (it needs the GPU asset store) and
+    // driven from `update`; the Rc bridges the two closures.
+    let player: Rc<RefCell<Option<GamePlayer<AssetStore>>>> = Rc::default();
+    let player_setup = Rc::clone(&player);
     let assets = project.assets.clone();
-    // Playback is created in `setup` (it needs the instantiated entities)
-    // and driven from `update`; the Rc bridges the two closures.
-    let playback: Rc<RefCell<AnimationPlayback>> = Rc::default();
-    let playback_setup = Rc::clone(&playback);
+    let project_for_setup = project.clone();
     let result = aigs_runtime::run(
         config,
         move |world, renderer| {
@@ -120,29 +127,50 @@ fn run_project(manifest: &Path) -> ExitCode {
                     std::process::exit(1);
                 }
             };
-            match instantiate_scene(world, &scene, &store) {
-                Ok(instance) => {
-                    let bound = AnimationPlayback::bind(&scene, &instance);
-                    for warning in bound.warnings() {
+            match GamePlayer::new(&project_for_setup, scenes, store, world) {
+                Ok(game) => {
+                    for warning in game.warnings() {
                         eprintln!("warning: {warning}");
                     }
                     println!(
-                        "running \"{}\": {} entities, {} textures, {} animation(s)",
-                        scene.name,
-                        instance.len(),
-                        store.len(),
-                        bound.len()
+                        "running \"{}\": {} entities, {} animation(s)",
+                        game.current_scene(),
+                        world.len(),
+                        game.animation_count()
                     );
-                    *playback_setup.borrow_mut() = bound;
+                    *player_setup.borrow_mut() = Some(game);
                 }
                 Err(err) => {
-                    eprintln!("scene error: {err}");
+                    eprintln!("player error: {err}");
                     std::process::exit(1);
                 }
             }
         },
-        move |world, time, _| {
-            playback.borrow_mut().advance(world, time.delta);
+        move |world, time, input| {
+            if let Some(game) = player.borrow_mut().as_mut() {
+                let scene_before = game.current_scene().to_string();
+                let warnings_before = game.warnings().len();
+                game.update(world, time, input);
+                if game.current_scene() != scene_before {
+                    println!("scene: {}", game.current_scene());
+                }
+                for warning in &game.warnings()[warnings_before.min(game.warnings().len())..] {
+                    eprintln!("warning: {warning}");
+                }
+                // One stats line per second, consumed by the editor console.
+                if time.tick % 60 == 0 && time.tick > 0 {
+                    println!(
+                        "stats: fps={:.0} entities={} frame_ms={:.1}",
+                        time.fps,
+                        world.len(),
+                        if time.fps > 0.0 {
+                            1000.0 / time.fps
+                        } else {
+                            0.0
+                        }
+                    );
+                }
+            }
         },
     );
 
