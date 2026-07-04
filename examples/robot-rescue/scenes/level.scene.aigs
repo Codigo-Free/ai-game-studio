@@ -253,6 +253,52 @@
           ]
         }
       ]
+    },
+    {
+      "name": "player-idle",
+      "fps": 4,
+      "loop": true,
+      "tracks": [
+        {
+          "entity": "player",
+          "property": "sprite.frame",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 0.0
+            },
+            {
+              "frame": 4,
+              "value": 1.9
+            },
+            {
+              "frame": 8,
+              "value": 0.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "player-walk",
+      "fps": 12,
+      "loop": true,
+      "tracks": [
+        {
+          "entity": "player",
+          "property": "sprite.frame",
+          "keyframes": [
+            {
+              "frame": 0,
+              "value": 2.0
+            },
+            {
+              "frame": 12,
+              "value": 5.9
+            }
+          ]
+        }
+      ]
     }
   ]
 }

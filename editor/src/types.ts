@@ -17,6 +17,7 @@ export interface Transform2D {
 
 export interface SpriteComponent {
   asset: string;
+  frame?: number;
   width?: number;
   height?: number;
   opacity?: number;
@@ -30,6 +31,7 @@ export interface Camera2DComponent {
 export type EventSpec =
   | { type: "key_down"; key: string }
   | { type: "key_pressed"; key: string }
+  | { type: "key_released"; key: string }
   | { type: "click" }
   | { type: "scene_start" }
   | { type: "animation_end"; animation: string }
@@ -67,12 +69,25 @@ export interface Collider2DComponent {
   friction?: number;
 }
 
+export interface AnimatorTransition {
+  from: string;
+  to: string;
+  when: EventSpec;
+}
+
+export interface AnimatorComponent {
+  initial: string;
+  states: Record<string, string>;
+  transitions?: AnimatorTransition[];
+}
+
 export interface Components {
   transform2d?: Transform2D;
   sprite?: SpriteComponent;
   camera2d?: Camera2DComponent;
   rigidbody2d?: Rigidbody2DComponent;
   collider2d?: Collider2DComponent;
+  animator?: AnimatorComponent;
   behaviors?: Behavior[];
   // Plugin components (namespaced keys) must survive round-trips.
   [key: string]: unknown;
@@ -119,6 +134,7 @@ export interface Asset {
   id: string;
   kind: AssetKind;
   path: string;
+  spritesheet?: { frame_width: number; frame_height: number };
 }
 
 export interface Project {

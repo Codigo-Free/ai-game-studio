@@ -27,6 +27,9 @@ impl ResolveTexture for DiskBackedFake {
                 id: Default::default(),
                 width: 64.0,
                 height: 64.0,
+                sheet: None,
+                frame_width: 64.0,
+                frame_height: 64.0,
             })
     }
 }

@@ -14,6 +14,8 @@ struct InstanceInput {
     @location(1) half_size: vec2<f32>,
     @location(2) rotation: f32,
     @location(3) opacity: f32,
+    // Sub-rectangle of the texture to sample (spritesheet frame).
+    @location(4) uv_rect: vec4<f32>, // (u0, v0, u1, v1)
 };
 
 struct VertexOutput {
@@ -47,7 +49,12 @@ fn vs_main(
 
     var out: VertexOutput;
     out.clip_position = camera.view_proj * vec4<f32>(world, 0.0, 1.0);
-    out.uv = vec2<f32>((corner.x + 1.0) * 0.5, 1.0 - (corner.y + 1.0) * 0.5);
+    let unit_u = (corner.x + 1.0) * 0.5;
+    let unit_v = 1.0 - (corner.y + 1.0) * 0.5;
+    out.uv = vec2<f32>(
+        mix(instance.uv_rect.x, instance.uv_rect.z, unit_u),
+        mix(instance.uv_rect.y, instance.uv_rect.w, unit_v),
+    );
     out.opacity = instance.opacity;
     return out;
 }

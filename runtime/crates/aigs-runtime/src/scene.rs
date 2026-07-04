@@ -98,10 +98,12 @@ fn spawn_node(
             entity,
             Sprite {
                 texture: texture.id,
-                width: sprite.width.unwrap_or(texture.width),
-                height: sprite.height.unwrap_or(texture.height),
+                width: sprite.width.unwrap_or(texture.frame_width),
+                height: sprite.height.unwrap_or(texture.frame_height),
                 opacity: sprite.opacity,
                 layer: sprite.layer,
+                frame: sprite.frame as f32,
+                sheet: texture.sheet,
             },
         );
     }
@@ -184,6 +186,9 @@ mod tests {
                 id: TextureId::default(),
                 width: 64.0,
                 height: 32.0,
+                sheet: None,
+                frame_width: 64.0,
+                frame_height: 32.0,
             })
         }
     }

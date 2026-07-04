@@ -21,6 +21,7 @@ enum AnimTarget {
     ScaleX,
     ScaleY,
     Opacity,
+    SpriteFrame,
 }
 
 impl AnimTarget {
@@ -32,6 +33,7 @@ impl AnimTarget {
             "transform2d.scale_x" => Some(Self::ScaleX),
             "transform2d.scale_y" => Some(Self::ScaleY),
             "sprite.opacity" => Some(Self::Opacity),
+            "sprite.frame" => Some(Self::SpriteFrame),
             _ => None,
         }
     }
@@ -137,6 +139,19 @@ impl AnimationPlayback {
         finished_now
     }
 
+    /// Halts an animation by name (its values freeze where they are).
+    /// Used by animation state machines when leaving a state.
+    pub fn stop(&mut self, name: &str) -> bool {
+        let mut found = false;
+        for animation in &mut self.animations {
+            if animation.name == name {
+                animation.finished = true;
+                found = true;
+            }
+        }
+        found
+    }
+
     /// Restarts an animation by name (used by the `play_animation` action).
     /// Returns `false` if no animation has that name.
     pub fn restart(&mut self, name: &str) -> bool {
@@ -177,6 +192,11 @@ fn apply(world: &World, entity: Entity, target: AnimTarget, value: f32) {
                 sprite.opacity = value;
             }
         }
+        AnimTarget::SpriteFrame => {
+            if let Some(mut sprite) = world.get_mut::<Sprite>(entity) {
+                sprite.frame = value;
+            }
+        }
         _ => {
             if let Some(mut transform) = world.get_mut::<Transform2D>(entity) {
                 match target {
@@ -185,7 +205,7 @@ fn apply(world: &World, entity: Entity, target: AnimTarget, value: f32) {
                     AnimTarget::Rotation => transform.rotation = value,
                     AnimTarget::ScaleX => transform.scale_x = value,
                     AnimTarget::ScaleY => transform.scale_y = value,
-                    AnimTarget::Opacity => unreachable!(),
+                    AnimTarget::Opacity | AnimTarget::SpriteFrame => unreachable!(),
                 }
             }
         }
@@ -206,6 +226,9 @@ mod tests {
                 id: Default::default(),
                 width: 32.0,
                 height: 32.0,
+                sheet: None,
+                frame_width: 32.0,
+                frame_height: 32.0,
             })
         }
     }

@@ -68,6 +68,7 @@ mi-juego/
 | `id` | string | Único en el proyecto; referenciado por componentes (`sprite.asset`). |
 | `kind` | enum | `"image"` \| `"audio"` \| `"font"` \| `"other"`. |
 | `path` | string | Ruta relativa al archivo. |
+| `spritesheet` | objeto | Opcional (M10): `{ "frame_width": N, "frame_height": N }` convierte la imagen en rejilla de frames (row-major desde arriba-izquierda; columnas/filas se derivan del tamaño de la textura). |
 
 ---
 
@@ -123,13 +124,15 @@ mi-juego/
 
 **`transform2d`** — posición, rotación (grados, horario) y escala. Todos los campos con default (`0` / escala `1`).
 
-**`sprite`** — `asset` (id de un asset `image`, obligatorio), `width`/`height` (tamaño base en unidades de mundo; default: tamaño de la textura), `opacity` (default `1.0`), `layer` (entero, mayor = encima, default `0`).
+**`sprite`** — `asset` (id de un asset `image`, obligatorio), `frame` (índice de frame del spritesheet, default `0`), `width`/`height` (tamaño base en unidades de mundo; default: tamaño del frame si hay spritesheet, si no el de la textura), `opacity` (default `1.0`), `layer` (entero, mayor = encima, default `0`).
 
 **`camera2d`** — `zoom` (default `1.0`).
 
 **`rigidbody2d`** — cuerpo físico (M8): `body` = `"dynamic"` (simulado, default) | `"kinematic"` (dirigido por transform, empuja a los dinámicos) | `"static"` (inmóvil); `gravity_scale` (default `1`), `vx`/`vy` (velocidad inicial, unidades/s), `fixed_rotation` (default `false`). Requiere `collider2d`.
 
 **`collider2d`** — forma de colisión (M8): `shape` = `"box"` (default) | `"circle"`; `width`/`height` o `radius` (default: tamaño visible del sprite); `sensor` (detecta sin bloquear, default `false`); `restitution` (rebote 0–1, default `0`); `friction` (default `0.5`). Sin `rigidbody2d` actúa como colisionador estático.
+
+**`animator`** — máquina de estados de animación (M10): `initial` (estado de arranque), `states` (mapa `estado → nombre de animación de la escena`) y `transitions` (lista de `{ "from": estado | "any", "to": estado, "when": Evento }`; eventos soportados: teclas, `scene_start`, `animation_end`). **Las animaciones referenciadas por un animator no se auto-reproducen** — las controla la máquina, empezando por `initial`; al salir de un estado su animación se detiene y al entrar se reinicia.
 
 **`behaviors`** — lista de reglas sin código `{ "on": Evento, "do": Acción }` (ver sección Comportamientos).
 
@@ -152,6 +155,7 @@ mi-juego/
 |---|---|---|
 | `key_down` | `key` | Cada tick mientras la tecla está pulsada (continuo). |
 | `key_pressed` | `key` | El tick en que la tecla baja. |
+| `key_released` | `key` | El tick en que la tecla sube (M10). |
 | `click` | — | Clic izquierdo sobre el sprite de la entidad (hit-test con rotación/escala, capa superior gana). |
 | `scene_start` | — | Una vez, al cargar la escena. |
 | `animation_end` | `animation` | Cuando una animación sin loop termina. |
@@ -183,7 +187,7 @@ Reglas con teclas, entidades, escenas o animaciones desconocidas generan adverte
 
 **Keyframe:** `frame` (entero ≥ 0), `value` (número), `easing` hacia el siguiente keyframe: `"linear"` (default) | `"ease_in"` | `"ease_out"` | `"ease_in_out"`.
 
-**Propiedades animables en v0:** `transform2d.x`, `transform2d.y`, `transform2d.rotation`, `transform2d.scale_x`, `transform2d.scale_y`, `sprite.opacity`.
+**Propiedades animables en v0:** `transform2d.x`, `transform2d.y`, `transform2d.rotation`, `transform2d.scale_x`, `transform2d.scale_y`, `sprite.opacity`, `sprite.frame` (el valor se trunca a entero al aplicarse; anima `0 → N-0.1` para recorrer N frames).
 
 ### Semántica de reproducción
 
@@ -223,4 +227,4 @@ Comprueba: JSON bien formado, cabeceras y versiones, `initial_scene` listada, es
 ## Evolución del formato
 
 - Los cambios de esquema incrementan `version` y añaden una migración en `aigs-project`.
-- Cambios pendientes conocidos: spritesheets/frames de sprite, física/audio/partículas (Fase 2).
+- Cambios pendientes conocidos: curvas de easing personalizadas (bezier), partículas y scripting (Fase 2, M11–M12).

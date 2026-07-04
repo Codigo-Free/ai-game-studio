@@ -16,6 +16,7 @@ export const ANIMATABLE_PROPERTIES = [
   "transform2d.scale_x",
   "transform2d.scale_y",
   "sprite.opacity",
+  "sprite.frame",
 ] as const;
 
 export type Easing = NonNullable<Keyframe["easing"]>;
@@ -73,6 +74,8 @@ export function propertyValue(node: EntityNode, property: string): number {
       return transform?.scale_y ?? 1;
     case "sprite.opacity":
       return sprite?.opacity ?? 1;
+    case "sprite.frame":
+      return sprite?.frame ?? 0;
     default:
       return 0;
   }
@@ -89,6 +92,8 @@ function withProperty(
     components.transform2d = { ...components.transform2d, [key]: value };
   } else if (property === "sprite.opacity" && components.sprite) {
     components.sprite = { ...components.sprite, opacity: value };
+  } else if (property === "sprite.frame" && components.sprite) {
+    components.sprite = { ...components.sprite, frame: Math.floor(Math.max(0, value)) };
   }
   return { ...node, components };
 }

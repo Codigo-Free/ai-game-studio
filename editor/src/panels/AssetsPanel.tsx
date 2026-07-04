@@ -137,7 +137,42 @@ export function AssetsPanel() {
             title={`${asset.path} — arrastra al lienzo`}
           >
             <Thumbnail root={loaded.root} asset={asset} />
-            <span className="asset-name">{asset.id}</span>
+            <span className="asset-name">
+              {asset.id}
+              {asset.spritesheet && <em> ▦</em>}
+            </span>
+            {asset.kind === "image" && (
+              <button
+                className="asset-config"
+                title="Configurar spritesheet (ancho×alto de frame; 0 quita la rejilla)"
+                onClick={() => {
+                  const current = asset.spritesheet;
+                  const answer = window.prompt(
+                    `Tamaño de frame para "${asset.id}" (ancho x alto, ej. 32x48; 0 para quitar)`,
+                    current ? `${current.frame_width}x${current.frame_height}` : "32x32",
+                  );
+                  if (answer === null) return;
+                  const match = answer.toLowerCase().match(/^(\d+)\s*[x×]\s*(\d+)$/);
+                  const assets = loaded.project.assets.map((a) => {
+                    if (a.id !== asset.id) return a;
+                    if (!match || Number(match[1]) === 0 || Number(match[2]) === 0) {
+                      const { spritesheet: _removed, ...rest } = a;
+                      return rest;
+                    }
+                    return {
+                      ...a,
+                      spritesheet: {
+                        frame_width: Number(match[1]),
+                        frame_height: Number(match[2]),
+                      },
+                    };
+                  });
+                  dispatch({ type: "UPDATE_ASSETS", assets });
+                }}
+              >
+                ▦
+              </button>
+            )}
           </div>
         ))}
       </div>

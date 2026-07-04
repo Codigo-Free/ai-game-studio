@@ -306,6 +306,7 @@ fn extract_sprites(world: &World, alpha: f32) -> Vec<SpriteInstance> {
             opacity: sprite.opacity,
             layer: sprite.layer,
             texture: sprite.texture,
+            uv: sprite.uv(),
         });
     });
     sprites

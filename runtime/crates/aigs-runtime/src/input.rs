@@ -13,6 +13,7 @@ pub use winit::keyboard::KeyCode;
 pub struct Input {
     pressed: HashSet<KeyCode>,
     just_pressed: HashSet<KeyCode>,
+    just_released: HashSet<KeyCode>,
     mouse_pressed: HashSet<MouseButton>,
     mouse_just_pressed: HashSet<MouseButton>,
     mouse_position: (f32, f32),
@@ -28,6 +29,11 @@ impl Input {
     /// The key went down since the previous simulation tick.
     pub fn key_just_pressed(&self, key: KeyCode) -> bool {
         self.just_pressed.contains(&key)
+    }
+
+    /// The key went up since the previous simulation tick.
+    pub fn key_just_released(&self, key: KeyCode) -> bool {
+        self.just_released.contains(&key)
     }
 
     pub fn mouse_pressed(&self, button: MouseButton) -> bool {
@@ -62,7 +68,9 @@ impl Input {
                 }
             }
             ElementState::Released => {
-                self.pressed.remove(&code);
+                if self.pressed.remove(&code) {
+                    self.just_released.insert(code);
+                }
             }
         }
     }
@@ -95,8 +103,8 @@ impl Input {
             if self.pressed.insert(code) {
                 self.just_pressed.insert(code);
             }
-        } else {
-            self.pressed.remove(&code);
+        } else if self.pressed.remove(&code) {
+            self.just_released.insert(code);
         }
     }
 
@@ -116,6 +124,7 @@ impl Input {
     /// Clears per-tick state; called after each simulation tick.
     pub(crate) fn end_tick(&mut self) {
         self.just_pressed.clear();
+        self.just_released.clear();
         self.mouse_just_pressed.clear();
     }
 }

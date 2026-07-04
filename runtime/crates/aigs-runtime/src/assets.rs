@@ -27,8 +27,13 @@ pub enum AssetError {
 #[derive(Debug, Clone, Copy)]
 pub struct TextureInfo {
     pub id: TextureId,
+    /// Full texture size in pixels.
     pub width: f32,
     pub height: f32,
+    /// Spritesheet grid and frame size, when the asset declares one.
+    pub sheet: Option<crate::components::SheetGrid>,
+    pub frame_width: f32,
+    pub frame_height: f32,
 }
 
 /// Runtime catalog of loaded assets, keyed by asset id.
@@ -66,12 +71,23 @@ impl AssetStore {
                 .to_rgba8();
             let (width, height) = decoded.dimensions();
             let id = renderer.create_texture_rgba(width, height, decoded.as_raw());
+            let sheet = asset.spritesheet.map(|sheet| crate::components::SheetGrid {
+                columns: (width / sheet.frame_width.max(1)).max(1),
+                rows: (height / sheet.frame_height.max(1)).max(1),
+            });
+            let (frame_width, frame_height) = match asset.spritesheet {
+                Some(spec) => (spec.frame_width as f32, spec.frame_height as f32),
+                None => (width as f32, height as f32),
+            };
             store.textures.insert(
                 asset.id.clone(),
                 TextureInfo {
                     id,
                     width: width as f32,
                     height: height as f32,
+                    sheet,
+                    frame_width,
+                    frame_height,
                 },
             );
         }

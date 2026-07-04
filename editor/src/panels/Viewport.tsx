@@ -109,11 +109,15 @@ export function Viewport() {
     };
   };
 
+  const sheetOf = (assetId: string) =>
+    assets.find((a: Asset) => a.id === assetId)?.spritesheet;
+
   const spriteSize = (sprite: SpriteComponent) => {
     const img = imagesRef.current.get(sprite.asset);
+    const sheet = sheetOf(sprite.asset);
     return {
-      w: sprite.width ?? img?.naturalWidth ?? 64,
-      h: sprite.height ?? img?.naturalHeight ?? 64,
+      w: sprite.width ?? sheet?.frame_width ?? img?.naturalWidth ?? 64,
+      h: sprite.height ?? sheet?.frame_height ?? img?.naturalHeight ?? 64,
     };
   };
 
@@ -203,7 +207,15 @@ export function Viewport() {
       ctx.rotate((world.rotation * Math.PI) / 180);
       ctx.scale(world.scaleX * view.zoom, world.scaleY * view.zoom);
       ctx.globalAlpha = sprite.opacity ?? 1;
-      if (img && img.complete && img.naturalWidth > 0) {
+      const sheet = sheetOf(sprite.asset);
+      if (img && img.complete && img.naturalWidth > 0 && sheet) {
+        const columns = Math.max(1, Math.floor(img.naturalWidth / sheet.frame_width));
+        const rows = Math.max(1, Math.floor(img.naturalHeight / sheet.frame_height));
+        const index = Math.floor(Math.max(0, sprite.frame ?? 0)) % (columns * rows);
+        const sx = (index % columns) * sheet.frame_width;
+        const sy = Math.floor(index / columns) * sheet.frame_height;
+        ctx.drawImage(img, sx, sy, sheet.frame_width, sheet.frame_height, -w / 2, -h / 2, w, h);
+      } else if (img && img.complete && img.naturalWidth > 0) {
         ctx.drawImage(img, -w / 2, -h / 2, w, h);
       } else {
         ctx.fillStyle = "#7f5af0";

@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use aigs_ecs::{Entity, World};
-use aigs_project::{ActionSpec, EntityNode, EventSpec, Project, Scene};
+use aigs_project::{ActionSpec, Animator, EntityNode, EventSpec, Project, Scene};
 
 use crate::audio::AudioPlayer;
 use crate::components::{Camera2D, Sprite, Transform2D};
@@ -29,6 +29,12 @@ struct BoundBehavior {
     action: ActionSpec,
 }
 
+/// A running animation state machine (one per entity with an `animator`).
+struct RunningAnimator {
+    spec: Animator,
+    current: String,
+}
+
 /// Runs a project: owns the loaded scenes, the current world population,
 /// the animation playback and the behavior rules.
 pub struct GamePlayer<R: ResolveTexture> {
@@ -40,6 +46,7 @@ pub struct GamePlayer<R: ResolveTexture> {
     playback: AnimationPlayback,
     physics: Option<PhysicsWorld>,
     behaviors: Vec<BoundBehavior>,
+    animators: Vec<RunningAnimator>,
     pending_scene: Option<String>,
     scene_started: bool,
     warnings: Vec<String>,
@@ -64,6 +71,7 @@ impl<R: ResolveTexture> GamePlayer<R> {
             playback: AnimationPlayback::default(),
             physics: None,
             behaviors: Vec::new(),
+            animators: Vec::new(),
             pending_scene: None,
             scene_started: false,
             warnings: Vec::new(),
@@ -99,6 +107,26 @@ impl<R: ResolveTexture> GamePlayer<R> {
         self.warnings = self.playback.warnings().to_vec();
         self.behaviors = bind_behaviors(&scene.entities, &instance, &mut self.warnings);
         self.physics = PhysicsWorld::build(world, scene.gravity.unwrap_or_default());
+
+        // Animation state machines: their animations don't autostart — the
+        // machine drives them, beginning with the initial state.
+        self.animators = collect_animators(&scene.entities, &mut self.warnings);
+        for animator in &self.animators {
+            for animation in animator.spec.states.values() {
+                self.playback.stop(animation);
+            }
+        }
+        for animator in &self.animators {
+            if let Some(animation) = animator.spec.states.get(&animator.current) {
+                self.playback.restart(animation);
+            } else {
+                self.warnings.push(format!(
+                    "animator: initial state \"{}\" is not in states",
+                    animator.current
+                ));
+            }
+        }
+
         self.audio.set_music(scene.music.as_ref());
         self.warnings.extend(self.audio.take_warnings());
         self.instance = instance;
@@ -135,6 +163,10 @@ impl<R: ResolveTexture> GamePlayer<R> {
                     parse_key(key).is_some_and(|code| input.key_just_pressed(code)),
                     false,
                 ),
+                EventSpec::KeyReleased { key } => (
+                    parse_key(key).is_some_and(|code| input.key_just_released(code)),
+                    false,
+                ),
                 EventSpec::Click => (clicked == Some(behavior.entity), false),
                 EventSpec::SceneStart => (started, false),
                 EventSpec::AnimationEnd { animation } => {
@@ -148,6 +180,45 @@ impl<R: ResolveTexture> GamePlayer<R> {
         }
         for (entity, action, continuous) in to_run {
             self.run_action(world, entity, &action, continuous, time.delta);
+        }
+
+        // Animation state machines: evaluate transitions on input events.
+        for animator in &mut self.animators {
+            for transition in &animator.spec.transitions {
+                if transition.from != animator.current && transition.from != "any" {
+                    continue;
+                }
+                if transition.to == animator.current {
+                    continue;
+                }
+                let fires = match &transition.when {
+                    EventSpec::KeyDown { key } => {
+                        parse_key(key).is_some_and(|code| input.key_pressed(code))
+                    }
+                    EventSpec::KeyPressed { key } => {
+                        parse_key(key).is_some_and(|code| input.key_just_pressed(code))
+                    }
+                    EventSpec::KeyReleased { key } => {
+                        parse_key(key).is_some_and(|code| input.key_just_released(code))
+                    }
+                    EventSpec::SceneStart => started,
+                    EventSpec::AnimationEnd { animation } => {
+                        finished.iter().any(|name| name == animation)
+                    }
+                    // Click/collision transitions are not supported in v0.
+                    _ => false,
+                };
+                if fires {
+                    if let Some(old) = animator.spec.states.get(&animator.current) {
+                        self.playback.stop(old);
+                    }
+                    animator.current = transition.to.clone();
+                    if let Some(new) = animator.spec.states.get(&animator.current) {
+                        self.playback.restart(new);
+                    }
+                    break;
+                }
+            }
         }
 
         // Physics step (after behaviors so kinematic bodies follow input),
@@ -225,6 +296,42 @@ impl<R: ResolveTexture> GamePlayer<R> {
                 self.warnings.extend(self.audio.take_warnings());
             }
         }
+    }
+}
+
+fn collect_animators(entities: &[EntityNode], warnings: &mut Vec<String>) -> Vec<RunningAnimator> {
+    let mut animators = Vec::new();
+    collect_animators_rec(entities, warnings, &mut animators);
+    animators
+}
+
+fn collect_animators_rec(
+    entities: &[EntityNode],
+    warnings: &mut Vec<String>,
+    into: &mut Vec<RunningAnimator>,
+) {
+    for node in entities {
+        if let Some(spec) = &node.components.animator {
+            for transition in &spec.transitions {
+                if transition.from != "any" && !spec.states.contains_key(&transition.from) {
+                    warnings.push(format!(
+                        "animator \"{}\": transition from unknown state \"{}\"",
+                        node.id, transition.from
+                    ));
+                }
+                if !spec.states.contains_key(&transition.to) {
+                    warnings.push(format!(
+                        "animator \"{}\": transition to unknown state \"{}\"",
+                        node.id, transition.to
+                    ));
+                }
+            }
+            into.push(RunningAnimator {
+                current: spec.initial.clone(),
+                spec: spec.clone(),
+            });
+        }
+        collect_animators_rec(&node.children, warnings, into);
     }
 }
 
@@ -386,6 +493,9 @@ mod tests {
                 id: Default::default(),
                 width: 32.0,
                 height: 32.0,
+                sheet: None,
+                frame_width: 32.0,
+                frame_height: 32.0,
             })
         }
     }
@@ -681,6 +791,91 @@ mod tests {
         }
         let y = crate_y(&world);
         assert!(y < -100.0, "sensor must not block the fall, y = {y}");
+    }
+
+    #[test]
+    fn animator_switches_states_on_input() {
+        let project = Project::from_json(
+            r#"{
+                "format": { "kind": "aigs-project", "version": 0 },
+                "name": "Anim", "initial_scene": "s", "scenes": ["s"]
+            }"#,
+        )
+        .unwrap();
+        let scene = Scene::from_json(
+            r#"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "s",
+                "entities": [{
+                    "id": "walker", "name": "Walker",
+                    "components": {
+                        "transform2d": {},
+                        "sprite": { "asset": "walker" },
+                        "animator": {
+                            "initial": "idle",
+                            "states": { "idle": "anim-idle", "walk": "anim-walk" },
+                            "transitions": [
+                                { "from": "idle", "to": "walk",
+                                  "when": { "type": "key_down", "key": "ArrowRight" } },
+                                { "from": "walk", "to": "idle",
+                                  "when": { "type": "key_released", "key": "ArrowRight" } }
+                            ]
+                        }
+                    }
+                }],
+                "animations": [
+                    { "name": "anim-idle", "fps": 10, "loop": true,
+                      "tracks": [{ "entity": "walker", "property": "sprite.frame",
+                        "keyframes": [ { "frame": 0, "value": 0.0 }, { "frame": 2, "value": 0.0 } ] }] },
+                    { "name": "anim-walk", "fps": 10, "loop": true,
+                      "tracks": [{ "entity": "walker", "property": "sprite.frame",
+                        "keyframes": [ { "frame": 0, "value": 2.0 }, { "frame": 4, "value": 5.9 } ] }] }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let mut scenes = HashMap::new();
+        scenes.insert("s".to_string(), scene);
+        let mut world = World::new();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            &mut world,
+        )
+        .unwrap();
+        let mut input = Input::default();
+        let time = tick_time();
+
+        let frame = |world: &World| {
+            let mut value = -1.0;
+            world.for_each::<crate::Sprite>(|_, sprite| value = sprite.frame);
+            value
+        };
+
+        // Initial state: idle animation runs (frame stays 0).
+        player.update(&mut world, &time, &input);
+        assert_eq!(frame(&world), 0.0, "idle keeps frame 0");
+
+        // Hold right: walk state animates frames >= 2.
+        input.simulate_key(KeyCode::ArrowRight, true);
+        player.update(&mut world, &time, &input);
+        input.simulate_end_tick();
+        player.update(&mut world, &time, &input);
+        assert!(
+            frame(&world) >= 2.0,
+            "walk frames start at 2, got {}",
+            frame(&world)
+        );
+
+        // Release: back to idle. The transition happens this tick; the idle
+        // animation applies its values from the next advance on.
+        input.simulate_key(KeyCode::ArrowRight, false);
+        player.update(&mut world, &time, &input);
+        input.simulate_end_tick();
+        player.update(&mut world, &time, &input);
+        assert_eq!(frame(&world), 0.0, "released -> idle resets frame");
     }
 
     #[test]

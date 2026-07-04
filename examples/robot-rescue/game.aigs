@@ -18,6 +18,15 @@
       "path": "assets/robot.png"
     },
     {
+      "id": "robot-walk",
+      "kind": "image",
+      "path": "assets/robot-walk.png",
+      "spritesheet": {
+        "frame_width": 48,
+        "frame_height": 48
+      }
+    },
+    {
       "id": "pet",
       "kind": "image",
       "path": "assets/pet.png"

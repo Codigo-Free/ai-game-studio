@@ -40,7 +40,12 @@ pub struct SpriteInstance {
     /// Higher layers draw on top.
     pub layer: i32,
     pub texture: TextureId,
+    /// Texture sub-rectangle `(u0, v0, u1, v1)`; `FULL_TEXTURE` for all of it.
+    pub uv: [f32; 4],
 }
+
+/// UV rect covering the whole texture.
+pub const FULL_TEXTURE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
 
 /// Camera state used to build the view-projection matrix.
 #[derive(Debug, Clone, Copy)]
@@ -67,6 +72,7 @@ struct RawInstance {
     half_size: [f32; 2],
     rotation: f32,
     opacity: f32,
+    uv_rect: [f32; 4],
 }
 
 #[repr(C)]
@@ -197,6 +203,7 @@ impl Renderer {
             1 => Float32x2,
             2 => Float32,
             3 => Float32,
+            4 => Float32x4,
         ];
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("aigs-sprite-pipeline"),
@@ -367,6 +374,7 @@ impl Renderer {
                 half_size: [sprite.half_width, sprite.half_height],
                 rotation: sprite.rotation,
                 opacity: sprite.opacity,
+                uv_rect: sprite.uv,
             })
             .collect();
         if !raw.is_empty() {

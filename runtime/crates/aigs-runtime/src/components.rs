@@ -44,6 +44,13 @@ impl Transform2D {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PrevTransform2D(pub Transform2D);
 
+/// Spritesheet grid of a texture (columns × rows of equal frames).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SheetGrid {
+    pub columns: u32,
+    pub rows: u32,
+}
+
 /// A textured quad.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Sprite {
@@ -54,6 +61,10 @@ pub struct Sprite {
     pub opacity: f32,
     /// Higher layers draw on top.
     pub layer: i32,
+    /// Spritesheet frame index (fractional values floor; animatable).
+    pub frame: f32,
+    /// Present when the texture is a spritesheet.
+    pub sheet: Option<SheetGrid>,
 }
 
 impl Sprite {
@@ -64,7 +75,25 @@ impl Sprite {
             height,
             opacity: 1.0,
             layer: 0,
+            frame: 0.0,
+            sheet: None,
         }
+    }
+
+    /// UV rectangle of the current frame (full texture without a sheet).
+    pub fn uv(&self) -> [f32; 4] {
+        let Some(sheet) = self.sheet else {
+            return aigs_render::FULL_TEXTURE;
+        };
+        let total = (sheet.columns * sheet.rows).max(1);
+        let index = (self.frame.max(0.0) as u32) % total;
+        let column = index % sheet.columns.max(1);
+        let row = index / sheet.columns.max(1);
+        let width = 1.0 / sheet.columns.max(1) as f32;
+        let height = 1.0 / sheet.rows.max(1) as f32;
+        let u0 = column as f32 * width;
+        let v0 = row as f32 * height;
+        [u0, v0, u0 + width, v0 + height]
     }
 }
 

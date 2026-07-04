@@ -92,6 +92,17 @@ pub struct Asset {
     pub kind: AssetKind,
     /// Path relative to the project root.
     pub path: String,
+    /// Grid metadata turning an image into a spritesheet (milestone M10).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spritesheet: Option<Spritesheet>,
+}
+
+/// Fixed-size frame grid over an image, row-major from the top-left.
+/// Columns/rows derive from the texture size.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Spritesheet {
+    pub frame_width: u32,
+    pub frame_height: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -184,11 +195,36 @@ pub struct Components {
     pub rigidbody2d: Option<Rigidbody2D>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub collider2d: Option<Collider2D>,
+    /// Animation state machine (milestone M10).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub animator: Option<Animator>,
     /// Code-free event → action rules (see `Behavior`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub behaviors: Vec<Behavior>,
     #[serde(flatten)]
     pub extra: BTreeMap<String, serde_json::Value>,
+}
+
+/// Animation state machine: named states mapped to scene animations, with
+/// event-driven transitions. Animations referenced by an animator do NOT
+/// autostart with the scene; the animator drives them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Animator {
+    /// State active when the scene starts.
+    pub initial: String,
+    /// State name → scene animation name.
+    pub states: BTreeMap<String, String>,
+    #[serde(default)]
+    pub transitions: Vec<Transition>,
+}
+
+/// Moves the machine from `from` to `to` when the event fires.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Transition {
+    /// Source state, or `"any"` to transition from every state.
+    pub from: String,
+    pub to: String,
+    pub when: EventSpec,
 }
 
 /// A code-free rule: when `on` happens, run `do`.
@@ -207,6 +243,8 @@ pub enum EventSpec {
     KeyDown { key: String },
     /// The key went down this tick.
     KeyPressed { key: String },
+    /// The key went up this tick (milestone M10).
+    KeyReleased { key: String },
     /// The entity was clicked with the left mouse button.
     Click,
     /// The scene just started (fires once).
@@ -267,6 +305,9 @@ impl Default for Transform2D {
 pub struct Sprite {
     /// Id of an `Asset` of kind `image` in the project manifest.
     pub asset: String,
+    /// Spritesheet frame index (row-major, default 0).
+    #[serde(default)]
+    pub frame: u32,
     /// Base width in world units; defaults to the texture width.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<f32>,
@@ -462,6 +503,7 @@ mod tests {
                 id: "hero".into(),
                 kind: AssetKind::Image,
                 path: "assets/hero.png".into(),
+                spritesheet: None,
             }],
         }
     }
@@ -482,6 +524,7 @@ mod tests {
                     transform2d: Some(Transform2D::default()),
                     sprite: Some(Sprite {
                         asset: "hero".into(),
+                        frame: 0,
                         width: Some(64.0),
                         height: None,
                         opacity: 1.0,
@@ -611,6 +654,56 @@ mod tests {
         assert!(matches!(
             crate_components.behaviors[1].on,
             EventSpec::Collision { with: None }
+        ));
+        let saved = scene.to_json().unwrap();
+        assert_eq!(Scene::from_json(&saved).unwrap(), scene);
+    }
+
+    #[test]
+    fn spritesheet_and_animator_round_trip() {
+        let manifest = r#"{
+            "format": { "kind": "aigs-project", "version": 0 },
+            "name": "X",
+            "initial_scene": "s",
+            "scenes": ["s"],
+            "assets": [{
+                "id": "walker", "kind": "image", "path": "a.png",
+                "spritesheet": { "frame_width": 32, "frame_height": 48 }
+            }]
+        }"#;
+        let project = Project::from_json(manifest).unwrap();
+        let sheet = project.assets[0].spritesheet.unwrap();
+        assert_eq!((sheet.frame_width, sheet.frame_height), (32, 48));
+
+        let scene_json = r#"{
+            "format": { "kind": "aigs-scene", "version": 0 },
+            "name": "s",
+            "entities": [{
+                "id": "hero", "name": "Hero",
+                "components": {
+                    "sprite": { "asset": "walker", "frame": 2 },
+                    "animator": {
+                        "initial": "idle",
+                        "states": { "idle": "anim-idle", "walk": "anim-walk" },
+                        "transitions": [
+                            { "from": "idle", "to": "walk",
+                              "when": { "type": "key_down", "key": "ArrowRight" } },
+                            { "from": "walk", "to": "idle",
+                              "when": { "type": "key_released", "key": "ArrowRight" } }
+                        ]
+                    }
+                }
+            }]
+        }"#;
+        let scene = Scene::from_json(scene_json).unwrap();
+        let components = &scene.entities[0].components;
+        assert_eq!(components.sprite.as_ref().unwrap().frame, 2);
+        let animator = components.animator.as_ref().unwrap();
+        assert_eq!(animator.initial, "idle");
+        assert_eq!(animator.states.len(), 2);
+        assert!(matches!(
+            animator.transitions[1].when,
+            EventSpec::KeyReleased { ref key } if key == "ArrowRight"
         ));
         let saved = scene.to_json().unwrap();
         assert_eq!(Scene::from_json(&saved).unwrap(), scene);

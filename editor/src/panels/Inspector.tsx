@@ -3,6 +3,7 @@ import { allEntityIds, findEntity, patchComponents, updateEntity } from "../docu
 import { useStore } from "../store";
 import type {
   ActionSpec,
+  AnimatorComponent,
   Behavior,
   BodyType,
   Components,
@@ -26,7 +27,9 @@ function describeBehavior(behavior: Behavior): string {
       ? `tecla ${on.key} (mantenida)`
       : on.type === "key_pressed"
         ? `tecla ${on.key}`
-        : on.type === "click"
+        : on.type === "key_released"
+          ? `tecla ${on.key} (soltada)`
+          : on.type === "click"
           ? "clic"
           : on.type === "scene_start"
             ? "inicio de escena"
@@ -74,7 +77,7 @@ function BehaviorForm({
 
   const add = () => {
     const on: EventSpec =
-      eventType === "key_down" || eventType === "key_pressed"
+      eventType === "key_down" || eventType === "key_pressed" || eventType === "key_released"
         ? { type: eventType, key }
         : eventType === "animation_end"
           ? { type: "animation_end", animation: eventAnim || animations[0] || "" }
@@ -107,6 +110,7 @@ function BehaviorForm({
         <select value={eventType} onChange={(e) => setEventType(e.target.value as EventSpec["type"])}>
           <option value="key_down">tecla mantenida</option>
           <option value="key_pressed">tecla pulsada</option>
+          <option value="key_released">tecla soltada</option>
           <option value="click">clic en la entidad</option>
           <option value="scene_start">inicia la escena</option>
           <option value="animation_end">termina animación</option>
@@ -120,7 +124,7 @@ function BehaviorForm({
             ))}
           </select>
         )}
-        {(eventType === "key_down" || eventType === "key_pressed") && (
+        {(eventType === "key_down" || eventType === "key_pressed" || eventType === "key_released") && (
           <input
             list="common-keys"
             value={key}
@@ -218,6 +222,177 @@ function NumberField({
         }}
       />
     </label>
+  );
+}
+
+function AnimatorSection({
+  animator,
+  animations,
+  onChange,
+}: {
+  animator?: AnimatorComponent;
+  animations: string[];
+  onChange: (animator: AnimatorComponent | undefined) => void;
+}) {
+  const [newState, setNewState] = useState("");
+  const [transitionFrom, setTransitionFrom] = useState("");
+  const [transitionTo, setTransitionTo] = useState("");
+  const [transitionKey, setTransitionKey] = useState("ArrowRight");
+  const [transitionEvent, setTransitionEvent] = useState("key_down");
+
+  return (
+    <section>
+      <h4>
+        Animator
+        {!animator && (
+          <button
+            onClick={() =>
+              onChange({ initial: "idle", states: { idle: animations[0] ?? "" }, transitions: [] })
+            }
+            disabled={animations.length === 0}
+            title={animations.length === 0 ? "Crea animaciones en el Timeline primero" : ""}
+          >
+            ＋
+          </button>
+        )}
+        {animator && <button onClick={() => onChange(undefined)}>✕</button>}
+      </h4>
+      {animator && (
+        <div className="field-grid">
+          <label className="field">
+            <span>Inicial</span>
+            <select
+              value={animator.initial}
+              onChange={(e) => onChange({ ...animator, initial: e.target.value })}
+            >
+              {Object.keys(animator.states).map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </label>
+          {Object.entries(animator.states).map(([name, animation]) => (
+            <div key={name} className="behavior-row">
+              <span className="behavior-text">{name} →</span>
+              <select
+                value={animation}
+                onChange={(e) =>
+                  onChange({ ...animator, states: { ...animator.states, [name]: e.target.value } })
+                }
+              >
+                {animations.map((a) => (
+                  <option key={a} value={a}>{a}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => {
+                  const states = { ...animator.states };
+                  delete states[name];
+                  onChange({
+                    ...animator,
+                    states,
+                    transitions: (animator.transitions ?? []).filter(
+                      (t) => t.from !== name && t.to !== name,
+                    ),
+                  });
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <div className="behavior-form-row">
+            <input
+              placeholder="nuevo estado…"
+              value={newState}
+              onChange={(e) => setNewState(e.target.value)}
+              style={{ width: 110 }}
+            />
+            <button
+              onClick={() => {
+                const name = newState.trim();
+                if (!name || animator.states[name]) return;
+                onChange({
+                  ...animator,
+                  states: { ...animator.states, [name]: animations[0] ?? "" },
+                });
+                setNewState("");
+              }}
+            >
+              ＋ estado
+            </button>
+          </div>
+          {(animator.transitions ?? []).map((transition, index) => (
+            <div key={index} className="behavior-row">
+              <span className="behavior-text">
+                {transition.from} → {transition.to}
+                {" si "}
+                {"key" in transition.when
+                  ? `${transition.when.key} (${transition.when.type.replace("key_", "")})`
+                  : transition.when.type}
+              </span>
+              <button
+                onClick={() =>
+                  onChange({
+                    ...animator,
+                    transitions: (animator.transitions ?? []).filter((_, i) => i !== index),
+                  })
+                }
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <div className="behavior-form-row">
+            <select value={transitionFrom} onChange={(e) => setTransitionFrom(e.target.value)}>
+              <option value="">de…</option>
+              <option value="any">any</option>
+              {Object.keys(animator.states).map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <select value={transitionTo} onChange={(e) => setTransitionTo(e.target.value)}>
+              <option value="">a…</option>
+              {Object.keys(animator.states).map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+            <select value={transitionEvent} onChange={(e) => setTransitionEvent(e.target.value)}>
+              <option value="key_down">tecla mantenida</option>
+              <option value="key_pressed">tecla pulsada</option>
+              <option value="key_released">tecla soltada</option>
+            </select>
+            <input
+              list="common-keys"
+              value={transitionKey}
+              onChange={(e) => setTransitionKey(e.target.value)}
+              style={{ width: 90 }}
+            />
+            <button
+              onClick={() => {
+                if (!transitionFrom || !transitionTo) return;
+                onChange({
+                  ...animator,
+                  transitions: [
+                    ...(animator.transitions ?? []),
+                    {
+                      from: transitionFrom,
+                      to: transitionTo,
+                      when: {
+                        type: transitionEvent as "key_down" | "key_pressed" | "key_released",
+                        key: transitionKey,
+                      },
+                    },
+                  ],
+                });
+              }}
+            >
+              ＋ transición
+            </button>
+          </div>
+          <p className="hint">Las animaciones usadas por estados no se auto-reproducen</p>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -423,6 +598,7 @@ export function Inspector() {
                   ))}
                 </select>
               </label>
+              <NumberField label="Frame" value={sprite.frame ?? 0} onCommit={(frame) => patch({ sprite: { ...sprite, frame: Math.max(0, Math.floor(frame)) } })} />
               <NumberField label="Opacidad" value={sprite.opacity ?? 1} step={0.05} onCommit={(opacity) => patch({ sprite: { ...sprite, opacity } })} />
               <NumberField label="Capa" value={sprite.layer ?? 0} onCommit={(layer) => patch({ sprite: { ...sprite, layer } })} />
               <NumberField label="Ancho" value={sprite.width ?? 0} onCommit={(width) => patch({ sprite: { ...sprite, width: width || undefined } })} />
@@ -431,6 +607,12 @@ export function Inspector() {
             </div>
           )}
         </section>
+
+        <AnimatorSection
+          animator={node.components?.animator}
+          animations={(currentScene.animations ?? []).map((a) => a.name)}
+          onChange={(animator) => patch({ animator })}
+        />
 
         <section>
           <h4>Comportamientos</h4>
