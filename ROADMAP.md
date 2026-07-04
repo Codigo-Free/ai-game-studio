@@ -15,8 +15,8 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M2 | Formato de proyecto y pipeline de assets | 🟢 Completado |
 | M3 | Editor base: viewport, árbol, inspector, recursos, consola | 🟢 Completado (validado manualmente) |
 | M4 | Timeline y animación por keyframes | 🟢 Completado (validado manualmente) |
-| M5 | Escenas múltiples y modo Play | 🔵 Código completo; pendiente validación manual |
-| M6 | Demo, calidad y release **0.1** | ⚪ |
+| M5 | Escenas múltiples y modo Play | 🟢 Completado (validado manualmente) |
+| M6 | Demo, calidad y release **0.1** | 🔵 Siguiente |
 
 ## Fase 2 — Motor completo ⚪
 
