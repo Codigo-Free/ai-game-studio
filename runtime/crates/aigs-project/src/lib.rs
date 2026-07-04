@@ -111,10 +111,26 @@ pub enum AssetKind {
 pub struct Scene {
     pub format: FormatHeader,
     pub name: String,
+    /// World gravity in units/s² applied to dynamic bodies.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gravity: Option<Gravity>,
     #[serde(default)]
     pub entities: Vec<EntityNode>,
     #[serde(default)]
     pub animations: Vec<Animation>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Gravity {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Default for Gravity {
+    fn default() -> Self {
+        Self { x: 0.0, y: -980.0 }
+    }
 }
 
 /// Entity as authored in the editor: an id, a display name, its components
@@ -141,6 +157,10 @@ pub struct Components {
     pub sprite: Option<Sprite>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub camera2d: Option<Camera2D>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rigidbody2d: Option<Rigidbody2D>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub collider2d: Option<Collider2D>,
     /// Code-free event → action rules (see `Behavior`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub behaviors: Vec<Behavior>,
@@ -170,6 +190,12 @@ pub enum EventSpec {
     SceneStart,
     /// A non-looping animation of the scene just finished.
     AnimationEnd { animation: String },
+    /// This entity started touching another collider (milestone M8).
+    Collision {
+        /// Optional filter: only fire when touching this entity id.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        with: Option<String>,
+    },
 }
 
 /// Actions a behavior can run (format v0).
@@ -239,6 +265,87 @@ impl Default for Camera2D {
     fn default() -> Self {
         Self { zoom: 1.0 }
     }
+}
+
+/// Physics body (milestone M8). Requires a `collider2d` to interact.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Rigidbody2D {
+    pub body: BodyType,
+    /// Multiplier over the scene gravity (dynamic bodies only).
+    pub gravity_scale: f32,
+    /// Initial linear velocity in units/s.
+    pub vx: f32,
+    pub vy: f32,
+    /// Prevents the physics engine from rotating the body.
+    pub fixed_rotation: bool,
+}
+
+impl Default for Rigidbody2D {
+    fn default() -> Self {
+        Self {
+            body: BodyType::Dynamic,
+            gravity_scale: 1.0,
+            vx: 0.0,
+            vy: 0.0,
+            fixed_rotation: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BodyType {
+    /// Simulated by physics (gravity, collisions).
+    #[default]
+    Dynamic,
+    /// Driven by transforms (behaviors/animations); pushes dynamic bodies.
+    Kinematic,
+    /// Never moves (floors, walls).
+    Static,
+}
+
+/// Collision shape (milestone M8). Without a `rigidbody2d` it acts as a
+/// static collider.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Collider2D {
+    pub shape: ColliderShape,
+    /// Box extents; default: the sprite size (or 32×32 without sprite).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<f32>,
+    /// Circle radius; default: half the sprite's larger side.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub radius: Option<f32>,
+    /// Sensors detect contacts but don't collide physically.
+    pub sensor: bool,
+    /// Bounciness, `0.0..=1.0`.
+    pub restitution: f32,
+    pub friction: f32,
+}
+
+impl Default for Collider2D {
+    fn default() -> Self {
+        Self {
+            shape: ColliderShape::Box,
+            width: None,
+            height: None,
+            radius: None,
+            sensor: false,
+            restitution: 0.0,
+            friction: 0.5,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColliderShape {
+    #[default]
+    Box,
+    Circle,
 }
 
 // ---------------------------------------------------------------------------
@@ -337,6 +444,7 @@ mod tests {
                 version: FORMAT_VERSION,
             },
             name: "main".into(),
+            gravity: None,
             entities: vec![EntityNode {
                 id: "hero".into(),
                 name: "Hero".into(),
@@ -426,6 +534,56 @@ mod tests {
             Project::from_json(json),
             Err(FormatError::UnsupportedVersion { found: 999, .. })
         ));
+    }
+
+    #[test]
+    fn physics_components_round_trip() {
+        let json = r#"{
+            "format": { "kind": "aigs-scene", "version": 0 },
+            "name": "physics",
+            "gravity": { "y": -500.0 },
+            "entities": [
+                {
+                    "id": "crate", "name": "Crate",
+                    "components": {
+                        "sprite": { "asset": "crate" },
+                        "rigidbody2d": { "vy": -10.0 },
+                        "collider2d": { "restitution": 0.6 },
+                        "behaviors": [
+                            { "on": { "type": "collision", "with": "floor" },
+                              "do": { "type": "play_animation", "animation": "bump" } },
+                            { "on": { "type": "collision" },
+                              "do": { "type": "move", "dx": 0.0, "dy": 1.0 } }
+                        ]
+                    }
+                },
+                {
+                    "id": "floor", "name": "Floor",
+                    "components": {
+                        "collider2d": { "shape": "box", "width": 800.0, "height": 40.0 }
+                    }
+                }
+            ]
+        }"#;
+        let scene = Scene::from_json(json).unwrap();
+        assert_eq!(scene.gravity.unwrap(), Gravity { x: 0.0, y: -500.0 });
+        let crate_components = &scene.entities[0].components;
+        let body = crate_components.rigidbody2d.as_ref().unwrap();
+        assert_eq!(body.body, BodyType::Dynamic);
+        assert_eq!(body.vy, -10.0);
+        let collider = crate_components.collider2d.as_ref().unwrap();
+        assert_eq!(collider.restitution, 0.6);
+        assert_eq!(collider.width, None, "size defaults to sprite size");
+        assert!(matches!(
+            crate_components.behaviors[0].on,
+            EventSpec::Collision { with: Some(ref id) } if id == "floor"
+        ));
+        assert!(matches!(
+            crate_components.behaviors[1].on,
+            EventSpec::Collision { with: None }
+        ));
+        let saved = scene.to_json().unwrap();
+        assert_eq!(Scene::from_json(&saved).unwrap(), scene);
     }
 
     #[test]

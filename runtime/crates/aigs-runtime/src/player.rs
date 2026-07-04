@@ -8,6 +8,7 @@ use aigs_project::{ActionSpec, EntityNode, EventSpec, Project, Scene};
 
 use crate::components::{Camera2D, Sprite, Transform2D};
 use crate::input::Input;
+use crate::physics::PhysicsWorld;
 use crate::playback::AnimationPlayback;
 use crate::scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
 use crate::time::Time;
@@ -33,7 +34,9 @@ pub struct GamePlayer<R: ResolveTexture> {
     scenes: HashMap<String, Scene>,
     textures: R,
     current: String,
+    instance: SceneInstance,
     playback: AnimationPlayback,
+    physics: Option<PhysicsWorld>,
     behaviors: Vec<BoundBehavior>,
     pending_scene: Option<String>,
     scene_started: bool,
@@ -53,7 +56,9 @@ impl<R: ResolveTexture> GamePlayer<R> {
             scenes,
             textures,
             current: String::new(),
+            instance: SceneInstance::default(),
             playback: AnimationPlayback::default(),
+            physics: None,
             behaviors: Vec::new(),
             pending_scene: None,
             scene_started: false,
@@ -89,6 +94,8 @@ impl<R: ResolveTexture> GamePlayer<R> {
         self.playback = AnimationPlayback::bind(scene, &instance);
         self.warnings = self.playback.warnings().to_vec();
         self.behaviors = bind_behaviors(&scene.entities, &instance, &mut self.warnings);
+        self.physics = PhysicsWorld::build(world, scene.gravity.unwrap_or_default());
+        self.instance = instance;
         self.current = path.to_string();
         self.scene_started = false;
         Ok(())
@@ -127,6 +134,7 @@ impl<R: ResolveTexture> GamePlayer<R> {
                 EventSpec::AnimationEnd { animation } => {
                     (finished.iter().any(|name| name == animation), false)
                 }
+                EventSpec::Collision { .. } => (false, false),
             };
             if fires {
                 to_run.push((behavior.entity, behavior.action.clone(), continuous));
@@ -134,6 +142,44 @@ impl<R: ResolveTexture> GamePlayer<R> {
         }
         for (entity, action, continuous) in to_run {
             self.run_action(world, entity, &action, continuous, time.delta);
+        }
+
+        // Physics step (after behaviors so kinematic bodies follow input),
+        // then collision behaviors fire within the same tick.
+        if let Some(physics) = self.physics.as_mut() {
+            let contacts = physics.step(world, time.delta);
+            if !contacts.is_empty() {
+                let mut collision_actions: Vec<(Entity, ActionSpec)> = Vec::new();
+                for behavior in &self.behaviors {
+                    let EventSpec::Collision { with } = &behavior.on else {
+                        continue;
+                    };
+                    if !world.is_alive(behavior.entity) {
+                        continue;
+                    }
+                    let filter = with.as_ref().and_then(|id| self.instance.entity(id));
+                    let touched = contacts.iter().any(|(a, b)| {
+                        let other = if *a == behavior.entity {
+                            Some(*b)
+                        } else if *b == behavior.entity {
+                            Some(*a)
+                        } else {
+                            None
+                        };
+                        match (other, with) {
+                            (Some(other), Some(_)) => filter == Some(other),
+                            (Some(_), None) => true,
+                            (None, _) => false,
+                        }
+                    });
+                    if touched {
+                        collision_actions.push((behavior.entity, behavior.action.clone()));
+                    }
+                }
+                for (entity, action) in collision_actions {
+                    self.run_action(world, entity, &action, false, time.delta);
+                }
+            }
         }
 
         if let Some(path) = self.pending_scene.take() {
@@ -472,6 +518,117 @@ mod tests {
         let mut world = World::new();
         let player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
         assert_eq!(player.warnings().len(), 1);
+    }
+
+    fn physics_project(crate_behaviors: &str, sensor: bool) -> (Project, HashMap<String, Scene>) {
+        let project = Project::from_json(
+            r#"{
+                "format": { "kind": "aigs-project", "version": 0 },
+                "name": "Physics",
+                "initial_scene": "fall",
+                "scenes": ["fall", "done"]
+            }"#,
+        )
+        .unwrap();
+        let fall = Scene::from_json(&format!(
+            r#"{{
+                "format": {{ "kind": "aigs-scene", "version": 0 }},
+                "name": "fall",
+                "gravity": {{ "x": 0.0, "y": -980.0 }},
+                "entities": [
+                    {{ "id": "crate", "name": "Crate",
+                      "components": {{
+                        "transform2d": {{ "x": 0.0, "y": 200.0 }},
+                        "sprite": {{ "asset": "crate", "width": 32.0, "height": 32.0 }},
+                        "rigidbody2d": {{ "fixed_rotation": true }},
+                        "collider2d": {{}},
+                        "behaviors": [{crate_behaviors}]
+                      }} }},
+                    {{ "id": "floor", "name": "Floor",
+                      "components": {{
+                        "transform2d": {{ "x": 0.0, "y": 0.0 }},
+                        "collider2d": {{ "width": 800.0, "height": 40.0, "sensor": {sensor} }}
+                      }} }}
+                ]
+            }}"#
+        ))
+        .unwrap();
+        let done = Scene::from_json(
+            r#"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "done",
+                "entities": []
+            }"#,
+        )
+        .unwrap();
+        let mut scenes = HashMap::new();
+        scenes.insert("fall".to_string(), fall);
+        scenes.insert("done".to_string(), done);
+        (project, scenes)
+    }
+
+    fn crate_y(world: &World) -> f32 {
+        let mut y = f32::NAN;
+        world.for_each2::<Transform2D, crate::Sprite>(|_, t, _| y = t.y);
+        y
+    }
+
+    #[test]
+    fn dynamic_body_falls_and_rests_on_the_floor() {
+        let (project, scenes) = physics_project("", false);
+        let mut world = World::new();
+        let mut player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let input = Input::default();
+        let time = Time {
+            delta: 1.0 / 60.0,
+            ..Time::default()
+        };
+        for _ in 0..240 {
+            player.update(&mut world, &time, &input);
+        }
+        let y = crate_y(&world);
+        // Rests on the floor: floor top (20) + half box (16) = 36.
+        assert!((y - 36.0).abs() < 2.0, "crate should rest at ~36, got {y}");
+    }
+
+    #[test]
+    fn collision_behavior_switches_scene() {
+        let behaviors = r#"{ "on": { "type": "collision", "with": "floor" },
+                             "do": { "type": "goto_scene", "scene": "done" } }"#;
+        let (project, scenes) = physics_project(behaviors, false);
+        let mut world = World::new();
+        let mut player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let input = Input::default();
+        let time = Time {
+            delta: 1.0 / 60.0,
+            ..Time::default()
+        };
+        for _ in 0..240 {
+            player.update(&mut world, &time, &input);
+            if player.current_scene() == "done" {
+                break;
+            }
+        }
+        assert_eq!(player.current_scene(), "done", "collision must fire");
+    }
+
+    #[test]
+    fn sensor_detects_without_blocking() {
+        let behaviors = r#"{ "on": { "type": "collision" },
+                             "do": { "type": "move", "dx": 500.0, "dy": 0.0 } }"#;
+        let (project, scenes) = physics_project(behaviors, true);
+        let mut world = World::new();
+        let mut player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let input = Input::default();
+        let time = Time {
+            delta: 1.0 / 60.0,
+            ..Time::default()
+        };
+        for _ in 0..240 {
+            player.update(&mut world, &time, &input);
+        }
+        let y = crate_y(&world);
+        assert!(y < -100.0, "sensor must not block the fall, y = {y}");
     }
 
     #[test]

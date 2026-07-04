@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
-import { findEntity, patchComponents, updateEntity } from "../document";
+import { allEntityIds, findEntity, patchComponents, updateEntity } from "../document";
 import { useStore } from "../store";
-import type { ActionSpec, Behavior, Components, EventSpec } from "../types";
+import type {
+  ActionSpec,
+  Behavior,
+  BodyType,
+  Components,
+  EventSpec,
+} from "../types";
 
 const COMMON_KEYS = [
   "ArrowLeft",
@@ -24,7 +30,11 @@ function describeBehavior(behavior: Behavior): string {
           ? "clic"
           : on.type === "scene_start"
             ? "inicio de escena"
-            : `fin de "${on.animation}"`;
+            : on.type === "animation_end"
+              ? `fin de "${on.animation}"`
+              : on.with
+                ? `choca con ${on.with}`
+                : "choca con algo";
   const act = behavior.do;
   const action =
     act.type === "move"
@@ -39,15 +49,18 @@ function describeBehavior(behavior: Behavior): string {
 function BehaviorForm({
   scenes,
   animations,
+  entityIds,
   onAdd,
 }: {
   scenes: string[];
   animations: string[];
+  entityIds: string[];
   onAdd: (behavior: Behavior) => void;
 }) {
   const [eventType, setEventType] = useState<EventSpec["type"]>("key_down");
   const [key, setKey] = useState("ArrowRight");
   const [eventAnim, setEventAnim] = useState("");
+  const [collisionWith, setCollisionWith] = useState("");
   const [actionType, setActionType] = useState<ActionSpec["type"]>("move");
   const [dx, setDx] = useState("200");
   const [dy, setDy] = useState("0");
@@ -60,7 +73,11 @@ function BehaviorForm({
         ? { type: eventType, key }
         : eventType === "animation_end"
           ? { type: "animation_end", animation: eventAnim || animations[0] || "" }
-          : { type: eventType };
+          : eventType === "collision"
+            ? collisionWith
+              ? { type: "collision", with: collisionWith }
+              : { type: "collision" }
+            : { type: eventType };
     const run: ActionSpec =
       actionType === "move"
         ? { type: "move", dx: Number(dx) || 0, dy: Number(dy) || 0 }
@@ -83,7 +100,16 @@ function BehaviorForm({
           <option value="click">clic en la entidad</option>
           <option value="scene_start">inicia la escena</option>
           <option value="animation_end">termina animación</option>
+          <option value="collision">colisiona</option>
         </select>
+        {eventType === "collision" && (
+          <select value={collisionWith} onChange={(e) => setCollisionWith(e.target.value)}>
+            <option value="">con cualquiera</option>
+            {entityIds.map((id) => (
+              <option key={id} value={id}>con {id}</option>
+            ))}
+          </select>
+        )}
         {(eventType === "key_down" || eventType === "key_pressed") && (
           <input
             list="common-keys"
@@ -186,7 +212,47 @@ export function Inspector() {
     return (
       <div className="panel inspector">
         <div className="panel-header">Inspector</div>
-        <div className="panel-empty">Selecciona una entidad</div>
+        {currentScene ? (
+          <div className="panel-body">
+            <section>
+              <h4>Escena: {currentScene.name}</h4>
+              <p className="hint">Gravedad (unidades/s², afecta a cuerpos dinámicos)</p>
+              <div className="field-grid">
+                <NumberField
+                  label="Gravedad X"
+                  value={currentScene.gravity?.x ?? 0}
+                  onCommit={(x) =>
+                    dispatch({
+                      type: "UPDATE_SCENE",
+                      scene: {
+                        ...currentScene,
+                        gravity: { ...currentScene.gravity, x, y: currentScene.gravity?.y ?? -980 },
+                      },
+                      commit: true,
+                    })
+                  }
+                />
+                <NumberField
+                  label="Gravedad Y"
+                  value={currentScene.gravity?.y ?? -980}
+                  onCommit={(y) =>
+                    dispatch({
+                      type: "UPDATE_SCENE",
+                      scene: {
+                        ...currentScene,
+                        gravity: { ...currentScene.gravity, x: currentScene.gravity?.x ?? 0, y },
+                      },
+                      commit: true,
+                    })
+                  }
+                />
+              </div>
+              <p className="hint">Selecciona una entidad para editar sus componentes</p>
+            </section>
+          </div>
+        ) : (
+          <div className="panel-empty">Selecciona una entidad</div>
+        )}
       </div>
     );
   }
@@ -311,12 +377,106 @@ export function Inspector() {
           <BehaviorForm
             scenes={state.loaded?.project.scenes ?? []}
             animations={(currentScene.animations ?? []).map((a) => a.name)}
+            entityIds={allEntityIds(currentScene.entities).filter((id) => id !== node.id)}
             onAdd={(behavior) =>
               patch({
                 behaviors: [...(node.components?.behaviors ?? []), behavior],
               })
             }
           />
+        </section>
+
+        <section>
+          <h4>
+            Rigidbody2D
+            {!node.components?.rigidbody2d && (
+              <button onClick={() => patch({ rigidbody2d: {} })}>＋</button>
+            )}
+            {node.components?.rigidbody2d && (
+              <button onClick={() => patch({ rigidbody2d: undefined })}>✕</button>
+            )}
+          </h4>
+          {node.components?.rigidbody2d && (() => {
+            const body = node.components.rigidbody2d!;
+            return (
+              <div className="field-grid">
+                <label className="field">
+                  <span>Tipo</span>
+                  <select
+                    value={body.body ?? "dynamic"}
+                    onChange={(e) =>
+                      patch({ rigidbody2d: { ...body, body: e.target.value as BodyType } })
+                    }
+                  >
+                    <option value="dynamic">dinámico</option>
+                    <option value="kinematic">kinemático</option>
+                    <option value="static">estático</option>
+                  </select>
+                </label>
+                <NumberField label="Grav. escala" value={body.gravity_scale ?? 1} step={0.1} onCommit={(gravity_scale) => patch({ rigidbody2d: { ...body, gravity_scale } })} />
+                <NumberField label="Vel. X" value={body.vx ?? 0} onCommit={(vx) => patch({ rigidbody2d: { ...body, vx } })} />
+                <NumberField label="Vel. Y" value={body.vy ?? 0} onCommit={(vy) => patch({ rigidbody2d: { ...body, vy } })} />
+                <label className="field">
+                  <span>Sin rotación</span>
+                  <input
+                    type="checkbox"
+                    checked={body.fixed_rotation ?? false}
+                    onChange={(e) => patch({ rigidbody2d: { ...body, fixed_rotation: e.target.checked } })}
+                  />
+                </label>
+              </div>
+            );
+          })()}
+        </section>
+
+        <section>
+          <h4>
+            Collider2D
+            {!node.components?.collider2d && (
+              <button onClick={() => patch({ collider2d: {} })}>＋</button>
+            )}
+            {node.components?.collider2d && (
+              <button onClick={() => patch({ collider2d: undefined })}>✕</button>
+            )}
+          </h4>
+          {node.components?.collider2d && (() => {
+            const collider = node.components.collider2d!;
+            return (
+              <div className="field-grid">
+                <label className="field">
+                  <span>Forma</span>
+                  <select
+                    value={collider.shape ?? "box"}
+                    onChange={(e) =>
+                      patch({ collider2d: { ...collider, shape: e.target.value as "box" | "circle" } })
+                    }
+                  >
+                    <option value="box">caja</option>
+                    <option value="circle">círculo</option>
+                  </select>
+                </label>
+                {(collider.shape ?? "box") === "box" ? (
+                  <>
+                    <NumberField label="Ancho" value={collider.width ?? 0} onCommit={(width) => patch({ collider2d: { ...collider, width: width || undefined } })} />
+                    <NumberField label="Alto" value={collider.height ?? 0} onCommit={(height) => patch({ collider2d: { ...collider, height: height || undefined } })} />
+                  </>
+                ) : (
+                  <NumberField label="Radio" value={collider.radius ?? 0} onCommit={(radius) => patch({ collider2d: { ...collider, radius: radius || undefined } })} />
+                )}
+                <NumberField label="Rebote" value={collider.restitution ?? 0} step={0.05} onCommit={(restitution) => patch({ collider2d: { ...collider, restitution } })} />
+                <NumberField label="Fricción" value={collider.friction ?? 0.5} step={0.05} onCommit={(friction) => patch({ collider2d: { ...collider, friction } })} />
+                <label className="field">
+                  <span>Sensor</span>
+                  <input
+                    type="checkbox"
+                    checked={collider.sensor ?? false}
+                    onChange={(e) => patch({ collider2d: { ...collider, sensor: e.target.checked } })}
+                  />
+                </label>
+                <p className="hint">Tamaño 0 = tamaño visible del sprite</p>
+              </div>
+            );
+          })()}
         </section>
 
         <section>

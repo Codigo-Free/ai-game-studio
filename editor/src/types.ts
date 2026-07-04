@@ -32,7 +32,8 @@ export type EventSpec =
   | { type: "key_pressed"; key: string }
   | { type: "click" }
   | { type: "scene_start" }
-  | { type: "animation_end"; animation: string };
+  | { type: "animation_end"; animation: string }
+  | { type: "collision"; with?: string };
 
 export type ActionSpec =
   | { type: "move"; dx: number; dy: number }
@@ -45,10 +46,32 @@ export interface Behavior {
   do: ActionSpec;
 }
 
+export type BodyType = "dynamic" | "kinematic" | "static";
+
+export interface Rigidbody2DComponent {
+  body?: BodyType;
+  gravity_scale?: number;
+  vx?: number;
+  vy?: number;
+  fixed_rotation?: boolean;
+}
+
+export interface Collider2DComponent {
+  shape?: "box" | "circle";
+  width?: number;
+  height?: number;
+  radius?: number;
+  sensor?: boolean;
+  restitution?: number;
+  friction?: number;
+}
+
 export interface Components {
   transform2d?: Transform2D;
   sprite?: SpriteComponent;
   camera2d?: Camera2DComponent;
+  rigidbody2d?: Rigidbody2DComponent;
+  collider2d?: Collider2DComponent;
   behaviors?: Behavior[];
   // Plugin components (namespaced keys) must survive round-trips.
   [key: string]: unknown;
@@ -83,6 +106,7 @@ export interface SceneAnimation {
 export interface Scene {
   format: FormatHeader;
   name: string;
+  gravity?: { x?: number; y?: number };
   entities: EntityNode[];
   animations?: SceneAnimation[];
 }

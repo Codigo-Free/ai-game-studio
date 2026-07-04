@@ -94,3 +94,30 @@ impl Default for Visibility {
 /// Human-readable name shown by the editor and used in logs.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Name(pub String);
+
+pub use aigs_project::{BodyType, ColliderShape};
+
+/// Physics body parameters (milestone M8), mirroring the format component.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RigidBody2D {
+    pub body: BodyType,
+    pub gravity_scale: f32,
+    pub vx: f32,
+    pub vy: f32,
+    pub fixed_rotation: bool,
+}
+
+/// Collision shape with sizes already resolved to world units at
+/// instantiation (collider defaults derive from the sprite's visible size).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Collider2DShape {
+    pub shape: ColliderShape,
+    /// Box half extents in world units.
+    pub half_width: f32,
+    pub half_height: f32,
+    /// Circle radius in world units.
+    pub radius: f32,
+    pub sensor: bool,
+    pub restitution: f32,
+    pub friction: f32,
+}

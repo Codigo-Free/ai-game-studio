@@ -77,6 +77,7 @@ mi-juego/
 {
   "format": { "kind": "aigs-scene", "version": 0 },
   "name": "main",
+  "gravity": { "x": 0.0, "y": -980.0 },
   "entities": [
     {
       "id": "hero",
@@ -125,6 +126,10 @@ mi-juego/
 
 **`camera2d`** — `zoom` (default `1.0`).
 
+**`rigidbody2d`** — cuerpo físico (M8): `body` = `"dynamic"` (simulado, default) | `"kinematic"` (dirigido por transform, empuja a los dinámicos) | `"static"` (inmóvil); `gravity_scale` (default `1`), `vx`/`vy` (velocidad inicial, unidades/s), `fixed_rotation` (default `false`). Requiere `collider2d`.
+
+**`collider2d`** — forma de colisión (M8): `shape` = `"box"` (default) | `"circle"`; `width`/`height` o `radius` (default: tamaño visible del sprite); `sensor` (detecta sin bloquear, default `false`); `restitution` (rebote 0–1, default `0`); `friction` (default `0.5`). Sin `rigidbody2d` actúa como colisionador estático.
+
 **`behaviors`** — lista de reglas sin código `{ "on": Evento, "do": Acción }` (ver sección Comportamientos).
 
 **Componentes de plugin:** cualquier otra clave con namespace (`"mi_plugin.iman"`) es válida y debe preservarse aunque el lector no la entienda.
@@ -149,6 +154,7 @@ mi-juego/
 | `click` | — | Clic izquierdo sobre el sprite de la entidad (hit-test con rotación/escala, capa superior gana). |
 | `scene_start` | — | Una vez, al cargar la escena. |
 | `animation_end` | `animation` | Cuando una animación sin loop termina. |
+| `collision` | `with` (opcional) | Cuando esta entidad empieza a tocar otro colisionador (M8); `with` filtra por id de entidad. |
 
 Nombres de tecla: estilo winit/W3C — `ArrowLeft/Right/Up/Down`, `Space`, `Enter`, `Escape`, `Tab`, letras (`a`/`KeyA`) y dígitos (`1`/`Digit1`).
 
@@ -186,6 +192,14 @@ Reglas con teclas, entidades, escenas o animaciones desconocidas generan adverte
 - Implementación de referencia: `aigs_anim::sample` + `aigs_runtime::AnimationPlayback`; el editor usa un espejo TypeScript (`editor/src/anim.ts`) que debe mantenerse en sync.
 
 ---
+
+### Física (v0, M8)
+
+- `gravity` a nivel de escena (default `{x: 0, y: -980}` unidades/s²) afecta solo a cuerpos dinámicos.
+- La simulación corre al paso fijo del runtime (60 Hz) con rapier2d.
+- Cuerpos **dinámicos**: la física escribe su `transform2d` cada tick (posición y rotación, salvo `fixed_rotation`).
+- Cuerpos **kinemáticos**: el transform (behaviors, animaciones) manda; empujan a los dinámicos.
+- Limitación v0: la acción `move` sobre un cuerpo **dinámico** no altera la simulación (la física lo sobreescribe); usa cuerpos kinemáticos para movimiento controlado.
 
 ## Validación
 

@@ -1,0 +1,139 @@
+{
+  "format": { "kind": "aigs-scene", "version": 0 },
+  "name": "main",
+  "gravity": { "x": 0.0, "y": -980.0 },
+  "entities": [
+    {
+      "id": "camera",
+      "name": "Main Camera",
+      "components": { "transform2d": {}, "camera2d": { "zoom": 1.0 } }
+    },
+    {
+      "id": "floor",
+      "name": "Floor",
+      "components": {
+        "transform2d": { "x": 0.0, "y": -320.0 },
+        "sprite": { "asset": "crate", "width": 1200.0, "height": 40.0, "opacity": 0.6, "layer": 0 },
+        "collider2d": { "friction": 0.8 }
+      }
+    },
+    {
+      "id": "wall-left",
+      "name": "Wall Left",
+      "components": {
+        "transform2d": { "x": -620.0, "y": 0.0 },
+        "sprite": { "asset": "crate", "width": 40.0, "height": 700.0, "opacity": 0.4, "layer": 0 },
+        "collider2d": {}
+      }
+    },
+    {
+      "id": "wall-right",
+      "name": "Wall Right",
+      "components": {
+        "transform2d": { "x": 620.0, "y": 0.0 },
+        "sprite": { "asset": "crate", "width": 40.0, "height": 700.0, "opacity": 0.4, "layer": 0 },
+        "collider2d": {}
+      }
+    },
+    {
+      "id": "crate-1",
+      "name": "Crate 1",
+      "components": {
+        "transform2d": { "x": -120.0, "y": 260.0, "rotation": 15.0 },
+        "sprite": { "asset": "crate", "layer": 2 },
+        "rigidbody2d": {},
+        "collider2d": { "restitution": 0.2 }
+      }
+    },
+    {
+      "id": "crate-2",
+      "name": "Crate 2",
+      "components": {
+        "transform2d": { "x": -90.0, "y": 380.0, "rotation": -25.0 },
+        "sprite": { "asset": "crate", "layer": 2 },
+        "rigidbody2d": {},
+        "collider2d": { "restitution": 0.2 }
+      }
+    },
+    {
+      "id": "crate-3",
+      "name": "Crate 3",
+      "components": {
+        "transform2d": { "x": 160.0, "y": 300.0, "rotation": 40.0, "scale_x": 1.4, "scale_y": 1.4 },
+        "sprite": { "asset": "crate", "layer": 2 },
+        "rigidbody2d": {},
+        "collider2d": { "restitution": 0.2 }
+      }
+    },
+    {
+      "id": "ball",
+      "name": "Bouncy Ball",
+      "components": {
+        "transform2d": { "x": 60.0, "y": 420.0 },
+        "sprite": { "asset": "star", "layer": 2 },
+        "rigidbody2d": { "vx": 80.0 },
+        "collider2d": { "shape": "circle", "restitution": 0.85, "friction": 0.2 }
+      }
+    },
+    {
+      "id": "robot",
+      "name": "Robot (flechas)",
+      "components": {
+        "transform2d": { "x": -420.0, "y": -268.0 },
+        "sprite": { "asset": "robot", "layer": 3 },
+        "rigidbody2d": { "body": "kinematic" },
+        "collider2d": { "friction": 0.9 },
+        "behaviors": [
+          { "on": { "type": "key_down", "key": "ArrowLeft" },
+            "do": { "type": "move", "dx": -260.0, "dy": 0.0 } },
+          { "on": { "type": "key_down", "key": "ArrowRight" },
+            "do": { "type": "move", "dx": 260.0, "dy": 0.0 } },
+          { "on": { "type": "key_down", "key": "ArrowUp" },
+            "do": { "type": "move", "dx": 0.0, "dy": 260.0 } },
+          { "on": { "type": "key_down", "key": "ArrowDown" },
+            "do": { "type": "move", "dx": 0.0, "dy": -260.0 } }
+        ]
+      }
+    },
+    {
+      "id": "goal-star",
+      "name": "Sensor Star",
+      "components": {
+        "transform2d": { "x": 420.0, "y": -270.0 },
+        "sprite": { "asset": "star", "opacity": 0.7, "layer": 1 },
+        "collider2d": { "sensor": true },
+        "behaviors": [
+          { "on": { "type": "collision" },
+            "do": { "type": "play_animation", "animation": "star-pulse" } }
+        ]
+      }
+    }
+  ],
+  "animations": [
+    {
+      "name": "star-pulse",
+      "fps": 30,
+      "loop": false,
+      "tracks": [
+        {
+          "entity": "goal-star",
+          "property": "transform2d.scale_x",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 8, "value": 1.7, "easing": "ease_in" },
+            { "frame": 16, "value": 1.0, "easing": "linear" }
+          ]
+        },
+        {
+          "entity": "goal-star",
+          "property": "transform2d.scale_y",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 8, "value": 1.7, "easing": "ease_in" },
+            { "frame": 16, "value": 1.0, "easing": "linear" }
+          ]
+        }
+      ]
+    }
+  ]
+}

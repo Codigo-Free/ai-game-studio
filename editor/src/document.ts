@@ -160,6 +160,13 @@ export function collectIds(entities: EntityNode[], into: Set<string>): void {
   }
 }
 
+/** Every entity id in the scene tree, in traversal order. */
+export function allEntityIds(entities: EntityNode[]): string[] {
+  const ids = new Set<string>();
+  collectIds(entities, ids);
+  return [...ids];
+}
+
 /** Generates a unique, format-friendly id from a display name. */
 export function generateId(scene: Scene, name: string): string {
   const base =

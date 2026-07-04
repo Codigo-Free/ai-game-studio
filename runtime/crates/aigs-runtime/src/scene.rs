@@ -11,7 +11,9 @@ use aigs_ecs::{Entity, World};
 use aigs_project::{EntityNode, Scene};
 
 use crate::assets::{AssetStore, TextureInfo};
-use crate::components::{Camera2D, Name, Sprite, Transform2D, Visibility};
+use crate::components::{
+    Camera2D, Collider2DShape, Name, RigidBody2D, Sprite, Transform2D, Visibility,
+};
 
 #[derive(Debug, thiserror::Error)]
 pub enum SceneError {
@@ -106,6 +108,46 @@ fn spawn_node(
 
     if let Some(camera) = &node.components.camera2d {
         world.insert(entity, Camera2D { zoom: camera.zoom });
+    }
+
+    if let Some(body) = &node.components.rigidbody2d {
+        world.insert(
+            entity,
+            RigidBody2D {
+                body: body.body,
+                gravity_scale: body.gravity_scale,
+                vx: body.vx,
+                vy: body.vy,
+                fixed_rotation: body.fixed_rotation,
+            },
+        );
+    }
+
+    if let Some(collider) = &node.components.collider2d {
+        // Collider defaults derive from the sprite's visible size.
+        let (visible_w, visible_h) = world
+            .get::<Sprite>(entity)
+            .map(|sprite| {
+                (
+                    sprite.width * world_transform.scale_x.abs(),
+                    sprite.height * world_transform.scale_y.abs(),
+                )
+            })
+            .unwrap_or((32.0, 32.0));
+        let width = collider.width.unwrap_or(visible_w);
+        let height = collider.height.unwrap_or(visible_h);
+        world.insert(
+            entity,
+            Collider2DShape {
+                shape: collider.shape,
+                half_width: width / 2.0,
+                half_height: height / 2.0,
+                radius: collider.radius.unwrap_or_else(|| width.max(height) / 2.0),
+                sensor: collider.sensor,
+                restitution: collider.restitution,
+                friction: collider.friction,
+            },
+        );
     }
 
     for child in &node.children {
