@@ -8,8 +8,8 @@ Este documento define el plan de desarrollo del proyecto, con foco en el detalle
 
 | Fase | Nombre | Alcance | Estado |
 |---|---|---|---|
-| **1** | MVP | Editor visual, Timeline, Escenas, Assets, Runtime básico | 🔵 En curso (M0 🟢 completado; estado por hito en [ROADMAP.md](../ROADMAP.md)) |
-| **2** | Motor completo | Animaciones avanzadas, Física, Audio, Partículas, Exportación Desktop | ⚪ Pendiente |
+| **1** | MVP | Editor visual, Timeline, Escenas, Assets, Runtime básico | 🟢 **Completada** — [release 0.1.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.1.0) (estado por hito en [ROADMAP.md](../ROADMAP.md)) |
+| **2** | Motor completo | Animaciones avanzadas, Física, Audio, Partículas, Exportación Desktop | 🔵 Siguiente |
 | **3** | Multiplataforma | Android, Web, iOS, Optimización | ⚪ Pendiente |
 | **4** | IA profunda | Integración profunda con IA, Agentes, Generación automática de videojuegos | ⚪ Pendiente |
 | **5** | Ecosistema | Marketplace, Plugins, Servicios Cloud, Trabajo colaborativo | ⚪ Pendiente |
