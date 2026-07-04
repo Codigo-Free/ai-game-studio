@@ -25,12 +25,71 @@ enum Command {
         /// Path to the project manifest (game.aigs).
         manifest: PathBuf,
     },
+    /// Export the project as a standalone desktop game folder.
+    Export {
+        /// Path to the project manifest (game.aigs).
+        manifest: PathBuf,
+        /// Directory where the game folder is created.
+        #[arg(long, default_value = "dist")]
+        output: PathBuf,
+        /// Also produce a .zip next to the game folder.
+        #[arg(long)]
+        zip: bool,
+    },
 }
 
 fn main() -> ExitCode {
+    // Self-player mode: an exported game is this same binary renamed, with
+    // its project in `data/game.aigs` next to it (see exporters/desktop).
+    if std::env::args_os().len() <= 1 {
+        if let Some(manifest) = bundled_manifest() {
+            return run_project(&manifest);
+        }
+    }
     match Cli::parse().command {
         Command::Validate { manifest } => validate(&manifest),
         Command::Run { manifest } => run_project(&manifest),
+        Command::Export {
+            manifest,
+            output,
+            zip,
+        } => export_project(&manifest, &output, zip),
+    }
+}
+
+/// `data/game.aigs` next to the running executable, if any.
+fn bundled_manifest() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let manifest = exe.parent()?.join("data").join("game.aigs");
+    manifest.is_file().then_some(manifest)
+}
+
+fn export_project(manifest: &Path, output: &Path, zip: bool) -> ExitCode {
+    let player = match std::env::current_exe() {
+        Ok(exe) => exe,
+        Err(err) => return fail(&format!("cannot locate player binary: {err}")),
+    };
+    match aigs_export_desktop::export(
+        manifest,
+        &aigs_export_desktop::ExportOptions {
+            player: &player,
+            output,
+            zip,
+        },
+    ) {
+        Ok(report) => {
+            println!(
+                "exported to {} ({} files)",
+                report.game_dir.display(),
+                report.files_copied
+            );
+            println!("run it with: {}", report.executable.display());
+            if let Some(zip_file) = report.zip_file {
+                println!("archive: {}", zip_file.display());
+            }
+            ExitCode::SUCCESS
+        }
+        Err(err) => fail(&format!("export: {err}")),
     }
 }
 

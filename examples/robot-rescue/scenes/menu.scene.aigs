@@ -1,23 +1,62 @@
 {
-  "format": { "kind": "aigs-scene", "version": 0 },
+  "format": {
+    "kind": "aigs-scene",
+    "version": 0
+  },
   "name": "menu",
   "entities": [
     {
       "id": "camera",
       "name": "Main Camera",
-      "components": { "transform2d": {}, "camera2d": { "zoom": 1.0 } }
+      "components": {
+        "transform2d": {
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "scale_x": 1.0,
+          "scale_y": 1.0
+        },
+        "camera2d": {
+          "zoom": 1.0
+        }
+      }
     },
     {
       "id": "title-robot",
       "name": "Title Robot",
       "components": {
-        "transform2d": { "x": 0.0, "y": 40.0, "scale_x": 3.0, "scale_y": 3.0 },
-        "sprite": { "asset": "robot", "layer": 2 },
+        "transform2d": {
+          "x": 0.0,
+          "y": 40.0,
+          "rotation": 0.0,
+          "scale_x": 3.0,
+          "scale_y": 3.0
+        },
+        "sprite": {
+          "asset": "robot",
+          "opacity": 1.0,
+          "layer": 2
+        },
         "behaviors": [
-          { "on": { "type": "click" },
-            "do": { "type": "goto_scene", "scene": "scenes/level.scene.aigs" } },
-          { "on": { "type": "key_pressed", "key": "Enter" },
-            "do": { "type": "goto_scene", "scene": "scenes/level.scene.aigs" } }
+          {
+            "on": {
+              "type": "click"
+            },
+            "do": {
+              "type": "goto_scene",
+              "scene": "scenes/level.scene.aigs"
+            }
+          },
+          {
+            "on": {
+              "type": "key_pressed",
+              "key": "Enter"
+            },
+            "do": {
+              "type": "goto_scene",
+              "scene": "scenes/level.scene.aigs"
+            }
+          }
         ]
       }
     },
@@ -25,24 +64,54 @@
       "id": "lost-pet",
       "name": "Lost Pet",
       "components": {
-        "transform2d": { "x": 260.0, "y": -160.0 },
-        "sprite": { "asset": "pet", "opacity": 0.55, "layer": 1 }
+        "transform2d": {
+          "x": 260.0,
+          "y": -160.0,
+          "rotation": 0.0,
+          "scale_x": 1.0,
+          "scale_y": 1.0
+        },
+        "sprite": {
+          "asset": "pet",
+          "opacity": 0.55,
+          "layer": 1
+        }
       }
     },
     {
       "id": "star-left",
       "name": "Star Left",
       "components": {
-        "transform2d": { "x": -320.0, "y": 180.0, "scale_x": 0.7, "scale_y": 0.7 },
-        "sprite": { "asset": "star", "opacity": 0.8, "layer": 0 }
+        "transform2d": {
+          "x": -320.0,
+          "y": 180.0,
+          "rotation": 0.0,
+          "scale_x": 0.7,
+          "scale_y": 0.7
+        },
+        "sprite": {
+          "asset": "star",
+          "opacity": 0.8,
+          "layer": 0
+        }
       }
     },
     {
       "id": "star-right",
       "name": "Star Right",
       "components": {
-        "transform2d": { "x": 330.0, "y": 150.0, "scale_x": 0.5, "scale_y": 0.5 },
-        "sprite": { "asset": "star", "opacity": 0.6, "layer": 0 }
+        "transform2d": {
+          "x": 330.0,
+          "y": 150.0,
+          "rotation": 0.0,
+          "scale_x": 0.5,
+          "scale_y": 0.5
+        },
+        "sprite": {
+          "asset": "star",
+          "opacity": 0.6,
+          "layer": 0
+        }
       }
     }
   ],
@@ -56,34 +125,74 @@
           "entity": "title-robot",
           "property": "transform2d.scale_x",
           "keyframes": [
-            { "frame": 0, "value": 3.0, "easing": "ease_in_out" },
-            { "frame": 40, "value": 3.3, "easing": "ease_in_out" },
-            { "frame": 80, "value": 3.0, "easing": "linear" }
+            {
+              "frame": 0,
+              "value": 3.0,
+              "easing": "ease_in_out"
+            },
+            {
+              "frame": 40,
+              "value": 3.3,
+              "easing": "ease_in_out"
+            },
+            {
+              "frame": 80,
+              "value": 3.0,
+              "easing": "linear"
+            }
           ]
         },
         {
           "entity": "title-robot",
           "property": "transform2d.scale_y",
           "keyframes": [
-            { "frame": 0, "value": 3.0, "easing": "ease_in_out" },
-            { "frame": 40, "value": 3.3, "easing": "ease_in_out" },
-            { "frame": 80, "value": 3.0, "easing": "linear" }
+            {
+              "frame": 0,
+              "value": 3.0,
+              "easing": "ease_in_out"
+            },
+            {
+              "frame": 40,
+              "value": 3.3,
+              "easing": "ease_in_out"
+            },
+            {
+              "frame": 80,
+              "value": 3.0,
+              "easing": "linear"
+            }
           ]
         },
         {
           "entity": "star-left",
           "property": "transform2d.rotation",
           "keyframes": [
-            { "frame": 0, "value": 0.0, "easing": "linear" },
-            { "frame": 80, "value": 360.0, "easing": "linear" }
+            {
+              "frame": 0,
+              "value": 0.0,
+              "easing": "linear"
+            },
+            {
+              "frame": 80,
+              "value": 360.0,
+              "easing": "linear"
+            }
           ]
         },
         {
           "entity": "star-right",
           "property": "transform2d.rotation",
           "keyframes": [
-            { "frame": 0, "value": 360.0, "easing": "linear" },
-            { "frame": 80, "value": 0.0, "easing": "linear" }
+            {
+              "frame": 0,
+              "value": 360.0,
+              "easing": "linear"
+            },
+            {
+              "frame": 80,
+              "value": 0.0,
+              "easing": "linear"
+            }
           ]
         }
       ]

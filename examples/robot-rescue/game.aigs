@@ -1,5 +1,8 @@
 {
-  "format": { "kind": "aigs-project", "version": 0 },
+  "format": {
+    "kind": "aigs-project",
+    "version": 0
+  },
   "name": "Robot Rescue",
   "description": "MVP demo game: a robot must rescue its pet. Menu, playable level and win screen — no code, only .aigs data (behaviors, animations, scenes).",
   "initial_scene": "scenes/menu.scene.aigs",
@@ -9,8 +12,20 @@
     "scenes/win.scene.aigs"
   ],
   "assets": [
-    { "id": "robot", "kind": "image", "path": "assets/robot.png" },
-    { "id": "pet", "kind": "image", "path": "assets/pet.png" },
-    { "id": "star", "kind": "image", "path": "assets/star.png" }
+    {
+      "id": "robot",
+      "kind": "image",
+      "path": "assets/robot.png"
+    },
+    {
+      "id": "pet",
+      "kind": "image",
+      "path": "assets/pet.png"
+    },
+    {
+      "id": "star",
+      "kind": "image",
+      "path": "assets/star.png"
+    }
   ]
 }

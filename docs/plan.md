@@ -215,9 +215,70 @@ El propio desarrollo del proyecto usa la metodología que el producto predica:
 
 ---
 
+# Fase 2 — Motor completo
+
+## Objetivo de la Fase 2
+
+Que un juego hecho con AI Game Studio pueda **distribuirse** (binario independiente) y **sentirse como un juego de verdad**: física, sonido, spritesheets y efectos. Culmina en la **release 0.2** con una demo de plataformas.
+
+**Criterio de éxito:** un juego de plataformas con física, sonido y animación por spritesheet, creado en el editor y exportado como ejecutable que corre en una máquina sin AI Game Studio instalado.
+
+## Hitos de la Fase 2
+
+### M7 — Exportador Desktop
+El primer binario de juego independiente del editor.
+- `aigs export <game.aigs> [--output dir] [--zip]`: genera una carpeta distribuible `NombreDelJuego/` con el ejecutable + `data/` (proyecto y assets empaquetados).
+- Diseño *self-player*: el propio binario `aigs` detecta al arrancar si existe `data/game.aigs` junto al ejecutable y se comporta como player (exportar = copiar el ejecutable renombrado + datos). Un solo binario, cero dependencias de compilación para el usuario.
+- Botón **Exportar** en el editor; interfaz común de exportadores en `exporters/` para las plataformas de Fase 3.
+- **Entregable:** Robot Rescue exportado corre en una carpeta limpia, sin repo ni CLI instalados.
+
+### M8 — Física 2D
+- Integración de un motor de física (candidato: `rapier2d`; decisión registrada en arquitectura).
+- Componentes de formato: `rigidbody2d` (dinámico/kinemático/estático, gravedad, velocidad), `collider2d` (caja/círculo, sensor).
+- Evento de comportamiento `collision` (con filtro por entidad/etiqueta) → acciones existentes.
+- Editor: sección física en el inspector; gravedad del proyecto en configuración.
+- **Entregable:** cajas que caen, rebotan y disparan eventos al chocar, sin código.
+
+### M9 — Audio
+- Motor de audio (candidato: `kira`): efectos y música con volumen y loop.
+- Formato: assets `audio` (ya reservados en v0), acción `play_sound`, música de escena en la cabecera de escena.
+- Editor: importación y pre-escucha en Recursos; acción de sonido en comportamientos.
+- **Entregable:** la demo suena — música de fondo y efectos al interactuar.
+
+### M10 — Spritesheets y animación avanzada
+- Formato: metadatos de spritesheet en el asset (tamaño de frame, filas/columnas), propiedad animable `sprite.frame`; UV por frame en el renderer.
+- Curvas de easing personalizadas (bezier) y **máquinas de estados de animación** (estados + transiciones por condición/evento).
+- Editor: selector de frame en el inspector, pista de frames en el Timeline.
+- **Entregable:** personaje que camina con spritesheet y cambia de estado idle↔walk.
+
+### M11 — Partículas
+- Componente emisor (tasa, vida, velocidad/dispersión, escala/opacidad en el tiempo) evaluado en el runtime con render instanciado.
+- Editor: panel de partículas con vista previa.
+- **Entregable:** explosiones y polvo de salto en la demo.
+
+### M12 — Scripting de usuario
+- Lenguaje embebido (candidato: `rhai`, Rust puro) como escape natural cuando los behaviors se quedan cortos.
+- API mínima: acceso a entidades/componentes, entrada, escenas y animaciones; scripts como assets referenciados por un componente `script`.
+- Editor: asset de script + errores en consola.
+- **Entregable:** un enemigo patrulla con un script de 20 líneas.
+
+### M13 — Demo de plataformas y release 0.2
+- Juego de plataformas completo (spritesheets + física + audio + partículas) en `examples/`.
+- Benchmarks nuevos (física, partículas), migración de formato v0→v1 si hubo cambios de esquema, CHANGELOG y **release 0.2** con instaladores + demo exportada como artefacto.
+
+## Riesgos de la Fase 2
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| La física introduce no-determinismo o rompe el paso fijo | Alto | rapier con timestep fijo (ya lo usamos); tests de regresión de simulación. |
+| Crecimiento del formato sin control (v0 → v1) | Alto | Cada hito que toque el formato actualiza SPEC + migración en `aigs-project` en el mismo PR. |
+| Audio multiplataforma (backends del SO) | Medio | `kira`/`cpal` abstraen; smoke test por SO en CI (sin dispositivo: modo dummy). |
+| Scripting abre superficie de seguridad/estabilidad | Medio | `rhai` sandboxeado (sin IO), límites de operaciones por tick. |
+
+---
+
 ## Fases posteriores (resumen)
 
-- **Fase 2:** curvas de animación avanzadas, máquinas de estados, física 2D, audio, partículas, scripting de usuario y **exportador Desktop** (primer binario independiente del editor).
 - **Fase 3:** exportadores **Android, Web (WASM) e iOS**, optimización de tamaño y rendimiento.
 - **Fase 4:** Chat IA nativo, agentes especializados (Arquitecto, Programador, Animador, Diseñador de niveles…), generación de juegos completos a partir de lenguaje natural sobre el formato `.aigs`.
 - **Fase 5:** SDK público de plugins, marketplace, servicios cloud y colaboración en tiempo real.

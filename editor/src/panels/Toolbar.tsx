@@ -1,5 +1,11 @@
 import { open } from "@tauri-apps/plugin-dialog";
-import { loadProject, createProject, playProject, saveProject } from "../ipc";
+import {
+  loadProject,
+  createProject,
+  exportProject,
+  playProject,
+  saveProject,
+} from "../ipc";
 import { useStore } from "../store";
 import type { Scene } from "../types";
 
@@ -92,7 +98,25 @@ export function useProjectActions() {
     }
   };
 
-  return { openProject, newProject, save, play };
+  const exportGame = async () => {
+    if (!state.loaded) return;
+    if (!(await save())) return;
+    try {
+      const directory = await open({
+        title: "Carpeta de destino de la exportación",
+        directory: true,
+      });
+      if (typeof directory !== "string") return;
+      const message = await exportProject(state.loaded.manifest_path, directory);
+      for (const line of message.split("\n")) {
+        dispatch({ type: "LOG", level: "info", message: `[export] ${line}` });
+      }
+    } catch (error) {
+      dispatch({ type: "LOG", level: "error", message: String(error) });
+    }
+  };
+
+  return { openProject, newProject, save, play, exportGame };
 }
 
 function useSceneActions() {
@@ -176,7 +200,8 @@ function useSceneActions() {
 
 export function Toolbar() {
   const { state, dispatch } = useStore();
-  const { openProject, newProject, save, play } = useProjectActions();
+  const { openProject, newProject, save, play, exportGame } =
+    useProjectActions();
   const { newScene, duplicateScene, deleteScene, setInitialScene } =
     useSceneActions();
   const loaded = state.loaded;
@@ -234,6 +259,9 @@ export function Toolbar() {
       )}
       <span className="spacer" />
       {loaded && <span className="project-name">{loaded.project.name}</span>}
+      <button onClick={exportGame} disabled={!loaded} title="Exportar juego de escritorio">
+        ⬇ Exportar
+      </button>
       <button className="play" onClick={play} disabled={!loaded}>
         ▶ Play
       </button>

@@ -41,6 +41,13 @@ export function playProject(manifestPath: string): Promise<string> {
   return invoke("play_project", { manifestPath });
 }
 
+export function exportProject(
+  manifestPath: string,
+  outputDir: string,
+): Promise<string> {
+  return invoke("export_project", { manifestPath, outputDir });
+}
+
 const MIME_BY_EXTENSION: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",

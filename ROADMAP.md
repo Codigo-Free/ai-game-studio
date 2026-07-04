@@ -18,9 +18,19 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M5 | Escenas múltiples y modo Play | 🟢 Completado (validado manualmente) |
 | M6 | Demo, calidad y release **0.1** | 🟢 Completado — v0.1.0 publicado con instaladores para 3 SO |
 
-## Fase 2 — Motor completo 🔵 *siguiente*
+## Fase 2 — Motor completo 🔵 *en curso*
 
-Animaciones avanzadas (curvas, máquinas de estados) · Física 2D · Audio · Partículas · Scripting de usuario · **Exportación Desktop**.
+**Objetivo:** juegos distribuibles y con sensación de juego real. Detalle en [docs/plan.md](docs/plan.md).
+
+| Hito | Alcance | Estado |
+|---|---|---|
+| M7 | Exportador Desktop (`aigs export`, binario auto-contenido) | 🟢 Completado |
+| M8 | Física 2D (rapier2d, colisiones → behaviors) | 🔵 Siguiente |
+| M9 | Audio (efectos, música, acción `play_sound`) | ⚪ |
+| M10 | Spritesheets, curvas y máquinas de estados de animación | ⚪ |
+| M11 | Partículas | ⚪ |
+| M12 | Scripting de usuario (rhai) | ⚪ |
+| M13 | Demo de plataformas y release **0.2** | ⚪ |
 
 ## Fase 3 — Multiplataforma ⚪
 

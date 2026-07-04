@@ -1,29 +1,97 @@
 {
-  "format": { "kind": "aigs-scene", "version": 0 },
+  "format": {
+    "kind": "aigs-scene",
+    "version": 0
+  },
   "name": "level",
   "entities": [
     {
       "id": "camera",
       "name": "Main Camera",
-      "components": { "transform2d": {}, "camera2d": { "zoom": 1.0 } }
+      "components": {
+        "transform2d": {
+          "x": 0.0,
+          "y": 0.0,
+          "rotation": 0.0,
+          "scale_x": 1.0,
+          "scale_y": 1.0
+        },
+        "camera2d": {
+          "zoom": 1.0
+        }
+      }
     },
     {
       "id": "robot",
       "name": "Robot",
       "components": {
-        "transform2d": { "x": -400.0, "y": -220.0, "scale_x": 1.4, "scale_y": 1.4 },
-        "sprite": { "asset": "robot", "layer": 3 },
+        "transform2d": {
+          "x": -400.0,
+          "y": -220.0,
+          "rotation": 0.0,
+          "scale_x": 1.4,
+          "scale_y": 1.4
+        },
+        "sprite": {
+          "asset": "robot",
+          "opacity": 1.0,
+          "layer": 3
+        },
         "behaviors": [
-          { "on": { "type": "key_down", "key": "ArrowLeft" },
-            "do": { "type": "move", "dx": -320.0, "dy": 0.0 } },
-          { "on": { "type": "key_down", "key": "ArrowRight" },
-            "do": { "type": "move", "dx": 320.0, "dy": 0.0 } },
-          { "on": { "type": "key_down", "key": "ArrowUp" },
-            "do": { "type": "move", "dx": 0.0, "dy": 320.0 } },
-          { "on": { "type": "key_down", "key": "ArrowDown" },
-            "do": { "type": "move", "dx": 0.0, "dy": -320.0 } },
-          { "on": { "type": "key_pressed", "key": "Escape" },
-            "do": { "type": "goto_scene", "scene": "scenes/menu.scene.aigs" } }
+          {
+            "on": {
+              "type": "key_down",
+              "key": "ArrowLeft"
+            },
+            "do": {
+              "type": "move",
+              "dx": -320.0,
+              "dy": 0.0
+            }
+          },
+          {
+            "on": {
+              "type": "key_down",
+              "key": "ArrowRight"
+            },
+            "do": {
+              "type": "move",
+              "dx": 320.0,
+              "dy": 0.0
+            }
+          },
+          {
+            "on": {
+              "type": "key_down",
+              "key": "ArrowUp"
+            },
+            "do": {
+              "type": "move",
+              "dx": 0.0,
+              "dy": 320.0
+            }
+          },
+          {
+            "on": {
+              "type": "key_down",
+              "key": "ArrowDown"
+            },
+            "do": {
+              "type": "move",
+              "dx": 0.0,
+              "dy": -320.0
+            }
+          },
+          {
+            "on": {
+              "type": "key_pressed",
+              "key": "Escape"
+            },
+            "do": {
+              "type": "goto_scene",
+              "scene": "scenes/menu.scene.aigs"
+            }
+          }
         ]
       }
     },
@@ -31,13 +99,38 @@
       "id": "pet",
       "name": "Pet",
       "components": {
-        "transform2d": { "x": 380.0, "y": 230.0, "scale_x": 1.3, "scale_y": 1.3 },
-        "sprite": { "asset": "pet", "layer": 2 },
+        "transform2d": {
+          "x": 380.0,
+          "y": 230.0,
+          "rotation": 0.0,
+          "scale_x": 1.3,
+          "scale_y": 1.3
+        },
+        "sprite": {
+          "asset": "pet",
+          "opacity": 1.0,
+          "layer": 2
+        },
         "behaviors": [
-          { "on": { "type": "click" },
-            "do": { "type": "play_animation", "animation": "rescued" } },
-          { "on": { "type": "animation_end", "animation": "rescued" },
-            "do": { "type": "goto_scene", "scene": "scenes/win.scene.aigs" } }
+          {
+            "on": {
+              "type": "click"
+            },
+            "do": {
+              "type": "play_animation",
+              "animation": "rescued"
+            }
+          },
+          {
+            "on": {
+              "type": "animation_end",
+              "animation": "rescued"
+            },
+            "do": {
+              "type": "goto_scene",
+              "scene": "scenes/win.scene.aigs"
+            }
+          }
         ]
       }
     },
@@ -45,16 +138,36 @@
       "id": "beacon-1",
       "name": "Beacon 1",
       "components": {
-        "transform2d": { "x": -150.0, "y": 60.0, "scale_x": 0.5, "scale_y": 0.5 },
-        "sprite": { "asset": "star", "opacity": 0.45, "layer": 1 }
+        "transform2d": {
+          "x": -150.0,
+          "y": 60.0,
+          "rotation": 0.0,
+          "scale_x": 0.5,
+          "scale_y": 0.5
+        },
+        "sprite": {
+          "asset": "star",
+          "opacity": 0.45,
+          "layer": 1
+        }
       }
     },
     {
       "id": "beacon-2",
       "name": "Beacon 2",
       "components": {
-        "transform2d": { "x": 120.0, "y": -80.0, "scale_x": 0.5, "scale_y": 0.5 },
-        "sprite": { "asset": "star", "opacity": 0.45, "layer": 1 }
+        "transform2d": {
+          "x": 120.0,
+          "y": -80.0,
+          "rotation": 0.0,
+          "scale_x": 0.5,
+          "scale_y": 0.5
+        },
+        "sprite": {
+          "asset": "star",
+          "opacity": 0.45,
+          "layer": 1
+        }
       }
     }
   ],
@@ -68,9 +181,21 @@
           "entity": "pet",
           "property": "transform2d.y",
           "keyframes": [
-            { "frame": 0, "value": 230.0, "easing": "ease_in_out" },
-            { "frame": 30, "value": 245.0, "easing": "ease_in_out" },
-            { "frame": 60, "value": 230.0, "easing": "linear" }
+            {
+              "frame": 0,
+              "value": 230.0,
+              "easing": "ease_in_out"
+            },
+            {
+              "frame": 30,
+              "value": 245.0,
+              "easing": "ease_in_out"
+            },
+            {
+              "frame": 60,
+              "value": 230.0,
+              "easing": "linear"
+            }
           ]
         }
       ]
@@ -84,16 +209,32 @@
           "entity": "pet",
           "property": "transform2d.rotation",
           "keyframes": [
-            { "frame": 0, "value": 0.0, "easing": "ease_in" },
-            { "frame": 30, "value": 720.0, "easing": "linear" }
+            {
+              "frame": 0,
+              "value": 0.0,
+              "easing": "ease_in"
+            },
+            {
+              "frame": 30,
+              "value": 720.0,
+              "easing": "linear"
+            }
           ]
         },
         {
           "entity": "pet",
           "property": "sprite.opacity",
           "keyframes": [
-            { "frame": 0, "value": 1.0, "easing": "ease_in" },
-            { "frame": 30, "value": 0.0, "easing": "linear" }
+            {
+              "frame": 0,
+              "value": 1.0,
+              "easing": "ease_in"
+            },
+            {
+              "frame": 30,
+              "value": 0.0,
+              "easing": "linear"
+            }
           ]
         }
       ]

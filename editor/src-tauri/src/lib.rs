@@ -220,6 +220,25 @@ fn play_project(app: tauri::AppHandle, manifest_path: String) -> Result<String, 
     Ok(format!("player started (pid {pid})"))
 }
 
+/// Exports the project as a standalone desktop game (`aigs export`).
+#[tauri::command]
+fn export_project(manifest_path: String, output_dir: String) -> Result<String, String> {
+    let binary = std::env::var("AIGS_CLI").unwrap_or_else(|_| "aigs".to_string());
+    let output = Command::new(&binary)
+        .arg("export")
+        .arg(&manifest_path)
+        .arg("--output")
+        .arg(&output_dir)
+        .arg("--zip")
+        .output()
+        .map_err(|e| format!("could not launch \"{binary} export\": {e}"))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -231,7 +250,8 @@ pub fn run() {
             save_project,
             import_asset,
             read_file_base64,
-            play_project
+            play_project,
+            export_project
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
