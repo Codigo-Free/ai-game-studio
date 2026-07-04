@@ -4,6 +4,11 @@
     "version": 0
   },
   "name": "win",
+  "music": {
+    "asset": "win-jingle",
+    "volume": 0.7,
+    "looped": false
+  },
   "entities": [
     {
       "id": "camera",

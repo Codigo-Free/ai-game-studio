@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { importAsset, readImageDataUrl } from "../ipc";
+import { AUDIO_EXTENSIONS, importAsset, readImageDataUrl } from "../ipc";
 import { useStore } from "../store";
 import type { Asset } from "../types";
 
@@ -23,6 +23,26 @@ export async function ensureImageUrl(
   return url;
 }
 
+function AudioCard({ root, asset }: { root: string; asset: Asset }) {
+  const [playing, setPlaying] = useState(false);
+  const play = async () => {
+    try {
+      const url = await ensureImageUrl(root, asset);
+      const audio = new Audio(url);
+      setPlaying(true);
+      audio.onended = () => setPlaying(false);
+      void audio.play();
+    } catch {
+      setPlaying(false);
+    }
+  };
+  return (
+    <button className="thumb-placeholder audio-thumb" onClick={play} title="Pre-escuchar">
+      {playing ? "🔊" : "▶🎵"}
+    </button>
+  );
+}
+
 function Thumbnail({ root, asset }: { root: string; asset: Asset }) {
   const [url, setUrl] = useState<string | undefined>(
     cachedImageUrl(`${root}/${asset.path}`),
@@ -39,6 +59,7 @@ function Thumbnail({ root, asset }: { root: string; asset: Asset }) {
     };
   }, [root, asset, url]);
 
+  if (asset.kind === "audio") return <AudioCard root={root} asset={asset} />;
   return url ? (
     <img src={url} alt={asset.id} draggable={false} />
   ) : (
@@ -55,10 +76,10 @@ export function AssetsPanel() {
   const doImport = async () => {
     try {
       const selected = await open({
-        title: "Importar imágenes",
+        title: "Importar recursos",
         multiple: true,
         filters: [
-          { name: "Imágenes", extensions: ["png", "jpg", "jpeg", "gif", "webp"] },
+          { name: "Imágenes y audio", extensions: ["png", "jpg", "jpeg", "gif", "webp", ...AUDIO_EXTENSIONS] },
         ],
       });
       const files =
@@ -75,7 +96,9 @@ export function AssetsPanel() {
           });
           continue;
         }
-        assets.push({ id: imported.id, kind: "image", path: imported.path });
+        const extension = imported.path.split(".").pop()?.toLowerCase() ?? "";
+        const kind = AUDIO_EXTENSIONS.includes(extension) ? "audio" : "image";
+        assets.push({ id: imported.id, kind, path: imported.path });
         dispatch({
           type: "LOG",
           level: "info",

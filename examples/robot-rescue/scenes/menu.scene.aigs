@@ -4,6 +4,11 @@
     "version": 0
   },
   "name": "menu",
+  "music": {
+    "asset": "theme",
+    "volume": 0.5,
+    "looped": true
+  },
   "entities": [
     {
       "id": "camera",

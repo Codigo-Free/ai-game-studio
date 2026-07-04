@@ -26,6 +26,21 @@
       "id": "star",
       "kind": "image",
       "path": "assets/star.png"
+    },
+    {
+      "id": "theme",
+      "kind": "audio",
+      "path": "assets/theme.wav"
+    },
+    {
+      "id": "pop",
+      "kind": "audio",
+      "path": "assets/pop.wav"
+    },
+    {
+      "id": "win-jingle",
+      "kind": "audio",
+      "path": "assets/win.wav"
     }
   ]
 }

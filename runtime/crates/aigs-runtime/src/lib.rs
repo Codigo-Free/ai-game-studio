@@ -7,6 +7,7 @@
 
 mod app;
 mod assets;
+mod audio;
 mod components;
 mod input;
 mod physics;
@@ -19,6 +20,7 @@ pub use aigs_ecs::{Entity, Schedule, World};
 pub use aigs_render::{Color, Renderer, TextureId, Viewport};
 pub use app::{run, AppConfig, RunError, FIXED_DT};
 pub use assets::{AssetError, AssetStore, TextureInfo};
+pub use audio::AudioPlayer;
 pub use components::{Camera2D, Name, PrevTransform2D, Sprite, Transform2D, Visibility};
 pub use input::{Input, KeyCode, MouseButton};
 pub use physics::PhysicsWorld;

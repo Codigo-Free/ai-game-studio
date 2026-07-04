@@ -1,12 +1,39 @@
 {
-  "format": { "kind": "aigs-project", "version": 0 },
+  "format": {
+    "kind": "aigs-project",
+    "version": 0
+  },
   "name": "Physics Playground",
   "description": "M8 demo: falling crates, a bouncing ball, a kinematic robot you push crates with (arrow keys), and a sensor star that pulses on contact. No code.",
   "initial_scene": "scenes/main.scene.aigs",
-  "scenes": ["scenes/main.scene.aigs"],
+  "scenes": [
+    "scenes/main.scene.aigs"
+  ],
   "assets": [
-    { "id": "crate", "kind": "image", "path": "assets/crate.png" },
-    { "id": "robot", "kind": "image", "path": "assets/robot.png" },
-    { "id": "star", "kind": "image", "path": "assets/star.png" }
+    {
+      "id": "crate",
+      "kind": "image",
+      "path": "assets/crate.png"
+    },
+    {
+      "id": "robot",
+      "kind": "image",
+      "path": "assets/robot.png"
+    },
+    {
+      "id": "star",
+      "kind": "image",
+      "path": "assets/star.png"
+    },
+    {
+      "id": "pop",
+      "kind": "audio",
+      "path": "assets/pop.wav"
+    },
+    {
+      "id": "bump",
+      "kind": "audio",
+      "path": "assets/bump.wav"
+    }
   ]
 }

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use aigs_ecs::{Entity, World};
 use aigs_project::{ActionSpec, EntityNode, EventSpec, Project, Scene};
 
+use crate::audio::AudioPlayer;
 use crate::components::{Camera2D, Sprite, Transform2D};
 use crate::input::Input;
 use crate::physics::PhysicsWorld;
@@ -33,6 +34,7 @@ struct BoundBehavior {
 pub struct GamePlayer<R: ResolveTexture> {
     scenes: HashMap<String, Scene>,
     textures: R,
+    audio: AudioPlayer,
     current: String,
     instance: SceneInstance,
     playback: AnimationPlayback,
@@ -50,11 +52,13 @@ impl<R: ResolveTexture> GamePlayer<R> {
         project: &Project,
         scenes: HashMap<String, Scene>,
         textures: R,
+        audio: AudioPlayer,
         world: &mut World,
     ) -> Result<Self, PlayerError> {
         let mut player = Self {
             scenes,
             textures,
+            audio,
             current: String::new(),
             instance: SceneInstance::default(),
             playback: AnimationPlayback::default(),
@@ -95,6 +99,8 @@ impl<R: ResolveTexture> GamePlayer<R> {
         self.warnings = self.playback.warnings().to_vec();
         self.behaviors = bind_behaviors(&scene.entities, &instance, &mut self.warnings);
         self.physics = PhysicsWorld::build(world, scene.gravity.unwrap_or_default());
+        self.audio.set_music(scene.music.as_ref());
+        self.warnings.extend(self.audio.take_warnings());
         self.instance = instance;
         self.current = path.to_string();
         self.scene_started = false;
@@ -213,6 +219,10 @@ impl<R: ResolveTexture> GamePlayer<R> {
                     self.warnings
                         .push(format!("play_animation: unknown animation \"{animation}\""));
                 }
+            }
+            ActionSpec::PlaySound { asset, volume } => {
+                self.audio.play_sound(asset, *volume);
+                self.warnings.extend(self.audio.take_warnings());
             }
         }
     }
@@ -449,7 +459,14 @@ mod tests {
     fn scene_start_fires_once() {
         let (project, scenes) = project();
         let mut world = World::new();
-        let mut player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            &mut world,
+        )
+        .unwrap();
         let input = Input::default();
         player.update(&mut world, &tick_time(), &input);
         player.update(&mut world, &tick_time(), &input);
@@ -467,7 +484,14 @@ mod tests {
     fn key_down_moves_continuously_and_escape_switches_back() {
         let (project, scenes) = project();
         let mut world = World::new();
-        let mut player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            &mut world,
+        )
+        .unwrap();
 
         // Go to the level first.
         let mut input = Input::default();
@@ -516,7 +540,14 @@ mod tests {
             .unwrap(),
         );
         let mut world = World::new();
-        let player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            &mut world,
+        )
+        .unwrap();
         assert_eq!(player.warnings().len(), 1);
     }
 
@@ -577,7 +608,14 @@ mod tests {
     fn dynamic_body_falls_and_rests_on_the_floor() {
         let (project, scenes) = physics_project("", false);
         let mut world = World::new();
-        let mut player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            &mut world,
+        )
+        .unwrap();
         let input = Input::default();
         let time = Time {
             delta: 1.0 / 60.0,
@@ -597,7 +635,14 @@ mod tests {
                              "do": { "type": "goto_scene", "scene": "done" } }"#;
         let (project, scenes) = physics_project(behaviors, false);
         let mut world = World::new();
-        let mut player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            &mut world,
+        )
+        .unwrap();
         let input = Input::default();
         let time = Time {
             delta: 1.0 / 60.0,
@@ -618,7 +663,14 @@ mod tests {
                              "do": { "type": "move", "dx": 500.0, "dy": 0.0 } }"#;
         let (project, scenes) = physics_project(behaviors, true);
         let mut world = World::new();
-        let mut player = GamePlayer::new(&project, scenes, AnyTexture, &mut world).unwrap();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            &mut world,
+        )
+        .unwrap();
         let input = Input::default();
         let time = Time {
             delta: 1.0 / 60.0,

@@ -41,7 +41,9 @@ function describeBehavior(behavior: Behavior): string {
       ? `mover (${act.dx}, ${act.dy})`
       : act.type === "goto_scene"
         ? `ir a ${act.scene.split("/").pop()?.replace(".scene.aigs", "")}`
-        : `animar "${act.animation}"`;
+        : act.type === "play_animation"
+          ? `animar "${act.animation}"`
+          : `sonar "${act.asset}"`;
   return `${event} → ${action}`;
 }
 
@@ -50,11 +52,13 @@ function BehaviorForm({
   scenes,
   animations,
   entityIds,
+  audioAssets,
   onAdd,
 }: {
   scenes: string[];
   animations: string[];
   entityIds: string[];
+  audioAssets: string[];
   onAdd: (behavior: Behavior) => void;
 }) {
   const [eventType, setEventType] = useState<EventSpec["type"]>("key_down");
@@ -66,6 +70,7 @@ function BehaviorForm({
   const [dy, setDy] = useState("0");
   const [scene, setScene] = useState(scenes[0] ?? "");
   const [actionAnim, setActionAnim] = useState("");
+  const [sound, setSound] = useState("");
 
   const add = () => {
     const on: EventSpec =
@@ -83,9 +88,14 @@ function BehaviorForm({
         ? { type: "move", dx: Number(dx) || 0, dy: Number(dy) || 0 }
         : actionType === "goto_scene"
           ? { type: "goto_scene", scene: scene || scenes[0] || "" }
-          : {
+          : actionType === "play_animation"
+          ? {
               type: "play_animation",
               animation: actionAnim || animations[0] || "",
+            }
+          : {
+              type: "play_sound",
+              asset: sound || audioAssets[0] || "",
             };
     onAdd({ on, do: run });
   };
@@ -137,6 +147,7 @@ function BehaviorForm({
           <option value="move">mover</option>
           <option value="goto_scene">ir a escena</option>
           <option value="play_animation">reproducir animación</option>
+          <option value="play_sound">reproducir sonido</option>
         </select>
         {actionType === "move" && (
           <>
@@ -155,6 +166,14 @@ function BehaviorForm({
           <select value={actionAnim} onChange={(e) => setActionAnim(e.target.value)}>
             {animations.map((name) => (
               <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        )}
+        {actionType === "play_sound" && (
+          <select value={sound} onChange={(e) => setSound(e.target.value)}>
+            {audioAssets.length === 0 && <option value="">— importa un audio —</option>}
+            {audioAssets.map((id) => (
+              <option key={id} value={id}>{id}</option>
             ))}
           </select>
         )}
@@ -246,6 +265,64 @@ export function Inspector() {
                     })
                   }
                 />
+              </div>
+              <p className="hint">Música de fondo de la escena</p>
+              <div className="field-grid">
+                <label className="field">
+                  <span>Música</span>
+                  <select
+                    value={currentScene.music?.asset ?? ""}
+                    onChange={(e) =>
+                      dispatch({
+                        type: "UPDATE_SCENE",
+                        scene: {
+                          ...currentScene,
+                          music: e.target.value
+                            ? { volume: 0.8, looped: true, ...currentScene.music, asset: e.target.value }
+                            : undefined,
+                        },
+                        commit: true,
+                      })
+                    }
+                  >
+                    <option value="">— sin música —</option>
+                    {(state.loaded?.project.assets ?? [])
+                      .filter((a) => a.kind === "audio")
+                      .map((a) => (
+                        <option key={a.id} value={a.id}>{a.id}</option>
+                      ))}
+                  </select>
+                </label>
+                {currentScene.music && (
+                  <>
+                    <NumberField
+                      label="Volumen"
+                      value={currentScene.music.volume ?? 1}
+                      step={0.05}
+                      onCommit={(volume) =>
+                        dispatch({
+                          type: "UPDATE_SCENE",
+                          scene: { ...currentScene, music: { ...currentScene.music!, volume } },
+                          commit: true,
+                        })
+                      }
+                    />
+                    <label className="field">
+                      <span>Loop</span>
+                      <input
+                        type="checkbox"
+                        checked={currentScene.music.looped ?? true}
+                        onChange={(e) =>
+                          dispatch({
+                            type: "UPDATE_SCENE",
+                            scene: { ...currentScene, music: { ...currentScene.music!, looped: e.target.checked } },
+                            commit: true,
+                          })
+                        }
+                      />
+                    </label>
+                  </>
+                )}
               </div>
               <p className="hint">Selecciona una entidad para editar sus componentes</p>
             </section>
@@ -378,6 +455,9 @@ export function Inspector() {
             scenes={state.loaded?.project.scenes ?? []}
             animations={(currentScene.animations ?? []).map((a) => a.name)}
             entityIds={allEntityIds(currentScene.entities).filter((id) => id !== node.id)}
+            audioAssets={(state.loaded?.project.assets ?? [])
+              .filter((a) => a.kind === "audio")
+              .map((a) => a.id)}
             onAdd={(behavior) =>
               patch({
                 behaviors: [...(node.components?.behaviors ?? []), behavior],

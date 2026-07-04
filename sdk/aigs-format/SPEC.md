@@ -78,6 +78,7 @@ mi-juego/
   "format": { "kind": "aigs-scene", "version": 0 },
   "name": "main",
   "gravity": { "x": 0.0, "y": -980.0 },
+  "music": { "asset": "theme", "volume": 0.8, "looped": true },
   "entities": [
     {
       "id": "hero",
@@ -165,6 +166,7 @@ Nombres de tecla: estilo winit/W3C — `ArrowLeft/Right/Up/Down`, `Space`, `Ente
 | `move` | `dx`, `dy` | Con eventos continuos (`key_down`): unidades/segundo. Con eventos discretos: desplazamiento instantáneo. |
 | `goto_scene` | `scene` | Cambia a otra escena del manifiesto (al final del tick; el mundo se repuebla). |
 | `play_animation` | `animation` | Reinicia una animación de la escena por nombre. |
+| `play_sound` | `asset`, `volume` (default `1.0`) | Reproduce un efecto de sonido (asset `audio`), M9. |
 
 Reglas con teclas, entidades, escenas o animaciones desconocidas generan advertencia y se ignoran (no son error fatal).
 
@@ -192,6 +194,13 @@ Reglas con teclas, entidades, escenas o animaciones desconocidas generan adverte
 - Implementación de referencia: `aigs_anim::sample` + `aigs_runtime::AnimationPlayback`; el editor usa un espejo TypeScript (`editor/src/anim.ts`) que debe mantenerse en sync.
 
 ---
+
+### Audio (v0, M9)
+
+- `music` a nivel de escena: `asset` (id de un asset `audio`), `volume` lineal 0–1 (default `1.0`), `looped` (default `true`).
+- La música arranca al cargar la escena; **si la escena siguiente declara el mismo asset, la música continúa sin cortarse**; si declara otro (o ninguno), se detiene/cambia.
+- Formatos soportados por el runtime: WAV (mp3/ogg/flac ampliables por features de kira).
+- Sin dispositivo de audio (CI, headless) el juego corre igual con el audio deshabilitado (warning, no error).
 
 ### Física (v0, M8)
 

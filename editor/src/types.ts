@@ -38,7 +38,8 @@ export type EventSpec =
 export type ActionSpec =
   | { type: "move"; dx: number; dy: number }
   | { type: "goto_scene"; scene: string }
-  | { type: "play_animation"; animation: string };
+  | { type: "play_animation"; animation: string }
+  | { type: "play_sound"; asset: string; volume?: number };
 
 /** Code-free rule: when `on` happens, run `do`. */
 export interface Behavior {
@@ -107,6 +108,7 @@ export interface Scene {
   format: FormatHeader;
   name: string;
   gravity?: { x?: number; y?: number };
+  music?: { asset: string; volume?: number; looped?: boolean };
   entities: EntityNode[];
   animations?: SceneAnimation[];
 }

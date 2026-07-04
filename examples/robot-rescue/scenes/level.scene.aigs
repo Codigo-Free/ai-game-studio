@@ -4,6 +4,11 @@
     "version": 0
   },
   "name": "level",
+  "music": {
+    "asset": "theme",
+    "volume": 0.5,
+    "looped": true
+  },
   "entities": [
     {
       "id": "camera",
@@ -119,6 +124,16 @@
             "do": {
               "type": "play_animation",
               "animation": "rescued"
+            }
+          },
+          {
+            "on": {
+              "type": "click"
+            },
+            "do": {
+              "type": "play_sound",
+              "asset": "pop",
+              "volume": 1.0
             }
           },
           {

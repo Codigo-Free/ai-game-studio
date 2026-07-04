@@ -54,7 +54,13 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   jpeg: "image/jpeg",
   gif: "image/gif",
   webp: "image/webp",
+  wav: "audio/wav",
+  mp3: "audio/mpeg",
+  ogg: "audio/ogg",
+  flac: "audio/flac",
 };
+
+export const AUDIO_EXTENSIONS = ["wav", "mp3", "ogg", "flac"];
 
 export async function readImageDataUrl(path: string): Promise<string> {
   const extension = path.split(".").pop()?.toLowerCase() ?? "png";

@@ -114,10 +114,33 @@ pub struct Scene {
     /// World gravity in units/s² applied to dynamic bodies.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gravity: Option<Gravity>,
+    /// Background music started when the scene loads (milestone M9).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub music: Option<Music>,
     #[serde(default)]
     pub entities: Vec<EntityNode>,
     #[serde(default)]
     pub animations: Vec<Animation>,
+}
+
+/// Scene background music: an `audio` asset id plus playback settings.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Music {
+    /// Id of an `Asset` of kind `audio`.
+    pub asset: String,
+    #[serde(default = "default_volume")]
+    pub volume: f32,
+    /// Music loops by default.
+    #[serde(default = "default_true")]
+    pub looped: bool,
+}
+
+fn default_volume() -> f32 {
+    1.0
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -209,6 +232,12 @@ pub enum ActionSpec {
     GotoScene { scene: String },
     /// Restarts a scene animation by name.
     PlayAnimation { animation: String },
+    /// Plays a sound effect: an `audio` asset id (milestone M9).
+    PlaySound {
+        asset: String,
+        #[serde(default = "default_volume")]
+        volume: f32,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -445,6 +474,7 @@ mod tests {
             },
             name: "main".into(),
             gravity: None,
+            music: None,
             entities: vec![EntityNode {
                 id: "hero".into(),
                 name: "Hero".into(),
@@ -582,6 +612,36 @@ mod tests {
             crate_components.behaviors[1].on,
             EventSpec::Collision { with: None }
         ));
+        let saved = scene.to_json().unwrap();
+        assert_eq!(Scene::from_json(&saved).unwrap(), scene);
+    }
+
+    #[test]
+    fn audio_round_trips() {
+        let json = r#"{
+            "format": { "kind": "aigs-scene", "version": 0 },
+            "name": "level",
+            "music": { "asset": "theme", "volume": 0.8 },
+            "entities": [{
+                "id": "coin", "name": "Coin",
+                "components": { "behaviors": [
+                    { "on": { "type": "click" },
+                      "do": { "type": "play_sound", "asset": "pop" } }
+                ] }
+            }]
+        }"#;
+        let scene = Scene::from_json(json).unwrap();
+        let music = scene.music.as_ref().unwrap();
+        assert_eq!(music.asset, "theme");
+        assert_eq!(music.volume, 0.8);
+        assert!(music.looped, "music loops by default");
+        assert_eq!(
+            scene.entities[0].components.behaviors[0].action,
+            ActionSpec::PlaySound {
+                asset: "pop".into(),
+                volume: 1.0
+            }
+        );
         let saved = scene.to_json().unwrap();
         assert_eq!(Scene::from_json(&saved).unwrap(), scene);
     }
