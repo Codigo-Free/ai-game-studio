@@ -8,3 +8,10 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "world"
+harness = false

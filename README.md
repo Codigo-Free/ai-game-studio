@@ -8,7 +8,18 @@
 
 ## Estado del proyecto
 
-🚧 **Fase 1 — MVP en planificación.** El proyecto está en su etapa inicial de diseño y documentación. Ver el [plan maestro](docs/plan.md) y el [roadmap](ROADMAP.md).
+🎉 **MVP 0.1.0 publicado** — el ciclo completo *crear → animar → jugar* funciona sin escribir código: editor visual con timeline, runtime WGPU a 60 FPS, comportamientos evento→acción y multi-escena. Ver el [CHANGELOG](CHANGELOG.md) y el [roadmap](ROADMAP.md).
+
+## Empezar en 3 minutos
+
+```bash
+git clone https://github.com/agilphp/ai-game-studio && cd ai-game-studio
+cargo install --path cli
+aigs run examples/robot-rescue/game.aigs   # juega la demo
+cd editor && npm install && npm run tauri dev   # abre el editor
+```
+
+Sigue la **[guía de inicio rápido](docs/guia-inicio.md)** para el tour del editor y tu primer juego en 8 pasos. Instaladores en [Releases](https://github.com/agilphp/ai-game-studio/releases).
 
 ## ¿Qué es?
 
@@ -33,6 +44,7 @@
 
 ## Documentación
 
+- [Guía de inicio rápido](docs/guia-inicio.md) — instala, juega la demo y crea tu primer juego.
 - [Proyecto completo](docs/proyecto.md) — qué es, por qué nace, filosofía y objetivos.
 - [Plan maestro](docs/plan.md) — hitos detallados del MVP (M0–M6).
 - [Arquitectura](docs/arquitectura.md) — módulos, formato `.aigs`, decisiones.

@@ -9,3 +9,10 @@ authors.workspace = true
 
 [dependencies]
 serde = { workspace = true }
+
+[dev-dependencies]
+criterion = "0.5"
+
+[[bench]]
+name = "sampling"
+harness = false

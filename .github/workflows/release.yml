@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  editor:
+    name: Editor bundles (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri system dependencies
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file \
+            libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: editor/src-tauri
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: editor/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: editor
+        run: npm ci
+      - name: Build and upload editor bundles
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: editor
+          tagName: ${{ github.ref_name }}
+          releaseName: "AI Game Studio ${{ github.ref_name }}"
+          releaseBody: "See [CHANGELOG.md](https://github.com/agilphp/ai-game-studio/blob/main/CHANGELOG.md) for details."
+          releaseDraft: false
+          prerelease: true
+
+  cli:
+    name: CLI binary (${{ matrix.platform }})
+    needs: editor
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            artifact: aigs-linux-x86_64
+            binary: target/release/aigs
+          - platform: windows-latest
+            artifact: aigs-windows-x86_64.exe
+            binary: target/release/aigs.exe
+          - platform: macos-latest
+            artifact: aigs-macos-aarch64
+            binary: target/release/aigs
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build CLI
+        run: cargo build --release -p aigs-cli
+      - name: Rename artifact
+        shell: bash
+        run: cp "${{ matrix.binary }}" "${{ matrix.artifact }}"
+      - name: Upload to release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release upload "${{ github.ref_name }}" "${{ matrix.artifact }}" --clobber

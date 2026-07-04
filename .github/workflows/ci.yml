@@ -29,8 +29,13 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
         run: cargo test --workspace
+      - name: Compile benchmarks
+        if: matrix.os == 'ubuntu-latest'
+        run: cargo bench --workspace --no-run
       - name: Validate example projects
-        run: cargo run -p aigs-cli -- validate examples/hello-world/game.aigs
+        run: |
+          cargo run -p aigs-cli -- validate examples/hello-world/game.aigs
+          cargo run -p aigs-cli -- validate examples/robot-rescue/game.aigs
 
   editor-frontend:
     name: Editor frontend (typecheck + build)

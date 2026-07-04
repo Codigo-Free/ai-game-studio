@@ -16,8 +16,18 @@ La calidad es transversal a todos los hitos del [plan](plan.md): **ningún hito 
 - Proyectos de ejemplo de `examples/` como fixtures: deben cargar y ejecutar en cada build.
 
 ### Rendimiento
-- Benchmarks de ECS (iteración masiva de entidades) y de render (sprite batching) con Criterion, desde el hito M1.
-- Presupuesto de frame: 60 FPS estables en la demo del MVP; regresiones vigiladas en CI.
+- Benchmarks con Criterion en `runtime/crates/aigs-ecs/benches` y `aigs-anim/benches`; ejecutar con `cargo bench -p aigs-ecs -p aigs-anim`. CI los compila (`--no-run`) para evitar que se pudran; las cifras se miden localmente.
+- Presupuesto de frame: 60 FPS estables (~16,6 ms por frame).
+- **Baseline 0.1.0** (Linux, 2026-07-03):
+
+| Benchmark | Tiempo | Nota |
+|---|---|---|
+| `spawn_insert_10k` | ~458 µs | crear 10k entidades con 1–2 componentes |
+| `query2_10k` | ~21,5 µs | iterar 5k entidades (Position+Velocity) — <0,2 % del frame |
+| `sample_8kf` | ~8,7 ns | muestreo de pista típica |
+| `sample_256kf` | ~115 ns | pista extrema (búsqueda lineal, optimizable a binaria si crece) |
+
+- Benchmark de render (sprite batching) pendiente: requiere GPU; se medirá manualmente con `bouncing-sprites` (`AIGS_SPRITES=5000`).
 
 ---
 
