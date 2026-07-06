@@ -70,7 +70,10 @@ jobs:
         run: |
           sudo apt-get install -y binaryen
           before=$(stat -c%s /tmp/web-player/aigs_web_player_bg.wasm)
-          wasm-opt -Oz -o /tmp/web-player/aigs_web_player_bg.wasm \
+          # -all: rustc's wasm32 target already emits bulk-memory/sign-ext
+          # instructions; wasm-opt's validator otherwise assumes the
+          # WebAssembly MVP feature set and rejects the input as invalid.
+          wasm-opt -Oz -all -o /tmp/web-player/aigs_web_player_bg.wasm \
             /tmp/web-player/aigs_web_player_bg.wasm
           after=$(stat -c%s /tmp/web-player/aigs_web_player_bg.wasm)
           echo "wasm-opt -Oz: ${before} -> ${after} bytes"

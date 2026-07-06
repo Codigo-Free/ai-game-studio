@@ -2,6 +2,35 @@
 
 Todos los cambios notables de AI Game Studio se documentan aquí. El formato sigue [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [SemVer](https://semver.org/lang/es/).
 
+## [0.3.0] — 2026-07-06 · Multiplataforma (Fase 3, parcial)
+
+Un mismo proyecto `.aigs`, sin cambios, corre en Desktop, en el navegador y en Android. iOS queda diferido (necesita macOS + Xcode, no disponibles en este ciclo de desarrollo).
+
+### Exportador Web — WASM (M14)
+- `aigs export --target web`: WebGPU/WebGL vía WGPU, sin cambios en el motor.
+- Jugador genérico (`aigs_web_player.js`/`_bg.wasm`) que hace `fetch` del proyecto en tiempo de ejecución — mismo diseño self-player que Desktop.
+- Carga de assets (`aigs_runtime::AssetSource`) abstraída para leer de disco (Desktop) o de memoria prellenada por `fetch` (Web), sin duplicar el pipeline de decodificación.
+
+### Exportador Android — APK firmado (M15)
+- `aigs export --target android [--release]`: compila y firma un APK real (Vulkan vía WGPU) con `cargo apk build`.
+- Entrada táctil (un dedo = ratón) y nuevo componente de formato `virtual_button` para controles estilo teclado en pantalla.
+- A diferencia de Web, el jugador de Android es una plantilla de build (los assets se empaquetan dentro del APK en tiempo de compilación), no un artefacto único reutilizable.
+
+### Editor
+- El botón **⬇ Exportar** gana un desplegable Desktop/Web/Android.
+
+### Presupuesto de tamaño (M17)
+- `opt-level = "s"` + `lto = true` + `strip = true` en el perfil de release de ambos jugadores; `wasm-opt -Oz` sobre el `.wasm` en CI.
+
+### Documentación
+- `docs/guia-publicacion.md`: pasos manuales para publicar en Web (GitHub Pages/hosting estático) y Android (Google Play, keystore de release propio).
+
+### Limitaciones conocidas
+- Sin `save.json` en Web ni Android todavía (no hay sistema de archivos accesible de la misma forma que en Desktop).
+- Validación manual en un navegador y un dispositivo/emulador Android reales todavía pendiente — verificado en este ciclo por compilación, enlace y empaquetado reales, no jugando de verdad.
+- M16 (iOS) diferido sin fecha.
+- Firmar un release de Android (keystore propio) sigue siendo solo CLI, sin UI en el editor.
+
 ## [0.2.0] — 2026-07-06 · Motor completo (Fase 2)
 
 Un juego hecho con AI Game Studio ya se siente como un juego de verdad —física, sonido, spritesheets, partículas, scripting y persistencia— y se puede exportar como binario independiente.

@@ -10,7 +10,7 @@ Este documento define el plan de desarrollo del proyecto, fase por fase e hito p
 |---|---|---|---|
 | **1** | MVP | Editor visual, Timeline, Escenas, Assets, Runtime básico | 🟢 **Completada** — [release 0.1.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.1.0) (estado por hito en [ROADMAP.md](../ROADMAP.md)) |
 | **2** | Motor completo | Animaciones avanzadas, Física, Audio, Partículas, Exportación Desktop | 🟢 **Completada** — [release 0.2.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.2.0) |
-| **3** | Multiplataforma | M14–M17: exportadores Web (WASM), Android, iOS, optimización y publicación | 🔵 En curso — M14 (Web) y M15 (Android) implementados, pendiente de validación manual en navegador/dispositivo real |
+| **3** | Multiplataforma | M14–M17: exportadores Web (WASM), Android, iOS, optimización y publicación | 🟡 **Cerrada sobre Desktop/Web/Android** — [release 0.3.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.3.0). M16 (iOS) diferido sin fecha; M14/M15 pendientes de validación manual en navegador/dispositivo real |
 | **4** | IA profunda | M18–M21: AI Core y chat, escritura asistida, agentes especializados, generación de juegos completos | ⚪ Pendiente |
 | **5** | Ecosistema | M22–M25: SDK de plugins, marketplace, colaboración en tiempo real, servicios cloud opcionales | ⚪ Pendiente |
 
@@ -377,7 +377,7 @@ Empaquetado elegido: **`cargo-apk`** (no `xbuild`) — es la herramienta que el 
 - ✅ CI del exportador Web (`aigs export --target web`) ampliado para probar **los cuatro** ejemplos de `examples/` (antes solo Robot Rescue) — es barato, es solo copiar archivos, no recompila nada por ejemplo. El de Android se queda probando solo Robot Rescue a propósito: cada export ahí es un `cargo apk build` completo (recompila todo el motor para `aarch64-linux-android` en un directorio de build nuevo cada vez, sin compartir caché entre ejemplos), y Robot Rescue ya ejercita todos los tipos de asset (imagen, spritesheet, audio, script) que los demás ejemplos usan por separado.
 - ✅ Presupuesto de tamaño del binario del jugador: `opt-level = "s"` + `lto = true` + `strip = true` en el perfil `release` de `exporters/web-player` y `exporters/android-player`, más `wasm-opt -Oz` sobre el `.wasm` en el pipeline de CI del jugador Web. **Pendiente:** compresión de texturas (ASTC/ETC2 en Android, formatos comprimidos en Web) y medición real de arranque/FPS en gama media — no solo en la máquina de desarrollo, que no tenemos aquí para probarlo de verdad.
 - ✅ Guía de usuario "publica tu primer juego" por tienda: [docs/guia-publicacion.md](guia-publicacion.md) (Web vía GitHub Pages/hosting estático, Android vía Google Play con keystore de release propio, Desktop sin tienda única).
-- **Entregable:** **release 0.3** — mismo proyecto exportado y verificado en Desktop/Web/Android, exportable también desde el editor. iOS se añade en un M16 posterior cuando haya máquina macOS.
+- ✅ **Entregable:** **release 0.3.0** — mismo proyecto exportado y verificado en Desktop/Web/Android, exportable también desde el editor. iOS se añade en un M16 posterior cuando haya máquina macOS.
 
 ## Riesgos de la Fase 3
 

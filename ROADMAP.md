@@ -32,16 +32,16 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M12 | Scripting de usuario (rhai) | 🟢 Completado |
 | M13 | Persistencia de scripts + demo **Tamagotchi**, release **0.2** (reemplaza al platformer original) | 🟢 Completado (validado manualmente) |
 
-## Fase 3 — Multiplataforma 🔵 *en curso*
+## Fase 3 — Multiplataforma 🟡 *cerrada sobre Desktop/Web/Android* ([release 0.3.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.3.0))
 
-**Objetivo:** el mismo proyecto `.aigs`, sin cambios, exportado a Web/Android/iOS además de Desktop. Detalle en [docs/plan.md](docs/plan.md).
+**Objetivo:** el mismo proyecto `.aigs`, sin cambios, exportado a Web/Android/iOS además de Desktop. Detalle en [docs/plan.md](docs/plan.md). iOS (M16) queda diferido; el resto de la fase se da por cerrada con validación pendiente en dispositivos reales.
 
 | Hito | Alcance | Estado |
 |---|---|---|
 | M14 | Exportador Web (WASM): `AssetSource`, arranque de renderer asíncrono, crates `exporters/web`/`exporters/web-player`, `aigs export --target web` | 🟡 Implementado y verificado por CI/compilación — **pendiente validar en navegador real** |
 | M15 | Exportador Android: `AndroidAssets`, `run_android`, entrada táctil, `virtual_button`, crates `exporters/android`/`exporters/android-player`, `aigs export --target android` | 🟡 Implementado y verificado con un `.apk` real (NDK+SDK+cargo-apk instalados en este entorno) — **pendiente validar en dispositivo/emulador real** |
 | M16 | Exportador iOS | 🟤 Diferido, sin fecha (necesita macOS + Xcode, no disponibles en este entorno) |
-| M17 | Optimización, paridad (Desktop/Web/Android) y publicación, release **0.3** | 🔵 En curso — menú de exportación en el editor listo |
+| M17 | Menú de exportación en el editor, matriz de CI de los tres exportadores, presupuesto de tamaño (`strip`/`wasm-opt`), guía de publicación, release **0.3** | 🟢 Completado |
 
 ## Fase 4 — IA profunda ⚪
 
