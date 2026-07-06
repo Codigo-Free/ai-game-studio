@@ -45,9 +45,13 @@ Sigue la **[guía de inicio rápido](docs/guia-inicio.md)** para el tour del edi
 
 ## Ejemplos
 
+Cada carpeta tiene su propio `README.md` con instrucciones de ejecución y controles.
+
 | Proyecto | Qué demuestra |
 |---|---|
-| [`examples/robot-rescue/`](examples/robot-rescue/) | **Juego demo completo**: menú animado, nivel jugable (flechas + clic) y pantalla de victoria encadenada con `animation_end`. |
+| [`examples/robot-rescue/`](examples/robot-rescue/) | **Juego demo completo**: menú animado, nivel jugable (flechas + clic), dron con script y pantalla de victoria encadenada con `animation_end`. |
+| [`examples/tamagotchi/`](examples/tamagotchi/) | **Mascota virtual persistente** (M13): stats que decaen en tiempo real incluso con el juego cerrado, cuidada con teclas 1/2/3, un único script. |
+| [`examples/physics-playground/`](examples/physics-playground/) | Física 2D: cajas cayendo, pelota que rebota, robot que empuja cajas, sensor con partículas. |
 | [`examples/hello-world/`](examples/hello-world/) | Proyecto mínimo: escenas, animaciones y comportamientos básicos. |
 | [`examples/bouncing-sprites/`](examples/bouncing-sprites/) | Uso del runtime como biblioteca Rust, sin editor (cientos de sprites a 60 FPS). |
 
