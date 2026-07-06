@@ -18,7 +18,7 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M5 | Escenas múltiples y modo Play | 🟢 Completado (validado manualmente) |
 | M6 | Demo, calidad y release **0.1** | 🟢 Completado — v0.1.0 publicado con instaladores para 3 SO |
 
-## Fase 2 — Motor completo 🔵 *en curso*
+## Fase 2 — Motor completo 🟢 *completada* ([release 0.2.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.2.0))
 
 **Objetivo:** juegos distribuibles y con sensación de juego real. Detalle en [docs/plan.md](docs/plan.md).
 
@@ -30,7 +30,7 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M10 | Spritesheets y máquinas de estados de animación | 🟢 Completado (bezier diferido, sin fecha) |
 | M11 | Partículas | 🟢 Completado |
 | M12 | Scripting de usuario (rhai) | 🟢 Completado |
-| M13 | Persistencia de scripts + demo **Tamagotchi**, release **0.2** (reemplaza al platformer original) | 🔵 En curso |
+| M13 | Persistencia de scripts + demo **Tamagotchi**, release **0.2** (reemplaza al platformer original) | 🟢 Completado (validado manualmente) |
 
 ## Fase 3 — Multiplataforma ⚪
 

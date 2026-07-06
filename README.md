@@ -14,7 +14,7 @@
 
 ## Estado del proyecto
 
-🎉 **MVP 0.1.0 publicado** (Fase 1 completa, hitos M0–M6). El ciclo *crear → animar → jugar* funciona de punta a punta **sin escribir código**. Ver el [CHANGELOG](CHANGELOG.md) y el [roadmap](ROADMAP.md).
+🎉 **0.2.0 publicado** (Fases 1 y 2 completas, hitos M0–M13). El motor ya tiene física, audio, spritesheets/animator, partículas, scripting con persistencia entre partidas y exportación Desktop — todo sin escribir código de motor. Ver el [CHANGELOG](CHANGELOG.md) y el [roadmap](ROADMAP.md).
 
 ## Empezar en 3 minutos
 
@@ -27,19 +27,21 @@ cd editor && npm install && npm run tauri dev   # abre el editor
 
 Sigue la **[guía de inicio rápido](docs/guia-inicio.md)** para el tour del editor y tu primer juego en 8 pasos. Instaladores del editor y binarios del CLI en [Releases](https://github.com/agilphp/ai-game-studio/releases).
 
-## Qué funciona hoy (0.1.0)
+## Qué funciona hoy (0.2.0)
 
 - 🎨 **Editor visual** (Tauri 2 + React): viewport con arrastre/zoom/pan, árbol de escena, inspector, recursos con importación, consola con métricas en vivo y undo/redo global.
 - 🎞 **Timeline estilo Flash**: pistas por entidad y propiedad, keyframes arrastrables con easing, scrubbing y reproducción con preview en el viewport.
-- 🕹 **Comportamientos sin código**: "cuando *tecla/clic/inicio de escena/fin de animación* → *mover / ir a escena / reproducir animación*", editados desde el inspector.
+- 🕹 **Comportamientos sin código**: "cuando *tecla/clic/inicio de escena/fin de animación/colisión* → *mover / ir a escena / reproducir animación/sonido / emitir partículas*", editados desde el inspector.
 - ⚙️ **Runtime propio en Rust**: ECS con índices generacionales, render 2D instanciado sobre WGPU, game loop a 60 Hz con render interpolado, multi-escena. Consultar 10k entidades cuesta ~21 µs ([benchmarks](docs/testing.md)).
+- 🧱 **Física 2D** (rapier2d), **audio** (kira), **spritesheets y máquinas de estados de animación**, y **partículas** como entidades ECS.
+- 📜 **Scripting de usuario** (rhai sandboxeado) con estado persistente **entre escenas y entre partidas reales** (`save.json`, autoguardado) — ver la demo [Tamagotchi](examples/tamagotchi/).
+- 📦 **Exportación Desktop**: `aigs export` genera una carpeta autocontenida y distribuible, sin dependencias de compilación para el usuario final.
 - 📄 **Formato `.aigs` AI-Ready**: todo el juego son archivos JSON legibles y versionables — la base para que la IA cree y modifique juegos completos ([especificación](sdk/aigs-format/SPEC.md)).
-- 🔧 **CLI `aigs`**: `validate` y `run` para trabajar sin abrir el editor.
+- 🔧 **CLI `aigs`**: `validate`, `run`, `export` y `script-api` para trabajar sin abrir el editor.
 
 ## Lo que viene
 
-- **Fase 2**: física, audio, partículas, spritesheets, scripting y **exportación Desktop**.
-- **Fase 3**: Android, Web (WASM) e iOS.
+- **Fase 3**: exportadores Android, Web (WASM) e iOS, optimización de tamaño/rendimiento.
 - **Fase 4**: IA profunda — chat nativo con contexto del proyecto, agentes especializados, generación de juegos completos.
 - **Fase 5**: SDK de plugins, marketplace, colaboración.
 

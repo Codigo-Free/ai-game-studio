@@ -49,7 +49,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-anim"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
  "serde",
@@ -57,7 +57,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aigs-export-desktop",
  "aigs-project",
@@ -68,14 +68,14 @@ dependencies = [
 
 [[package]]
 name = "aigs-ecs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "criterion",
 ]
 
 [[package]]
 name = "aigs-export-desktop"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aigs-project",
  "tempfile",
@@ -85,7 +85,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-integration-tests"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aigs-project",
  "aigs-runtime",
@@ -94,7 +94,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-project"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aigs-anim",
  "serde",
@@ -104,7 +104,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-render"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bytemuck",
  "glam 0.29.3",
@@ -116,7 +116,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-runtime"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aigs-anim",
  "aigs-ecs",
@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "bouncing-sprites"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "aigs-runtime",
 ]

@@ -1,6 +1,6 @@
 [package]
 name = "editor"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI Game Studio visual editor"
 authors = ["efrasoft and AI Game Studio contributors"]
 license = "MIT"
