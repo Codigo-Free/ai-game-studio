@@ -86,6 +86,8 @@ jobs:
       ANDROID_NDK_VERSION: r28c
     steps:
       - uses: actions/checkout@v4
+      - name: Install audio system dependencies (needed to build aigs-cli natively below)
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-linux-android
