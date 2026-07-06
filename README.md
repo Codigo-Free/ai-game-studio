@@ -78,6 +78,10 @@ Sigue la **[guía de inicio rápido](docs/guia-inicio.md)** para el tour del edi
 
 El proyecto es abierto a la comunidad. Lee [CONTRIBUTING.md](CONTRIBUTING.md) para empezar. El desarrollo sigue una metodología **AI First**: este MVP fue diseñado, implementado, probado y documentado en colaboración con IA, con trazabilidad completa en [CLAUDE.md](CLAUDE.md).
 
+## Autoría
+
+Creado por **efrasoft@gmail.com** en **HarnessOS** con **Visual Studio Code** y **Claude**.
+
 ## Licencia
 
 [MIT](LICENSE)
