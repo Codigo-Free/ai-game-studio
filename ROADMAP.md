@@ -34,15 +34,36 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 
 ## Fase 3 — Multiplataforma ⚪
 
-Exportadores **Android**, **Web (WASM)** e **iOS** · Optimización de rendimiento y tamaño.
+**Objetivo:** el mismo proyecto `.aigs`, sin cambios, exportado a Web/Android/iOS además de Desktop. Detalle en [docs/plan.md](docs/plan.md).
+
+| Hito | Alcance | Estado |
+|---|---|---|
+| M14 | Exportador Web (WASM) | ⚪ Pendiente |
+| M15 | Exportador Android | ⚪ Pendiente |
+| M16 | Exportador iOS | ⚪ Pendiente |
+| M17 | Optimización, paridad y publicación, release **0.3** | ⚪ Pendiente |
 
 ## Fase 4 — IA profunda ⚪
 
-Chat IA nativo con contexto completo del proyecto · Agentes especializados (Arquitecto, Programador, Animador, Diseñador de niveles…) · Generación automática de videojuegos a partir de lenguaje natural.
+**Objetivo:** la IA como colaborador activo — chat nativo que propone y aplica cambios sobre el `.aigs`, agentes especializados, generación de juegos completos desde lenguaje natural. Detalle en [docs/plan.md](docs/plan.md) e [docs/ia.md](docs/ia.md).
+
+| Hito | Alcance | Estado |
+|---|---|---|
+| M18 | AI Core y chat con contexto del proyecto (Ollama + cloud) | ⚪ Pendiente |
+| M19 | Escritura asistida y primer agente (Programador) | ⚪ Pendiente |
+| M20 | Agentes especializados (Arquitecto, Animador, Niveles, Audio, Física, Optimización) | ⚪ Pendiente |
+| M21 | Generación de juegos completos de punta a punta, release **0.4** | ⚪ Pendiente |
 
 ## Fase 5 — Ecosistema ⚪
 
-SDK público de plugins · Marketplace · Servicios cloud · Trabajo colaborativo en tiempo real.
+**Objetivo:** extensión por la comunidad sin tocar el núcleo — SDK, marketplace, colaboración en tiempo real, servicios cloud opcionales. Detalle en [docs/plan.md](docs/plan.md) e [docs/plugins.md](docs/plugins.md).
+
+| Hito | Alcance | Estado |
+|---|---|---|
+| M22 | SDK de plugins v1 (paneles, componentes, importadores, exportadores) | ⚪ Pendiente |
+| M23 | Marketplace (publicación, descubrimiento, instalación) | ⚪ Pendiente |
+| M24 | Colaboración en tiempo real | ⚪ Pendiente |
+| M25 | Servicios cloud opcionales, release **1.0** | ⚪ Pendiente |
 
 ---
 

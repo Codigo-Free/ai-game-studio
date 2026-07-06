@@ -1,6 +1,6 @@
 # Plan Maestro — AI Game Studio
 
-Este documento define el plan de desarrollo del proyecto, con foco en el detalle completo de la **Fase 1 (MVP)**. La visión general del producto está en [proyecto.md](proyecto.md).
+Este documento define el plan de desarrollo del proyecto, fase por fase e hito por hito. El detalle es más fino cuanto más cercana está la fase (Fase 1 y 2, ya trabajadas hito a hito) y se afinará en las fases 3–5 a medida que se alcancen. La visión general del producto está en [proyecto.md](proyecto.md).
 
 ---
 
@@ -10,9 +10,9 @@ Este documento define el plan de desarrollo del proyecto, con foco en el detalle
 |---|---|---|---|
 | **1** | MVP | Editor visual, Timeline, Escenas, Assets, Runtime básico | 🟢 **Completada** — [release 0.1.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.1.0) (estado por hito en [ROADMAP.md](../ROADMAP.md)) |
 | **2** | Motor completo | Animaciones avanzadas, Física, Audio, Partículas, Exportación Desktop | 🔵 Siguiente |
-| **3** | Multiplataforma | Android, Web, iOS, Optimización | ⚪ Pendiente |
-| **4** | IA profunda | Integración profunda con IA, Agentes, Generación automática de videojuegos | ⚪ Pendiente |
-| **5** | Ecosistema | Marketplace, Plugins, Servicios Cloud, Trabajo colaborativo | ⚪ Pendiente |
+| **3** | Multiplataforma | M14–M17: exportadores Web (WASM), Android, iOS, optimización y publicación | ⚪ Pendiente |
+| **4** | IA profunda | M18–M21: AI Core y chat, escritura asistida, agentes especializados, generación de juegos completos | ⚪ Pendiente |
+| **5** | Ecosistema | M22–M25: SDK de plugins, marketplace, colaboración en tiempo real, servicios cloud opcionales | ⚪ Pendiente |
 
 ---
 
@@ -291,8 +291,209 @@ El primer binario de juego independiente del editor.
 
 ---
 
-## Fases posteriores (resumen)
 
-- **Fase 3:** exportadores **Android, Web (WASM) e iOS**, optimización de tamaño y rendimiento.
-- **Fase 4:** Chat IA nativo, agentes especializados (Arquitecto, Programador, Animador, Diseñador de niveles…), generación de juegos completos a partir de lenguaje natural sobre el formato `.aigs`.
-- **Fase 5:** SDK público de plugins, marketplace, servicios cloud y colaboración en tiempo real.
+# Fase 3 — Multiplataforma
+
+## Objetivo de la Fase 3
+
+El mismo proyecto `.aigs`, sin cambios, corriendo como aplicación nativa en **Android** e **iOS** y como página web (**WASM**). La Fase 2 ya deja el runtime completo (física, audio, partículas, spritesheets, scripting); la Fase 3 no añade funcionalidad de juego — lleva ese mismo motor a más pantallas y lo hace lo bastante ligero y rápido para móvil y navegador.
+
+**Criterio de éxito:** exportar el mismo juego (p. ej. Robot Rescue o el Tamagotchi) a Desktop, Web, Android e iOS desde el mismo `game.aigs`, sin tocar el proyecto, y que los cuatro se sientan fluidos en su plataforma.
+
+### Dentro del alcance
+
+- Exportadores Web, Android e iOS sobre la interfaz común de `exporters/` ya establecida en M7.
+- Adaptación de entrada táctil (tap/drag) donde hoy solo hay teclado/ratón — sin romper los proyectos existentes.
+- Presupuesto de tamaño y rendimiento por plataforma (el juego debe caber y arrancar rápido en un móvil de gama media).
+
+### Fuera del alcance (fases posteriores)
+
+- Cualquier funcionalidad nueva de motor (eso ya cerró en Fase 2) — Fase 3 es puramente de distribución.
+- Publicación real en tiendas (Play Store/App Store) a nombre del proyecto: se documenta el camino, no se gestiona la cuenta de desarrollador de cada usuario.
+
+## Hitos de la Fase 3
+
+### M14 — Exportador Web (WASM)
+
+El de menor riesgo técnico: `aigs-render` ya usa WGPU, que compila a WebGPU/WebGL vía `wgpu` sin reescribir el renderer.
+
+**Tareas**
+- Target `wasm32-unknown-unknown` para `aigs-runtime`/`aigs-render`; selección de backend WebGPU con *fallback* a WebGL donde no esté disponible.
+- Carga de assets vía `fetch` en lugar de sistema de archivos (abstracción ya centralizada en `AssetStore`, se le añade un backend web).
+- Mapeo de eventos de teclado/ratón del navegador al mismo modelo de entrada que usan los behaviors y scripts — los proyectos existentes no necesitan cambios.
+- `aigs export --target web`: genera `index.html` + `.wasm` + assets, listo para servir estático (GitHub Pages, cualquier CDN).
+- Presupuesto de tamaño (`wasm-opt`) y chequeo en CI de que el build web compila.
+
+**Entregable:** Robot Rescue jugable en el navegador desde un enlace estático, sin instalar nada.
+
+---
+
+### M15 — Exportador Android
+
+**Tareas**
+- Empaquetado nativo (candidato: `cargo-apk` o `xbuild`, decisión registrada en arquitectura) sobre el backend Vulkan/GLES de `wgpu`.
+- Entrada táctil: tap ↔ `click`, y un esquema mínimo de botones virtuales en pantalla para juegos que dependen de teclado (extensión de formato documentada como componente opcional, no rompe proyectos sin él).
+- Ciclo de vida de Android (pausa/reanudación, pérdida de superficie) integrado con el loop fijo del runtime.
+- `aigs export --target android`: genera APK/AAB firmable.
+- **Entregable:** Robot Rescue instalado y jugable en un dispositivo Android real vía APK.
+
+---
+
+### M16 — Exportador iOS
+
+**Tareas**
+- Backend Metal de `wgpu`; generación de proyecto Xcode a partir del mismo pipeline de exportación.
+- Reutilización del esquema de entrada táctil/botones virtuales de M15.
+- Firma de código y perfiles de aprovisionamiento: documentado como paso manual del usuario (requiere macOS y cuenta de Apple Developer, fuera del control de CI).
+- **Entregable:** proyecto Xcode generado que compila y corre en el simulador iOS; guía para llevarlo a un dispositivo físico.
+
+---
+
+### M17 — Optimización, paridad y publicación
+
+**Tareas**
+- Compresión de texturas y presupuesto de tamaño por plataforma; medición de arranque/FPS en gama media (no solo en la máquina de desarrollo).
+- Matriz de CI que valida los cuatro exportadores (Desktop ya cubierto, + Web/Android/iOS nuevos) contra los ejemplos de `examples/`.
+- Guía de usuario "publica tu primer juego" por tienda (Web/Play Store/App Store), con los pasos manuales de cada una explicados.
+- **Entregable:** **release 0.3** — mismo proyecto exportado y verificado en las cuatro plataformas.
+
+## Riesgos de la Fase 3
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Madurez de `wgpu` en backends móviles/web (WebGPU aún desigual entre navegadores) | Alto | *Fallback* a WebGL/GLES desde el diseño; M14 como piloto de bajo riesgo antes de móvil. |
+| Modelo de entrada táctil vs. teclado/ratón rompe proyectos existentes | Alto | Botones virtuales como componente **opcional** del formato; behaviors/scripts no cambian su API. |
+| Firma y publicación en tiendas depende de cuentas/credenciales del usuario, no automatizable | Medio | Documentar el proceso, no intentar gestionarlo desde CI; el exportador entrega el artefacto, no lo publica. |
+| Tamaño de assets/binario inadecuado para móvil | Medio | Presupuesto de tamaño desde M14, compresión de texturas en M17. |
+
+---
+
+# Fase 4 — IA profunda
+
+## Objetivo de la Fase 4
+
+Pasar de "la IA puede leer y escribir el formato porque es JSON legible" (verdad desde el MVP) a **la IA como colaborador activo**: un chat nativo en el editor que entiende el proyecto abierto, propone y aplica cambios sobre el mismo `.aigs` que edita el usuario, y agentes especializados que cubren cada área del motor (ver [ia.md](ia.md) para la visión completa).
+
+**Criterio de éxito:** describir un juego en una frase ("un juego de plataformas donde un robot rescata a su mascota") y obtener un proyecto `.aigs` jugable, editable después a mano en el editor como cualquier otro.
+
+### Dentro del alcance
+
+- AI Core: capa de contexto de proyecto + abstracción de proveedor de modelo (local y cloud).
+- Chat con capacidad de **proponer y aplicar** cambios (no solo responder preguntas), siempre revisables/deshacibles.
+- Agentes especializados por dominio del motor, coordinados sobre el mismo contexto.
+- Generación de juegos completos de punta a punta a partir de lenguaje natural.
+
+### Fuera del alcance (fase posterior)
+
+- Agentes/modelos de terceros instalables por la comunidad → Fase 5 (SDK de plugins).
+
+## Hitos de la Fase 4
+
+### M18 — AI Core y chat con contexto
+
+**Tareas**
+- Capa de proveedores: **Ollama** (local, privado, sin coste) y **Claude/GPT/Gemini** (cloud) tras una interfaz común.
+- Serialización del contexto relevante del proyecto abierto (escena activa, entidades, componentes, assets) al formato que consume el modelo, con límites de tamaño de contexto.
+- Panel de **Chat** en el editor (evoluciona el *stretch goal* de M6): de solo lectura a empezar, responde preguntas correctas sobre el proyecto abierto.
+- **Entregable:** preguntar "¿qué comportamientos tiene la entidad seleccionada?" y obtener una respuesta correcta basada en el `.aigs` real.
+
+---
+
+### M19 — Escritura asistida y primer agente (Programador)
+
+**Tareas**
+- El chat puede proponer cambios concretos al `.aigs` (crear entidad, añadir componente, generar un script `rhai`) como una propuesta con **diff/preview** que el usuario confirma antes de aplicar — mismo principio de "acción reversible, confirmación explícita" que gobierna este propio proyecto.
+- Generación de scripts a partir de instrucciones en lenguaje natural, usando el manifiesto tipado de la API de scripting (`scripting-api.json`, ya existente desde M12) como contrato para que el modelo no invente funciones que no existen.
+- **Entregable:** "añade un enemigo que patrulle entre estos dos puntos" genera la entidad, el sprite y el script funcionando, aplicado tras confirmación.
+
+---
+
+### M20 — Agentes especializados
+
+**Tareas**
+- Orquestación multi-agente sobre el contexto compartido del proyecto: Arquitecto (estructura/escenas), Animador (timelines/keyframes), Diseñador de niveles (composición), Audio, Física, Optimización (ver tabla completa en [ia.md](ia.md)).
+- Cada agente limitado a su porción del formato, con el Arquitecto coordinando cambios que cruzan varias áreas.
+- **Entregable:** una instrucción de alto nivel ("crea un segundo nivel más difícil, reusando los assets del primero") coordina varios agentes sin que el usuario tenga que orquestarlos a mano.
+
+---
+
+### M21 — Generación de juegos completos
+
+**Tareas**
+- Flujo de punta a punta descrito en [ia.md](ia.md): frase en lenguaje natural → proyecto `.aigs` jugable completo (escenas, personajes, física, animaciones, audio, código).
+- Iteración conversacional para refinar el resultado ("hazlo más rápido", "que el enemigo tenga más vida").
+- Caso de estudio documentado y reproducible: de prompt a juego jugable en minutos.
+- **Entregable:** **release 0.4**, con el caso de estudio como demo pública del principio "la IA conoce el videojuego".
+
+## Riesgos de la Fase 4
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Coste/latencia de modelos cloud en ediciones iterativas frecuentes | Alto | Proveedor local (Ollama) como opción por defecto; cloud opcional para tareas que lo justifiquen. |
+| Cambios de agentes corrompen el proyecto o rompen el formato | Alto | Todo cambio de agente pasa por el mismo undo/redo del editor; preview/diff antes de aplicar, nunca escritura directa silenciosa. |
+| Coordinación multi-agente inconsistente (dos agentes proponen cambios contradictorios) | Medio | Arquitecto como agente coordinador único con autoridad sobre conflictos; el resto no escribe directamente sin pasar por él. |
+| El formato `.aigs` deja de ser la única fuente de verdad (agentes mantienen estado oculto) | Medio | Regla de arquitectura ya vigente desde el MVP: todo lo que el editor/IA puede hacer se expresa como datos en `.aigs`. |
+
+---
+
+# Fase 5 — Ecosistema
+
+## Objetivo de la Fase 5
+
+Que la comunidad pueda **extender AI Game Studio sin tocar el núcleo**: plugins de editor, componentes de runtime, exportadores y agentes IA de terceros, distribuidos a través de un marketplace, más colaboración en tiempo real sobre el mismo proyecto (ver [plugins.md](plugins.md) para la visión completa del SDK).
+
+**Criterio de éxito:** un plugin de terceros (no escrito por el equipo del núcleo) instalado desde el marketplace añade un panel nuevo al editor o un componente nuevo al runtime, sin recompilar AI Game Studio.
+
+### Dentro del alcance
+
+- SDK público y estable para las extensiones ya previstas desde el MVP (paneles, componentes/sistemas, importadores, exportadores, agentes).
+- Marketplace: publicación, descubrimiento, versionado e instalación desde el propio editor.
+- Colaboración en tiempo real sobre un mismo proyecto.
+- Servicios cloud **opcionales** (nunca obligatorios, coherente con la filosofía open-source/local-first del proyecto).
+
+## Hitos de la Fase 5
+
+### M22 — SDK de plugins v1
+
+**Tareas**
+- Estabilización de las APIs de extensión ya preparadas desde el MVP: paneles de editor, componentes/sistemas del runtime (catálogo, no hardcodeados en el loop), importadores de assets, exportadores de plataforma.
+- Namespace propio para componentes de origen externo en el formato `.aigs` (ya soportado desde el diseño base — se documenta y estabiliza como contrato público).
+- Plantilla de plugin de ejemplo + documentación de publicación en `sdk/`.
+- **Entregable:** un plugin de ejemplo (panel de editor simple) instalable localmente sin tocar el core.
+
+---
+
+### M23 — Marketplace
+
+**Tareas**
+- Publicación, descubrimiento, versionado, instalación y actualización de plugins desde el editor.
+- Cuenta de autor y moderación básica (revisión mínima antes de listar públicamente).
+- **Entregable:** instalar un plugin de un tercero desde dentro del editor, sin pasos manuales de compilación.
+
+---
+
+### M24 — Colaboración en tiempo real
+
+**Tareas**
+- Edición concurrente del mismo proyecto por varias personas (mecanismo de resolución de conflictos sobre el `.aigs` estructurado — decisión de diseño registrada en arquitectura antes de implementar).
+- Presencia de colaboradores en el editor (quién edita qué).
+- Integración con control de versiones (posible flujo git nativo desde el editor, más allá de guardar archivos sueltos).
+- **Entregable:** dos personas editando el mismo proyecto desde máquinas distintas sin pisarse los cambios.
+
+---
+
+### M25 — Servicios cloud opcionales
+
+**Tareas**
+- Guardado en la nube de proyectos y de partidas de jugador (evolución opcional de `save.json`, introducido en M13, hacia un servicio remoto para quien lo quiera — el modo local por archivo sigue siendo el por defecto).
+- Analíticas básicas para juegos publicados (opt-in, nunca por defecto).
+- **Entregable:** **release 1.0** — ecosistema completo: núcleo estable, SDK, marketplace, colaboración y servicios cloud opcionales.
+
+## Riesgos de la Fase 5
+
+| Riesgo | Impacto | Mitigación |
+|---|---|---|
+| Plugins de terceros con código no confiable | Alto | Sandboxing/permutación de permisos por tipo de extensión; moderación mínima antes de listar en el marketplace. |
+| Gobernanza del marketplace (calidad, spam, disputas) | Medio | Moderación básica desde M23; empezar con publicación manual antes de abrir auto-publicación. |
+| Complejidad de resolución de conflictos en edición colaborativa sobre JSON estructurado | Alto | Decisión de mecanismo (CRDT u otro) registrada y prototipada antes de comprometerse en M24; alcance inicial puede limitarse a "un editor a la vez por escena" si el CRDT completo no está listo. |
+| Servicios cloud contradicen la filosofía local-first/open-source del proyecto | Medio | Estrictamente opcionales y con alternativa local funcional; nunca requisito para usar el producto. |
