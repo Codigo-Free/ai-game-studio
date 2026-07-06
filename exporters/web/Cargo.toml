@@ -1,0 +1,15 @@
+[package]
+name = "aigs-export-web"
+description = "Web exporter: packs a project and the prebuilt web player bundle into a browser-ready folder"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aigs-project = { path = "../../runtime/crates/aigs-project" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

@@ -25,21 +25,30 @@ enum Command {
         /// Path to the project manifest (game.aigs).
         manifest: PathBuf,
     },
-    /// Export the project as a standalone desktop game folder.
+    /// Export the project as a standalone game folder.
     Export {
         /// Path to the project manifest (game.aigs).
         manifest: PathBuf,
         /// Directory where the game folder is created.
         #[arg(long, default_value = "dist")]
         output: PathBuf,
-        /// Also produce a .zip next to the game folder.
+        /// Also produce a .zip next to the game folder (Desktop only).
         #[arg(long)]
         zip: bool,
+        /// Export platform.
+        #[arg(long, value_enum, default_value = "desktop")]
+        target: ExportTarget,
     },
     /// Print the scripting API as machine-readable JSON: every lifecycle
     /// function and callable a `.rhai` script can use. Intended for AI
     /// agents and editor tooling (see sdk/aigs-format/scripting-api.json).
     ScriptApi,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+enum ExportTarget {
+    Desktop,
+    Web,
 }
 
 fn main() -> ExitCode {
@@ -57,7 +66,11 @@ fn main() -> ExitCode {
             manifest,
             output,
             zip,
-        } => export_project(&manifest, &output, zip),
+            target,
+        } => match target {
+            ExportTarget::Desktop => export_project_desktop(&manifest, &output, zip),
+            ExportTarget::Web => export_project_web(&manifest, &output),
+        },
         Command::ScriptApi => script_api(),
     }
 }
@@ -79,7 +92,7 @@ fn bundled_manifest() -> Option<PathBuf> {
     manifest.is_file().then_some(manifest)
 }
 
-fn export_project(manifest: &Path, output: &Path, zip: bool) -> ExitCode {
+fn export_project_desktop(manifest: &Path, output: &Path, zip: bool) -> ExitCode {
     let player = match std::env::current_exe() {
         Ok(exe) => exe,
         Err(err) => return fail(&format!("cannot locate player binary: {err}")),
@@ -102,6 +115,55 @@ fn export_project(manifest: &Path, output: &Path, zip: bool) -> ExitCode {
             if let Some(zip_file) = report.zip_file {
                 println!("archive: {}", zip_file.display());
             }
+            ExitCode::SUCCESS
+        }
+        Err(err) => fail(&format!("export: {err}")),
+    }
+}
+
+/// The web player has no wasm equivalent of "the running CLI binary" (see
+/// exporters/web-player) — it's a prebuilt bundle expected next to `aigs`,
+/// in a `web-player/` folder, mirroring how an exported Desktop game finds
+/// `data/game.aigs` next to its own executable.
+fn locate_web_player() -> Result<(PathBuf, PathBuf), String> {
+    let exe = std::env::current_exe().map_err(|err| format!("cannot locate {err}"))?;
+    let dir = exe
+        .parent()
+        .ok_or("running executable has no parent directory")?
+        .join("web-player");
+    let js = dir.join("aigs_web_player.js");
+    let wasm = dir.join("aigs_web_player_bg.wasm");
+    if !js.is_file() || !wasm.is_file() {
+        return Err(format!(
+            "web player bundle not found at {} (expected aigs_web_player.js + aigs_web_player_bg.wasm; \
+             build exporters/web-player with wasm-bindgen and place the output there)",
+            dir.display()
+        ));
+    }
+    Ok((js, wasm))
+}
+
+fn export_project_web(manifest: &Path, output: &Path) -> ExitCode {
+    let (player_js, player_wasm) = match locate_web_player() {
+        Ok(paths) => paths,
+        Err(err) => return fail(&err),
+    };
+    match aigs_export_web::export(
+        manifest,
+        &aigs_export_web::ExportOptions {
+            player_js: &player_js,
+            player_wasm: &player_wasm,
+            output,
+        },
+    ) {
+        Ok(report) => {
+            println!(
+                "exported to {} ({} files)",
+                report.game_dir.display(),
+                report.files_copied
+            );
+            println!("serve it with any static file server and open index.html, e.g.:");
+            println!("  npx serve {}", report.game_dir.display());
             ExitCode::SUCCESS
         }
         Err(err) => fail(&format!("export: {err}")),

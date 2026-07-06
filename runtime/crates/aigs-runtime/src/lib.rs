@@ -17,6 +17,7 @@ mod player;
 mod save;
 mod scene;
 mod scripting;
+mod source;
 mod time;
 
 pub use aigs_ecs::{Entity, Schedule, World};
@@ -35,4 +36,5 @@ pub use scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
 pub use scripting::{
     api_manifest, ApiFunction, ApiLifecycle, ApiManifest, ApiParam, ScriptCommand, ScriptHost,
 };
+pub use source::{AssetSource, MemoryAssets};
 pub use time::Time;

@@ -2,10 +2,11 @@
 //! manifest and uploads images to the GPU.
 
 use std::collections::HashMap;
-use std::path::Path;
 
 use aigs_project::{Asset, AssetKind};
 use aigs_render::{Renderer, TextureId};
+
+use crate::source::AssetSource;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AssetError {
@@ -43,12 +44,12 @@ pub struct AssetStore {
 }
 
 impl AssetStore {
-    /// Loads every asset of `assets`, resolving paths relative to `root`
-    /// (the directory containing `game.aigs`). Non-image assets are skipped
-    /// until later milestones (audio in Phase 2).
+    /// Loads every asset of `assets` by reading through `source` (a local
+    /// directory on Desktop, prefetched bytes on Web). Non-image assets are
+    /// skipped (audio has its own loader, see [`crate::AudioPlayer`]).
     pub fn load(
         renderer: &mut Renderer,
-        root: &Path,
+        source: &dyn AssetSource,
         assets: &[Asset],
     ) -> Result<Self, AssetError> {
         let mut store = Self::default();
@@ -56,12 +57,13 @@ impl AssetStore {
             if asset.kind != AssetKind::Image {
                 continue;
             }
-            let path = root.join(&asset.path);
-            let bytes = std::fs::read(&path).map_err(|source| AssetError::Read {
-                id: asset.id.clone(),
-                path: asset.path.clone(),
-                source,
-            })?;
+            let bytes = source
+                .read(&asset.path)
+                .map_err(|source| AssetError::Read {
+                    id: asset.id.clone(),
+                    path: asset.path.clone(),
+                    source,
+                })?;
             let decoded = image::load_from_memory(&bytes)
                 .map_err(|source| AssetError::Decode {
                     id: asset.id.clone(),

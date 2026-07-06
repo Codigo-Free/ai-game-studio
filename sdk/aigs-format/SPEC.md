@@ -245,6 +245,7 @@ El motor puede recordar el estado de un juego **entre ejecuciones reales** (cerr
 - Si `save.json` no existe, la partida arranca limpia (no es un error). Si existe pero está corrupto, se reporta por consola y también arranca limpia (nunca se ignora en silencio un archivo dañado).
 - Ubicación deliberada: junto a los datos del proyecto (no en un directorio de perfil de usuario), coherente con el diseño self-player de los exportados (M7).
 - Estructura: `{"version": 1, "saved_at_unix": <u64>, "scripts": {"<id de entidad>": {"<variable>": <f64>, ...}, ...}}`.
+- **Limitación conocida (M14):** el exportador Web no tiene todavía un `save.json` equivalente (no hay sistema de archivos en el navegador); `elapsed_since_save()` siempre devuelve `0` ahí. Un juego que dependa de persistencia real de partida (como el Tamagotchi de M13) no la tiene aún al exportarse a Web.
 
 ### Audio (v0, M9)
 

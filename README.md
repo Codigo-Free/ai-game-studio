@@ -41,7 +41,7 @@ Sigue la **[guía de inicio rápido](docs/guia-inicio.md)** para el tour del edi
 
 ## Lo que viene
 
-- **Fase 3**: exportadores Android, Web (WASM) e iOS, optimización de tamaño/rendimiento.
+- **Fase 3**: exportador Web (WASM) implementado (`aigs export --target web`), pendiente de validación en un navegador real; exportadores Android e iOS, optimización de tamaño/rendimiento.
 - **Fase 4**: IA profunda — chat nativo con contexto del proyecto, agentes especializados, generación de juegos completos.
 - **Fase 5**: SDK de plugins, marketplace, colaboración.
 

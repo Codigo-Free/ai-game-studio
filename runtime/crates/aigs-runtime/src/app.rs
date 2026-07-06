@@ -65,13 +65,15 @@ pub fn run(
     update: impl FnMut(&mut World, &Time, &Input) + 'static,
 ) -> Result<(), RunError> {
     let event_loop = EventLoop::new()?;
-    let mut app = App {
+    let app = App {
         config,
         world: World::new(),
         setup: Some(Box::new(setup)),
         update: Box::new(update),
         window: None,
         renderer: None,
+        #[cfg(target_arch = "wasm32")]
+        pending_renderer: None,
         input: Input::default(),
         time: Time::default(),
         accumulator: 0.0,
@@ -81,12 +83,38 @@ pub fn run(
         fps_since: None,
         init_error: None,
     };
+    run_event_loop(event_loop, app)
+}
+
+/// Desktop: `run_app` blocks the calling thread until the window closes,
+/// then hands back whatever `setup` failed with, if anything.
+#[cfg(not(target_arch = "wasm32"))]
+fn run_event_loop(event_loop: EventLoop<()>, mut app: App) -> Result<(), RunError> {
     event_loop.run_app(&mut app)?;
     match app.init_error {
         Some(error) => Err(error.into()),
         None => Ok(()),
     }
 }
+
+/// Web: a browser tab can never block its own JS thread, so `spawn_app`
+/// hands the app to the browser's own event loop and returns immediately —
+/// there is no "final result" to report here. Setup/render errors are
+/// surfaced through `eprintln!` (routed to the console, see `Renderer`),
+/// not through this function's return value.
+#[cfg(target_arch = "wasm32")]
+fn run_event_loop(event_loop: EventLoop<()>, app: App) -> Result<(), RunError> {
+    use winit::platform::web::EventLoopExtWebSys;
+    event_loop.spawn_app(app);
+    Ok(())
+}
+
+/// Not yet resolved, resolved (ok or error). Only used on Web, where GPU
+/// adapter/device setup is unavoidably asynchronous (see
+/// [`aigs_render::Renderer::new_async`]) and `resumed()` — a synchronous
+/// winit callback — can't block the browser's one JS thread waiting on it.
+#[cfg(target_arch = "wasm32")]
+type PendingRenderer = std::rc::Rc<std::cell::RefCell<Option<Result<Renderer, RenderError>>>>;
 
 struct App {
     config: AppConfig,
@@ -95,6 +123,8 @@ struct App {
     update: UpdateFn,
     window: Option<Arc<Window>>,
     renderer: Option<Renderer>,
+    #[cfg(target_arch = "wasm32")]
+    pending_renderer: Option<PendingRenderer>,
     input: Input,
     time: Time,
     accumulator: f32,
@@ -106,7 +136,44 @@ struct App {
 }
 
 impl App {
+    /// On Web, promotes a finished async renderer into `self.renderer` and
+    /// runs the deferred `setup`. A no-op on Desktop, where `resumed()`
+    /// already did this synchronously.
+    fn try_finish_init(
+        &mut self,
+        #[cfg_attr(not(target_arch = "wasm32"), allow(unused_variables))]
+        event_loop: &ActiveEventLoop,
+    ) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let Some(pending) = &self.pending_renderer else {
+                return;
+            };
+            let Some(result) = pending.borrow_mut().take() else {
+                return; // still awaiting the adapter/device
+            };
+            self.pending_renderer = None;
+            match result {
+                Ok(mut renderer) => {
+                    let viewport = renderer.viewport();
+                    self.input
+                        .set_viewport(viewport.width as f32, viewport.height as f32);
+                    if let Some(setup) = self.setup.take() {
+                        setup(&mut self.world, &mut renderer);
+                    }
+                    self.renderer = Some(renderer);
+                }
+                Err(error) => {
+                    eprintln!("failed to initialize renderer: {error}");
+                    self.init_error = Some(error);
+                    event_loop.exit();
+                }
+            }
+        }
+    }
+
     fn tick(&mut self, event_loop: &ActiveEventLoop) {
+        self.try_finish_init(event_loop);
         let Some(renderer) = self.renderer.as_mut() else {
             return;
         };
@@ -173,6 +240,39 @@ impl App {
             }
         }
     }
+
+    /// Desktop: builds the renderer synchronously (blocks on GPU setup) and
+    /// runs `setup` immediately, exactly as before this platform ever had
+    /// a Web target.
+    #[cfg(not(target_arch = "wasm32"))]
+    fn init_renderer(&mut self, window: Arc<Window>) {
+        match Renderer::new(window) {
+            Ok(mut renderer) => {
+                let viewport = renderer.viewport();
+                self.input
+                    .set_viewport(viewport.width as f32, viewport.height as f32);
+                if let Some(setup) = self.setup.take() {
+                    setup(&mut self.world, &mut renderer);
+                }
+                self.renderer = Some(renderer);
+            }
+            Err(error) => self.init_error = Some(error),
+        }
+    }
+
+    /// Web: `resumed()` can't block on the GPU adapter/device (there's no
+    /// way to synchronously wait on a JS Promise from the browser's only
+    /// thread), so it kicks off the async setup and returns; a later
+    /// [`App::try_finish_init`] call picks up the result once ready.
+    #[cfg(target_arch = "wasm32")]
+    fn init_renderer(&mut self, window: Arc<Window>) {
+        let slot: PendingRenderer = std::rc::Rc::new(std::cell::RefCell::new(None));
+        self.pending_renderer = Some(slot.clone());
+        wasm_bindgen_futures::spawn_local(async move {
+            let result = Renderer::new_async(window).await;
+            *slot.borrow_mut() = Some(result);
+        });
+    }
 }
 
 impl ApplicationHandler for App {
@@ -186,6 +286,13 @@ impl ApplicationHandler for App {
                 self.config.width,
                 self.config.height,
             ));
+        #[cfg(target_arch = "wasm32")]
+        let attributes = {
+            use winit::platform::web::WindowAttributesExtWebSys;
+            // winit creates the <canvas> in memory; nothing shows up on the
+            // page unless it's told to append it to the DOM itself.
+            attributes.with_append(true)
+        };
         let window = match event_loop.create_window(attributes) {
             Ok(window) => Arc::new(window),
             Err(error) => {
@@ -194,21 +301,10 @@ impl ApplicationHandler for App {
                 return;
             }
         };
-        match Renderer::new(window.clone()) {
-            Ok(mut renderer) => {
-                let viewport = renderer.viewport();
-                self.input
-                    .set_viewport(viewport.width as f32, viewport.height as f32);
-                if let Some(setup) = self.setup.take() {
-                    setup(&mut self.world, &mut renderer);
-                }
-                self.renderer = Some(renderer);
-                self.window = Some(window);
-            }
-            Err(error) => {
-                self.init_error = Some(error);
-                event_loop.exit();
-            }
+        self.window = Some(window.clone());
+        self.init_renderer(window);
+        if self.init_error.is_some() {
+            event_loop.exit();
         }
     }
 

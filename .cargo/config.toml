@@ -1,0 +1,6 @@
+# wasm32-unknown-unknown (milestone M14, exportador Web): `getrandom` 0.3
+# needs to be told which randomness source to use in the browser (there is
+# no OS-level one) via this cfg, in addition to the `wasm_js` feature on the
+# dependency itself (set per-crate in Cargo.toml). See docs/arquitectura.md.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]

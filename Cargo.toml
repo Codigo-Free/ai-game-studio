@@ -8,11 +8,14 @@ members = [
     "runtime/crates/aigs-runtime",
     "cli",
     "exporters/desktop",
+    "exporters/web",
     "tests/integration",
     "examples/bouncing-sprites",
 ]
-# The Tauri app manages its own build (bundling, system deps).
-exclude = ["editor/src-tauri"]
+# The Tauri app manages its own build (bundling, system deps). The web
+# player only ever builds for wasm32-unknown-unknown (a cdylib, not
+# something `cargo build --workspace` on the host toolchain can produce).
+exclude = ["editor/src-tauri", "exporters/web-player"]
 
 [workspace.package]
 version = "0.2.0"

@@ -22,7 +22,7 @@
 
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::SystemTime;
 
@@ -35,6 +35,7 @@ use crate::components::{Sprite, Transform2D};
 use crate::input::Input;
 use crate::player::parse_key;
 use crate::scene::SceneInstance;
+use crate::source::AssetSource;
 use crate::KeyCode;
 
 /// How often (in ticks) a running host checks script files for changes.
@@ -132,22 +133,26 @@ pub struct ScriptHost {
 }
 
 impl ScriptHost {
-    /// Loads and compiles every `script` asset. Compile errors become
-    /// warnings; the affected scripts simply don't run.
-    pub fn load(root: &Path, assets: &[Asset]) -> Self {
+    /// Loads and compiles every `script` asset, reading through `source`.
+    /// Compile errors become warnings; the affected scripts simply don't
+    /// run. Hot reload only activates for sources backed by a real
+    /// filesystem path (Desktop) — there's nothing to watch on Web.
+    pub fn load(source: &dyn AssetSource, assets: &[Asset]) -> Self {
         let mut host = Self::empty();
         for asset in assets {
             if asset.kind != AssetKind::Script {
                 continue;
             }
-            let path = root.join(&asset.path);
-            match std::fs::read_to_string(&path) {
-                Ok(source) => {
-                    host.add_source(&asset.id, &source);
-                    if let Ok(modified) = std::fs::metadata(&path).and_then(|m| m.modified()) {
-                        host.mtimes.insert(asset.id.clone(), modified);
+            match source.read_to_string(&asset.path) {
+                Ok(text) => {
+                    host.add_source(&asset.id, &text);
+                    if let Some(root) = source.as_path() {
+                        let path = root.join(&asset.path);
+                        if let Ok(modified) = std::fs::metadata(&path).and_then(|m| m.modified()) {
+                            host.mtimes.insert(asset.id.clone(), modified);
+                        }
+                        host.sources.insert(asset.id.clone(), path);
                     }
-                    host.sources.insert(asset.id.clone(), path);
                 }
                 Err(error) => host.warnings.push(format!(
                     "script asset \"{}\" ({}): {error}",
@@ -1161,5 +1166,30 @@ mod tests {
         );
 
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn memory_backed_scripts_never_hot_reload() {
+        // No filesystem to watch on Web: loading through `MemoryAssets`
+        // (whose `as_path()` is `None`) must leave hot reload inert instead
+        // of erroring out.
+        let mut assets = crate::source::MemoryAssets::new();
+        assets.insert(
+            "counter.rhai",
+            b"fn on_start() { set_var(\"n\", 1.0); }".to_vec(),
+        );
+        let asset = Asset {
+            id: "counter".to_string(),
+            kind: AssetKind::Script,
+            path: "counter.rhai".to_string(),
+            spritesheet: None,
+        };
+        let mut host = ScriptHost::load(&assets, std::slice::from_ref(&asset));
+        assert!(host.warnings.is_empty(), "{:?}", host.warnings);
+        assert!(host.sources.is_empty(), "no path to watch, nothing tracked");
+        assert!(
+            host.check_reload().is_empty(),
+            "nothing to reload without a filesystem"
+        );
     }
 }

@@ -9,8 +9,8 @@ Este documento define el plan de desarrollo del proyecto, fase por fase e hito p
 | Fase | Nombre | Alcance | Estado |
 |---|---|---|---|
 | **1** | MVP | Editor visual, Timeline, Escenas, Assets, Runtime básico | 🟢 **Completada** — [release 0.1.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.1.0) (estado por hito en [ROADMAP.md](../ROADMAP.md)) |
-| **2** | Motor completo | Animaciones avanzadas, Física, Audio, Partículas, Exportación Desktop | 🔵 Siguiente |
-| **3** | Multiplataforma | M14–M17: exportadores Web (WASM), Android, iOS, optimización y publicación | ⚪ Pendiente |
+| **2** | Motor completo | Animaciones avanzadas, Física, Audio, Partículas, Exportación Desktop | 🟢 **Completada** — [release 0.2.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.2.0) |
+| **3** | Multiplataforma | M14–M17: exportadores Web (WASM), Android, iOS, optimización y publicación | 🔵 En curso — M14 (Web) implementado, pendiente de validación manual en navegador |
 | **4** | IA profunda | M18–M21: AI Core y chat, escritura asistida, agentes especializados, generación de juegos completos | ⚪ Pendiente |
 | **5** | Ecosistema | M22–M25: SDK de plugins, marketplace, colaboración en tiempo real, servicios cloud opcionales | ⚪ Pendiente |
 
@@ -315,16 +315,21 @@ El mismo proyecto `.aigs`, sin cambios, corriendo como aplicación nativa en **A
 
 ### M14 — Exportador Web (WASM)
 
-El de menor riesgo técnico: `aigs-render` ya usa WGPU, que compila a WebGPU/WebGL vía `wgpu` sin reescribir el renderer.
+El de menor riesgo técnico: `aigs-render` ya usa WGPU, que compila a WebGPU/WebGL vía `wgpu` sin reescribir el renderer — confirmado compilando de verdad antes de comprometer el diseño (ver decisiones en `docs/arquitectura.md`).
 
-**Tareas**
-- Target `wasm32-unknown-unknown` para `aigs-runtime`/`aigs-render`; selección de backend WebGPU con *fallback* a WebGL donde no esté disponible.
-- Carga de assets vía `fetch` en lugar de sistema de archivos (abstracción ya centralizada en `AssetStore`, se le añade un backend web).
-- Mapeo de eventos de teclado/ratón del navegador al mismo modelo de entrada que usan los behaviors y scripts — los proyectos existentes no necesitan cambios.
-- `aigs export --target web`: genera `index.html` + `.wasm` + assets, listo para servir estático (GitHub Pages, cualquier CDN).
-- Presupuesto de tamaño (`wasm-opt`) y chequeo en CI de que el build web compila.
+**Entregado:**
+- `runtime/crates/aigs-runtime/src/source.rs`: trait `AssetSource` (Desktop = `PathBuf` sobre `std::fs`; Web = `MemoryAssets`, un `HashMap` prellenado por `fetch`) del que ahora leen `AssetStore`, `AudioPlayer` y `ScriptHost` — mismo código de parseo/decodificación en ambas plataformas, solo cambia de dónde vienen los bytes.
+- `aigs_runtime::app`: arranque del renderer como máquina de estados (`Renderer::new` bloqueante en Desktop; `Renderer::new_async` + `Rc<RefCell<Option<...>>>` resuelto de forma perezosa en Web, porque `pollster::block_on` bloquearía el único hilo de JS del navegador). El bucle de eventos usa `run_app` (Desktop, bloqueante) o `spawn_app` (Web, no bloqueante).
+- Entrada de teclado/ratón: **sin cambios** — winit ya entrega los mismos `WindowEvent` en ambas plataformas, así que behaviors y scripts existentes funcionan igual sin tocarlos.
+- Hot reload de scripts (M12) queda inerte en Web sin código especial: `AssetSource::as_path()` devuelve `None` para `MemoryAssets`, así que `ScriptHost` nunca registra rutas que vigilar.
+- Nuevo crate `exporters/web-player` (`aigs-web-player`, cdylib wasm32, excluido del workspace nativo): el jugador genérico — `fetch`ea `data/game.aigs` y todo lo que referencia, y corre exactamente el mismo `GamePlayer` que `aigs run`.
+- Nuevo crate `exporters/web` (`aigs-export-web`, sí en el workspace): empaqueta `data/` + el jugador prebuilt + un `index.html` generado. `aigs export --target web` — el jugador se busca en `<carpeta del ejecutable>/web-player/`, construido una vez con `wasm-bindgen` (ver job *Web player* en CI), igual de "cero compilación para quien exporta" que Desktop.
+- Verificado de punta a punta en este entorno: `cargo build --target wasm32-unknown-unknown` limpio (lint + build), `wasm-bindgen` produce un módulo JS válido, y `aigs export --target web` sobre Robot Rescue genera la carpeta esperada (`index.html` + `.wasm`/`.js` + `data/`).
 
-**Entregable:** Robot Rescue jugable en el navegador desde un enlace estático, sin instalar nada.
+**Pendiente / limitaciones conocidas:**
+- **Validación manual en un navegador real todavía no hecha** (no hay navegador disponible en este entorno de desarrollo) — falta confirmar renderizado, entrada y audio jugando de verdad antes de marcar el hito como validado.
+- Sin `save.json` en Web todavía (sin sistema de archivos) — el Tamagotchi de M13 pierde su persistencia real si se exporta a Web; documentado en SPEC.md.
+- Sin presupuesto de tamaño (`wasm-opt`) ni botón "Exportar a Web" en el editor todavía — solo CLI, sin optimizar tamaño del binario.
 
 ---
 

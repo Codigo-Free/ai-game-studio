@@ -102,12 +102,16 @@ pub struct Renderer {
 }
 
 impl Renderer {
-    /// Creates a renderer drawing to `window`. Blocks on GPU adapter setup.
+    /// Creates a renderer drawing to `window`. Blocks on GPU adapter setup —
+    /// only valid on Desktop; the Web target must `.await` [`Self::new_async`]
+    /// directly (there is no way to block the browser's only JS thread).
     pub fn new(window: Arc<Window>) -> Result<Self, RenderError> {
         pollster::block_on(Self::new_async(window))
     }
 
-    async fn new_async(window: Arc<Window>) -> Result<Self, RenderError> {
+    /// Same as [`Self::new`], without blocking: `.await`s the GPU adapter
+    /// and device instead of parking the thread. Required on Web.
+    pub async fn new_async(window: Arc<Window>) -> Result<Self, RenderError> {
         let size = window.inner_size();
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor::default());
         let surface = instance.create_surface(window)?;

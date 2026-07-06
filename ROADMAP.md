@@ -32,13 +32,13 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M12 | Scripting de usuario (rhai) | 🟢 Completado |
 | M13 | Persistencia de scripts + demo **Tamagotchi**, release **0.2** (reemplaza al platformer original) | 🟢 Completado (validado manualmente) |
 
-## Fase 3 — Multiplataforma ⚪
+## Fase 3 — Multiplataforma 🔵 *en curso*
 
 **Objetivo:** el mismo proyecto `.aigs`, sin cambios, exportado a Web/Android/iOS además de Desktop. Detalle en [docs/plan.md](docs/plan.md).
 
 | Hito | Alcance | Estado |
 |---|---|---|
-| M14 | Exportador Web (WASM) | ⚪ Pendiente |
+| M14 | Exportador Web (WASM): `AssetSource`, arranque de renderer asíncrono, crates `exporters/web`/`exporters/web-player`, `aigs export --target web` | 🟡 Implementado y verificado por CI/compilación — **pendiente validar en navegador real** |
 | M15 | Exportador Android | ⚪ Pendiente |
 | M16 | Exportador iOS | ⚪ Pendiente |
 | M17 | Optimización, paridad y publicación, release **0.3** | ⚪ Pendiente |
@@ -67,4 +67,4 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 
 ---
 
-Leyenda: 🔵 en curso · 🟢 completado · ⚪ pendiente
+Leyenda: 🔵 en curso · 🟡 implementado, validación manual pendiente · 🟢 completado · ⚪ pendiente

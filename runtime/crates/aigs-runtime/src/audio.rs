@@ -4,11 +4,13 @@
 //! to a disabled no-op so games and tests still run.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::io::Cursor;
 
 use aigs_project::{Asset, AssetKind, Music};
 use kira::sound::static_sound::{StaticSoundData, StaticSoundHandle};
 use kira::{AudioManager, AudioManagerSettings, Decibels, DefaultBackend, Tween};
+
+use crate::source::AssetSource;
 
 /// Converts a linear volume (`0.0..=1.0`) to decibels.
 fn to_decibels(volume: f32) -> Decibels {
@@ -29,9 +31,10 @@ pub struct AudioPlayer {
 }
 
 impl AudioPlayer {
-    /// Loads every `audio` asset of the project. If no audio backend is
-    /// available the player is created disabled (with a warning).
-    pub fn load(root: &Path, assets: &[Asset]) -> Self {
+    /// Loads every `audio` asset of the project, reading through `source`.
+    /// If no audio backend is available the player is created disabled
+    /// (with a warning).
+    pub fn load(source: &dyn AssetSource, assets: &[Asset]) -> Self {
         let mut player = match AudioManager::<DefaultBackend>::new(AudioManagerSettings::default())
         {
             Ok(manager) => Self {
@@ -53,7 +56,17 @@ impl AudioPlayer {
             if asset.kind != AssetKind::Audio {
                 continue;
             }
-            match StaticSoundData::from_file(root.join(&asset.path)) {
+            let bytes = match source.read(&asset.path) {
+                Ok(bytes) => bytes,
+                Err(error) => {
+                    player.warnings.push(format!(
+                        "audio asset \"{}\" ({}): {error}",
+                        asset.id, asset.path
+                    ));
+                    continue;
+                }
+            };
+            match StaticSoundData::from_cursor(Cursor::new(bytes)) {
                 Ok(sound) => {
                     player.sounds.insert(asset.id.clone(), sound);
                 }

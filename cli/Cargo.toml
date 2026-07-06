@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 aigs-export-desktop = { version = "0.2.0", path = "../exporters/desktop" }
+aigs-export-web = { path = "../exporters/web" }
 aigs-project = { path = "../runtime/crates/aigs-project" }
 aigs-runtime = { version = "0.2.0", path = "../runtime/crates/aigs-runtime" }
 clap = { version = "4", features = ["derive"] }
