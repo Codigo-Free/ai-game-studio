@@ -319,7 +319,11 @@ mod tests {
 
         fix_path_dependencies(&build_dir, &original_template).unwrap();
 
-        let text = std::fs::read_to_string(build_dir.join("Cargo.toml")).unwrap();
+        // Windows' canonicalize() yields backslash-separated paths; compare
+        // loosely rather than assume a separator style.
+        let text = std::fs::read_to_string(build_dir.join("Cargo.toml"))
+            .unwrap()
+            .replace('\\', "/");
         assert!(
             !text.contains("../../runtime"),
             "no relative path left: {text}"
