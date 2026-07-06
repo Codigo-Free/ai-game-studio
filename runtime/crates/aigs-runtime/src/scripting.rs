@@ -1060,7 +1060,12 @@ mod tests {
             "#,
         )
         .unwrap();
-        let file = std::fs::File::open(&script_path).unwrap();
+        // Open with write access: on Windows, setting file times needs
+        // FILE_WRITE_ATTRIBUTES, which a read-only handle doesn't carry.
+        let file = std::fs::OpenOptions::new()
+            .write(true)
+            .open(&script_path)
+            .unwrap();
         file.set_modified(SystemTime::now() + std::time::Duration::from_secs(5))
             .unwrap();
 
