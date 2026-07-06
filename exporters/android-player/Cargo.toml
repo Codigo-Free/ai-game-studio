@@ -35,3 +35,4 @@ target_sdk_version = 34
 [profile.release]
 opt-level = "s"
 lto = true
+strip = true

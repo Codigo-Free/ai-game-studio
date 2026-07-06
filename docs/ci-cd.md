@@ -10,6 +10,7 @@ Automatización con **GitHub Actions** desde el hito M0 del [plan](plan.md).
 2. **Build multiplataforma:** Linux, Windows y macOS (matrix).
 3. **Tests:** unitarios e integración ([testing.md](testing.md)).
 4. **Benchmarks:** comparación contra la línea base; una regresión significativa marca el build.
+5. **Exportadores Web/Android** (M14/M15): jobs dedicados que instalan de verdad el toolchain de cada plataforma (`wasm-bindgen`, o NDK+SDK+`cargo-apk`) y ejecutan `aigs export --target web|android` sobre los ejemplos, no solo compilan — Web prueba los cuatro ejemplos (barato, sin recompilar nada por export); Android prueba Robot Rescue (cada export ahí recompila el motor entero, así que se limita al ejemplo que ya ejercita todos los tipos de asset).
 
 ## Quality gates
 

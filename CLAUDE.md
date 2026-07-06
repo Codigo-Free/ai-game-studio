@@ -57,6 +57,7 @@ El workspace Cargo vive en la raíz (`Cargo.toml`); `editor/src-tauri` queda exc
 | [docs/runtime.md](docs/runtime.md) | Crates, ECS, game loop, modos de ejecución | trabajes en `runtime/` |
 | [docs/ia.md](docs/ia.md) | Estrategia IA, agentes, formato AI-Ready | trabajes en integración con IA |
 | [docs/exportadores.md](docs/exportadores.md) | Plataformas y diseño de exportación | trabajes en `exporters/` |
+| [docs/guia-publicacion.md](docs/guia-publicacion.md) | Pasos manuales para publicar en cada tienda (Web, Play Store) | vayas a publicar un juego exportado |
 | [docs/plugins.md](docs/plugins.md) | SDK y extensibilidad | trabajes en `sdk/` |
 | [docs/testing.md](docs/testing.md) | Estrategia de pruebas por nivel | escribas o revises tests |
 | [docs/ci-cd.md](docs/ci-cd.md) | Pipeline, quality gates, releases | toques CI o publiques releases |

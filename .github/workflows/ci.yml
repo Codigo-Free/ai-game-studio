@@ -66,6 +66,14 @@ jobs:
         run: |
           wasm-bindgen --target web --out-dir /tmp/web-player --out-name aigs_web_player \
             exporters/web-player/target/wasm32-unknown-unknown/release/aigs_web_player.wasm
+      - name: Shrink the wasm binary with wasm-opt (milestone M17 size budget)
+        run: |
+          sudo apt-get install -y binaryen
+          before=$(stat -c%s /tmp/web-player/aigs_web_player_bg.wasm)
+          wasm-opt -Oz -o /tmp/web-player/aigs_web_player_bg.wasm \
+            /tmp/web-player/aigs_web_player_bg.wasm
+          after=$(stat -c%s /tmp/web-player/aigs_web_player_bg.wasm)
+          echo "wasm-opt -Oz: ${before} -> ${after} bytes"
       - name: Export every example project to Web and check the layout
         run: |
           mkdir -p /tmp/aigs-cli-web-player/web-player
