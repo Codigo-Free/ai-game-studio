@@ -66,18 +66,23 @@ jobs:
         run: |
           wasm-bindgen --target web --out-dir /tmp/web-player --out-name aigs_web_player \
             exporters/web-player/target/wasm32-unknown-unknown/release/aigs_web_player.wasm
-      - name: Export an example project to Web and check the layout
+      - name: Export every example project to Web and check the layout
         run: |
           mkdir -p /tmp/aigs-cli-web-player/web-player
           cp /tmp/web-player/aigs_web_player.js /tmp/web-player/aigs_web_player_bg.wasm \
             /tmp/aigs-cli-web-player/web-player/
           cargo build -p aigs-cli
           cp target/debug/aigs /tmp/aigs-cli-web-player/aigs
-          /tmp/aigs-cli-web-player/aigs export examples/robot-rescue/game.aigs \
-            --target web --output /tmp/web-dist
-          test -f /tmp/web-dist/robot-rescue/index.html
-          test -f /tmp/web-dist/robot-rescue/aigs_web_player_bg.wasm
-          test -f /tmp/web-dist/robot-rescue/data/game.aigs
+          for manifest in examples/*/game.aigs; do
+            name=$(basename "$(dirname "$manifest")")
+            echo "::group::Exporting $name to Web"
+            /tmp/aigs-cli-web-player/aigs export "$manifest" \
+              --target web --output "/tmp/web-dist/$name"
+            test -f "/tmp/web-dist/$name/$name/index.html"
+            test -f "/tmp/web-dist/$name/$name/aigs_web_player_bg.wasm"
+            test -f "/tmp/web-dist/$name/$name/data/game.aigs"
+            echo "::endgroup::"
+          done
 
   android-player:
     name: Android player (aarch64)
