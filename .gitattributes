@@ -1,0 +1,6 @@
+# Force LF for generated/checked-in artifacts compared byte-for-byte in
+# tests (e.g. sdk/aigs-format/scripting-api.json against a Windows CI
+# runner's checkout), regardless of each contributor's core.autocrlf.
+*.aigs text eol=lf
+*.rhai text eol=lf
+sdk/**/*.json text eol=lf
