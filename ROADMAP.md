@@ -43,13 +43,13 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M16 | Exportador iOS | 🟤 Diferido, sin fecha (necesita macOS + Xcode, no disponibles en este entorno) |
 | M17 | Menú de exportación en el editor, matriz de CI de los tres exportadores, presupuesto de tamaño (`strip`/`wasm-opt`), guía de publicación, release **0.3** | 🟢 Completado |
 
-## Fase 4 — IA profunda ⚪
+## Fase 4 — IA profunda 🟡 *en curso*
 
 **Objetivo:** la IA como colaborador activo — chat nativo que propone y aplica cambios sobre el `.aigs`, agentes especializados, generación de juegos completos desde lenguaje natural. Detalle en [docs/plan.md](docs/plan.md) e [docs/ia.md](docs/ia.md).
 
 | Hito | Alcance | Estado |
 |---|---|---|
-| M18 | AI Core y chat con contexto del proyecto (Ollama + cloud) | ⚪ Pendiente |
+| M18 | AI Core y chat con contexto del proyecto (Ollama + cloud) | 🟡 Completado y verificado con Ollama real — **proveedor Claude implementado sin verificar** (necesita API key de un usuario), recorrido de UI no verificado (sin automatización de pantalla en este entorno) |
 | M19 | Escritura asistida y primer agente (Programador) | ⚪ Pendiente |
 | M20 | Agentes especializados (Arquitecto, Animador, Niveles, Audio, Física, Optimización) | ⚪ Pendiente |
 | M21 | Generación de juegos completos de punta a punta, release **0.4** | ⚪ Pendiente |

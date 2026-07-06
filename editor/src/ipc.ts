@@ -51,6 +51,12 @@ export function exportProject(
   return invoke("export_project", { manifestPath, outputDir, target });
 }
 
+/** Asks the AI Core a question about `context` (a summary of the project
+ * currently open in the editor, built by the caller — see ChatPanel). */
+export function askAi(context: string, question: string): Promise<string> {
+  return invoke("ai_chat", { context, question });
+}
+
 const MIME_BY_EXTENSION: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",

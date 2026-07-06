@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { removeEntity } from "./document";
 import { AssetsPanel } from "./panels/AssetsPanel";
+import { ChatPanel } from "./panels/ChatPanel";
 import { ConsolePanel } from "./panels/ConsolePanel";
 import { Inspector } from "./panels/Inspector";
 import { SceneTree } from "./panels/SceneTree";
@@ -100,7 +101,7 @@ function usePlayerLogs() {
 
 function Layout() {
   const { state } = useStore();
-  const [bottomTab, setBottomTab] = useState<"timeline" | "console">(
+  const [bottomTab, setBottomTab] = useState<"timeline" | "console" | "chat">(
     "timeline",
   );
   usePlayerLogs();
@@ -139,8 +140,16 @@ function Layout() {
           >
             Consola
           </button>
+          <button
+            className={bottomTab === "chat" ? "active" : ""}
+            onClick={() => setBottomTab("chat")}
+          >
+            Chat
+          </button>
         </div>
-        {bottomTab === "timeline" ? <Timeline /> : <ConsolePanel />}
+        {bottomTab === "timeline" && <Timeline />}
+        {bottomTab === "console" && <ConsolePanel />}
+        {bottomTab === "chat" && <ChatPanel />}
       </div>
     </div>
   );

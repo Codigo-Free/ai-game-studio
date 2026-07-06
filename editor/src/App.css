@@ -185,6 +185,18 @@ input:focus, select:focus { outline: 1px solid var(--accent); }
 .log-warn .log-message { color: #e2c541; }
 .log-error .log-message { color: #ff6b6b; }
 
+/* --- chat --- */
+.chat { height: auto; border-top: none; display: flex; flex-direction: column; }
+.chat-body { display: flex; flex-direction: column; gap: 8px; padding: 8px 10px; }
+.chat-hint { color: var(--text-dim); font-size: 12px; margin: 0; }
+.chat-entry { padding: 6px 10px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; max-width: 80%; }
+.chat-user { align-self: flex-end; background: var(--accent); color: #0e0f14; }
+.chat-assistant { align-self: flex-start; background: rgba(255, 255, 255, 0.08); }
+.chat-error { align-self: flex-start; background: rgba(255, 107, 107, 0.15); color: #ff6b6b; }
+.chat-pending { opacity: 0.6; }
+.chat-input { display: flex; gap: 6px; padding: 6px 10px; border-top: 1px solid var(--border); }
+.chat-input input { flex: 1; }
+
 /* --- welcome --- */
 .welcome {
   flex: 1;

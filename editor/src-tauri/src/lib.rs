@@ -5,10 +5,13 @@
 //! `aigs-project`, the format's reference implementation), imports assets
 //! into the project and launches the runtime player.
 
+mod ai;
+
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use ai::{ChatMessage, Provider};
 use aigs_project::{Project, Scene};
 use base64::Engine;
 use serde::Serialize;
@@ -36,14 +39,11 @@ struct LoadedScene {
 fn load_project(manifest_path: String) -> Result<LoadedProject, String> {
     let manifest = PathBuf::from(&manifest_path);
     let project = Project::load(&manifest).map_err(|e| e.to_string())?;
-    let root = manifest
-        .parent()
-        .unwrap_or(Path::new("."))
-        .to_path_buf();
+    let root = manifest.parent().unwrap_or(Path::new(".")).to_path_buf();
     let mut scenes = Vec::new();
     for scene_path in &project.scenes {
-        let scene = Scene::load(&root.join(scene_path))
-            .map_err(|e| format!("scene {scene_path}: {e}"))?;
+        let scene =
+            Scene::load(&root.join(scene_path)).map_err(|e| format!("scene {scene_path}: {e}"))?;
         scenes.push(LoadedScene {
             path: scene_path.clone(),
             scene,
@@ -109,11 +109,8 @@ fn save_project(
         let scene = Scene::from_json(json).map_err(|e| format!("scene {path}: {e}"))?;
         parsed.push((path.clone(), scene));
     }
-    std::fs::write(
-        &manifest,
-        project.to_json().map_err(|e| e.to_string())?,
-    )
-    .map_err(|e| e.to_string())?;
+    std::fs::write(&manifest, project.to_json().map_err(|e| e.to_string())?)
+        .map_err(|e| e.to_string())?;
     for (path, scene) in parsed {
         let full = root.join(&path);
         if let Some(dir) = full.parent() {
@@ -253,6 +250,33 @@ fn export_project(
     }
 }
 
+/// Answers a question about the currently open project (milestone M18).
+/// `context` is a JSON/text summary the frontend builds from its own
+/// in-memory document (whatever the user has open right now, saved or
+/// not) — the backend never re-reads the project from disk for this.
+#[tauri::command]
+async fn ai_chat(context: String, question: String) -> Result<String, String> {
+    let provider = Provider::from_env()?;
+    let messages = [
+        ChatMessage {
+            role: "system".to_string(),
+            content: format!(
+                "You are an assistant embedded in AI Game Studio's editor. \
+                 Answer questions about the game project below using only \
+                 the information given here. Be concise.\n\n{context}"
+            ),
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: question,
+        },
+    ];
+    provider
+        .chat(&messages)
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -265,7 +289,8 @@ pub fn run() {
             import_asset,
             read_file_base64,
             play_project,
-            export_project
+            export_project,
+            ai_chat
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

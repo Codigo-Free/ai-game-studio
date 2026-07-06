@@ -11,7 +11,7 @@ Este documento define el plan de desarrollo del proyecto, fase por fase e hito p
 | **1** | MVP | Editor visual, Timeline, Escenas, Assets, Runtime básico | 🟢 **Completada** — [release 0.1.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.1.0) (estado por hito en [ROADMAP.md](../ROADMAP.md)) |
 | **2** | Motor completo | Animaciones avanzadas, Física, Audio, Partículas, Exportación Desktop | 🟢 **Completada** — [release 0.2.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.2.0) |
 | **3** | Multiplataforma | M14–M17: exportadores Web (WASM), Android, iOS, optimización y publicación | 🟡 **Cerrada sobre Desktop/Web/Android** — [release 0.3.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.3.0). M16 (iOS) diferido sin fecha; M14/M15 pendientes de validación manual en navegador/dispositivo real |
-| **4** | IA profunda | M18–M21: AI Core y chat, escritura asistida, agentes especializados, generación de juegos completos | ⚪ Pendiente |
+| **4** | IA profunda | M18–M21: AI Core y chat, escritura asistida, agentes especializados, generación de juegos completos | 🟡 **En curso** — M18 completado (chat de solo lectura verificado con Ollama real) |
 | **5** | Ecosistema | M22–M25: SDK de plugins, marketplace, colaboración en tiempo real, servicios cloud opcionales | ⚪ Pendiente |
 
 ---
@@ -411,13 +411,15 @@ Pasar de "la IA puede leer y escribir el formato porque es JSON legible" (verdad
 
 ## Hitos de la Fase 4
 
-### M18 — AI Core y chat con contexto
+### M18 — AI Core y chat con contexto ✅ completado (2026-07-06)
 
 **Tareas**
 - Capa de proveedores: **Ollama** (local, privado, sin coste) y **Claude/GPT/Gemini** (cloud) tras una interfaz común.
 - Serialización del contexto relevante del proyecto abierto (escena activa, entidades, componentes, assets) al formato que consume el modelo, con límites de tamaño de contexto.
 - Panel de **Chat** en el editor (evoluciona el *stretch goal* de M6): de solo lectura a empezar, responde preguntas correctas sobre el proyecto abierto.
 - **Entregable:** preguntar "¿qué comportamientos tiene la entidad seleccionada?" y obtener una respuesta correcta basada en el `.aigs` real.
+
+**Entregado:** `editor/src-tauri/src/ai.rs` — `Provider` como `enum` (`Ollama`/`Claude`), sin `dyn Trait` ni `async-trait` (con dos-tres variantes un `match` en una única `fn chat` async basta); selección por variables de entorno (`AIGS_AI_PROVIDER`, `OLLAMA_BASE_URL`/`OLLAMA_MODEL`, `ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL`, sin panel de ajustes todavía); comando Tauri `ai_chat(context, question)` que añade un mensaje de sistema con el contexto y delega en el proveedor. El **contexto lo construye el frontend** (`ChatPanel.tsx`), no el backend: serializa el proyecto/escena tal como están en memoria del editor (incluyendo cambios sin guardar), con un límite de ~12000 caracteres. Panel de **Chat** nuevo junto a Timeline/Consola en la zona inferior del editor, de solo lectura (sin aplicar cambios — eso es M19). Verificado con una instancia real de **Ollama** local (`llama3.2`) mediante un test de integración que golpea la API real (se salta, no falla, si no hay Ollama escuchando); el proveedor **Claude** se implementó contra la Messages API pública pero no se ha verificado en vivo (requiere una `ANTHROPIC_API_KEY` de un usuario real, nunca solicitada por el chat). `cargo fmt`/`clippy`/`test` limpios en `editor/src-tauri` (excluido del workspace raíz, nunca cubierto por el `cargo fmt --all --check` de CI hasta ahora); build (`npm run build`) y arranque (`npm run tauri dev`) verificados, pero el recorrido de clics en la UI real no se pudo verificar en este entorno (sin automatización de pantalla/computer-use disponible).
 
 ---
 

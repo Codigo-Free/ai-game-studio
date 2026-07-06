@@ -57,6 +57,16 @@ Sobre el AI Core se construirán agentes que colaboran compartiendo el contexto 
 
 La capa AI Core abstrae el proveedor: los agentes funcionan igual con modelos locales o cloud.
 
+### AI Core y panel de Chat (M18)
+
+Vive en el backend Tauri (`editor/src-tauri/src/ai.rs`), no en el frontend: necesita hacer peticiones HTTP (a Ollama o a la nube) y ahí es donde ya vive el resto de IO del editor; además evita exponer API keys de proveedores cloud en el bundle del frontend.
+
+- **`Provider`** es un `enum` (`Ollama { .. } | Claude { .. }`), no un `dyn Trait` — con dos o tres proveedores y llamadas async, un trait object habría necesitado el crate `async-trait` solo para tener el mismo despacho dinámico que ya da un `match`.
+- **Selección de proveedor/modelo por variable de entorno** (`AIGS_AI_PROVIDER` = `ollama` (default) | `claude`, `OLLAMA_MODEL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`) — todavía sin panel de ajustes en el editor (fast-follow).
+- **El contexto lo construye el frontend**, no el backend: `ChatPanel.tsx` serializa el proyecto/escena tal como están en memoria (incluyendo cambios sin guardar) y se lo pasa al comando Tauri `ai_chat` como texto; el backend nunca vuelve a leer el proyecto de disco para esto. Límite simple de tamaño (~12000 caracteres) para no desbordar la ventana de contexto de un modelo local pequeño.
+- **Panel de Chat** en el editor (pestaña junto a Timeline/Consola): de momento solo lectura — responde preguntas sobre el proyecto abierto, no aplica cambios (eso es M19).
+- Verificado con **Ollama real** corriendo en local (`llama3.2`, `qwen2.5-coder`, `deepseek-r1` ya instalados). El proveedor Claude se implementó contra la documentación pública de la Messages API pero no se ha podido probar sin una API key real de un usuario.
+
 ---
 
 ## Hoja de ruta de la IA
