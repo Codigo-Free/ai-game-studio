@@ -298,7 +298,7 @@ El primer binario de juego independiente del editor.
 
 El mismo proyecto `.aigs`, sin cambios, corriendo como aplicación nativa en **Android** e **iOS** y como página web (**WASM**). La Fase 2 ya deja el runtime completo (física, audio, partículas, spritesheets, scripting); la Fase 3 no añade funcionalidad de juego — lleva ese mismo motor a más pantallas y lo hace lo bastante ligero y rápido para móvil y navegador.
 
-**Criterio de éxito:** exportar el mismo juego (p. ej. Robot Rescue o el Tamagotchi) a Desktop, Web, Android e iOS desde el mismo `game.aigs`, sin tocar el proyecto, y que los cuatro se sientan fluidos en su plataforma.
+**Criterio de éxito:** exportar el mismo juego (p. ej. Robot Rescue o el Tamagotchi) a Desktop, Web, Android e iOS desde el mismo `game.aigs`, sin tocar el proyecto, y que los cuatro se sientan fluidos en su plataforma. **iOS (M16) queda diferido** sin fecha (necesita macOS + Xcode, no disponibles en este entorno) — la Fase 3 se cierra con M17 sobre los tres exportadores ya disponibles (Desktop/Web/Android) y se retoma cuando haya máquina para implementarlo.
 
 ### Dentro del alcance
 
@@ -358,7 +358,9 @@ Empaquetado elegido: **`cargo-apk`** (no `xbuild`) — es la herramienta que el 
 
 ### M16 — Exportador iOS
 
-**Tareas**
+**Bloqueado/diferido (2026-07-06, decisión del usuario):** a diferencia de Android (donde bastó instalar NDK/SDK/`cargo-apk` en Linux), generar y compilar un proyecto Xcode real requiere **macOS + Xcode**, que no existen en este entorno de desarrollo. En vez de dejar la Fase 3 a medias indefinidamente, se cierra M17 (que no depende de iOS) y se salta a la Fase 4; M16 queda aparcado sin fecha, igual que las curvas bezier de M10, hasta que haya una máquina macOS disponible para implementarlo y verificarlo de verdad.
+
+**Tareas (sin empezar):**
 - Backend Metal de `wgpu`; generación de proyecto Xcode a partir del mismo pipeline de exportación.
 - Reutilización del esquema de entrada táctil/botones virtuales de M15.
 - Firma de código y perfiles de aprovisionamiento: documentado como paso manual del usuario (requiere macOS y cuenta de Apple Developer, fuera del control de CI).
@@ -368,12 +370,14 @@ Empaquetado elegido: **`cargo-apk`** (no `xbuild`) — es la herramienta que el 
 
 ### M17 — Optimización, paridad y publicación
 
+**Alcance ajustado (2026-07-06):** cierra la Fase 3 sobre los tres exportadores disponibles (Desktop, Web, Android); iOS (M16) queda diferido y se suma cuando se implemente.
+
 **Tareas**
+- ✅ **Menú de exportación en el editor:** el botón **⬇ Exportar** de la toolbar ahora va acompañado de un desplegable Desktop/Web/Android (`editor/src/panels/Toolbar.tsx`); `export_project` (`editor/src-tauri/src/lib.rs`) recibe `target` y lo pasa como `--target` al CLI, con `--zip` solo en Desktop. Los mensajes de error de Web/Android (plantilla o toolchain faltante) llegan tal cual del CLI a la consola del editor — ya eran suficientemente claros, no hizo falta lógica extra. Sigue sin haber UI para firmar un release de Android (keystore propio); eso sigue siendo solo CLI con `--release`.
+- Matriz de CI que valida los tres exportadores disponibles contra **todos** los ejemplos de `examples/` (hoy solo se prueba con Robot Rescue en los jobs de Web/Android).
 - Compresión de texturas y presupuesto de tamaño por plataforma; medición de arranque/FPS en gama media (no solo en la máquina de desarrollo).
-- Matriz de CI que valida los cuatro exportadores (Desktop ya cubierto, + Web/Android/iOS nuevos) contra los ejemplos de `examples/`.
-- **Menú de exportación en el editor:** el botón **⬇ Exportar** de la toolbar solo conoce Desktop (`export_project` en `editor/src-tauri/src/lib.rs` llama a `aigs export` sin `--target`, siempre con `--zip`). Pendiente: un desplegable Desktop/Web/Android(/iOS) que pase `--target` al CLI, sin `--zip` fuera de Desktop, y que en Android muestre con claridad si falta el NDK/SDK/`cargo-apk` en la máquina (error esperado, no un fallo críptico).
-- Guía de usuario "publica tu primer juego" por tienda (Web/Play Store/App Store), con los pasos manuales de cada una explicados.
-- **Entregable:** **release 0.3** — mismo proyecto exportado y verificado en las cuatro plataformas, exportable también desde el editor.
+- Guía de usuario "publica tu primer juego" por tienda (Web/Play Store), con los pasos manuales explicados.
+- **Entregable:** **release 0.3** — mismo proyecto exportado y verificado en Desktop/Web/Android, exportable también desde el editor. iOS se añade en un M16 posterior cuando haya máquina macOS.
 
 ## Riesgos de la Fase 3
 

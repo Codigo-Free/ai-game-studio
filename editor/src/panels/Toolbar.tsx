@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   loadProject,
@@ -5,9 +6,16 @@ import {
   exportProject,
   playProject,
   saveProject,
+  type ExportTarget,
 } from "../ipc";
 import { useStore } from "../store";
 import type { Scene } from "../types";
+
+const EXPORT_TARGET_LABEL: Record<ExportTarget, string> = {
+  desktop: "Escritorio",
+  web: "Web",
+  android: "Android",
+};
 
 function sceneSlug(name: string): string {
   return (
@@ -98,16 +106,20 @@ export function useProjectActions() {
     }
   };
 
-  const exportGame = async () => {
+  const exportGame = async (target: ExportTarget) => {
     if (!state.loaded) return;
     if (!(await save())) return;
     try {
       const directory = await open({
-        title: "Carpeta de destino de la exportación",
+        title: `Carpeta de destino de la exportación (${EXPORT_TARGET_LABEL[target]})`,
         directory: true,
       });
       if (typeof directory !== "string") return;
-      const message = await exportProject(state.loaded.manifest_path, directory);
+      const message = await exportProject(
+        state.loaded.manifest_path,
+        directory,
+        target,
+      );
       for (const line of message.split("\n")) {
         dispatch({ type: "LOG", level: "info", message: `[export] ${line}` });
       }
@@ -205,6 +217,7 @@ export function Toolbar() {
   const { newScene, duplicateScene, deleteScene, setInitialScene } =
     useSceneActions();
   const loaded = state.loaded;
+  const [exportTarget, setExportTarget] = useState<ExportTarget>("desktop");
 
   return (
     <header className="toolbar">
@@ -259,7 +272,24 @@ export function Toolbar() {
       )}
       <span className="spacer" />
       {loaded && <span className="project-name">{loaded.project.name}</span>}
-      <button onClick={exportGame} disabled={!loaded} title="Exportar juego de escritorio">
+      <select
+        value={exportTarget}
+        onChange={(event) =>
+          setExportTarget(event.target.value as ExportTarget)
+        }
+        title="Plataforma de exportación"
+      >
+        {(Object.keys(EXPORT_TARGET_LABEL) as ExportTarget[]).map((target) => (
+          <option key={target} value={target}>
+            {EXPORT_TARGET_LABEL[target]}
+          </option>
+        ))}
+      </select>
+      <button
+        onClick={() => exportGame(exportTarget)}
+        disabled={!loaded}
+        title={`Exportar a ${EXPORT_TARGET_LABEL[exportTarget]}`}
+      >
         ⬇ Exportar
       </button>
       <button className="play" onClick={play} disabled={!loaded}>

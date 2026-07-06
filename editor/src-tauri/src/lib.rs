@@ -220,16 +220,30 @@ fn play_project(app: tauri::AppHandle, manifest_path: String) -> Result<String, 
     Ok(format!("player started (pid {pid})"))
 }
 
-/// Exports the project as a standalone desktop game (`aigs export`).
+/// Exports the project (`aigs export`) for `target`: `"desktop"` (default,
+/// bundled as a `.zip` too), `"web"` or `"android"`. Web/Android need their
+/// player template/bundle available next to the `aigs` binary and, for
+/// Android, the NDK/SDK/`cargo-apk` installed — when those are missing the
+/// CLI already reports a clear message, which this just forwards as-is.
 #[tauri::command]
-fn export_project(manifest_path: String, output_dir: String) -> Result<String, String> {
+fn export_project(
+    manifest_path: String,
+    output_dir: String,
+    target: String,
+) -> Result<String, String> {
     let binary = std::env::var("AIGS_CLI").unwrap_or_else(|_| "aigs".to_string());
-    let output = Command::new(&binary)
+    let mut command = Command::new(&binary);
+    command
         .arg("export")
         .arg(&manifest_path)
         .arg("--output")
         .arg(&output_dir)
-        .arg("--zip")
+        .arg("--target")
+        .arg(&target);
+    if target == "desktop" {
+        command.arg("--zip");
+    }
+    let output = command
         .output()
         .map_err(|e| format!("could not launch \"{binary} export\": {e}"))?;
     if output.status.success() {

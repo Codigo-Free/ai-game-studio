@@ -41,11 +41,14 @@ export function playProject(manifestPath: string): Promise<string> {
   return invoke("play_project", { manifestPath });
 }
 
+export type ExportTarget = "desktop" | "web" | "android";
+
 export function exportProject(
   manifestPath: string,
   outputDir: string,
+  target: ExportTarget,
 ): Promise<string> {
-  return invoke("export_project", { manifestPath, outputDir });
+  return invoke("export_project", { manifestPath, outputDir, target });
 }
 
 const MIME_BY_EXTENSION: Record<string, string> = {
