@@ -8,89 +8,91 @@
 [![Release](https://img.shields.io/github/v/release/agilphp/ai-game-studio?include_prereleases&label=release)](https://github.com/agilphp/ai-game-studio/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**AI Game Studio** es una plataforma de desarrollo de videojuegos **AI-First** y **open source** que combina la productividad del paradigma visual de Adobe Flash (timeline, fotogramas, edición directa) con arquitecturas modernas (Rust, ECS, WGPU) e integra la Inteligencia Artificial como un miembro activo del equipo de desarrollo.
+**AI Game Studio** is an **AI-First**, **open source** 2D game development platform that combines the productivity of Adobe Flash's visual paradigm (timeline, keyframes, direct editing) with modern architectures (Rust, ECS, WGPU) and integrates Artificial Intelligence as an active member of the development team.
 
-> **La IA conoce el videojuego y el videojuego conoce la IA.**
+> **The AI knows the game, and the game knows the AI.**
 
-## Estado del proyecto
+## Project status
 
-🎉 **0.3.0 publicado** (Fases 1–2 completas + Fase 3 cerrada sobre Desktop/Web/Android, hitos M0–M17). El mismo proyecto `.aigs` se exporta a Desktop, Web (WASM) y Android (APK firmado) sin tocar el proyecto; iOS queda diferido sin fecha. Ver el [CHANGELOG](CHANGELOG.md) y el [roadmap](ROADMAP.md).
+🎉 **0.3.0 released** (Phases 1–2 complete + Phase 3 closed over Desktop/Web/Android, milestones M0–M17). The same `.aigs` project exports to Desktop, Web (WASM) and Android (signed APK) without touching the project; iOS is deferred with no date. See the [CHANGELOG](CHANGELOG.md) and the [roadmap](ROADMAP.md).
 
-## Empezar en 3 minutos
+## Get started in 3 minutes
 
 ```bash
 git clone https://github.com/agilphp/ai-game-studio && cd ai-game-studio
 cargo install --path cli
-aigs run examples/robot-rescue/game.aigs        # juega la demo
-cd editor && npm install && npm run tauri dev   # abre el editor
+aigs run examples/robot-rescue/game.aigs        # play the demo
+cd editor && npm install && npm run tauri dev   # open the editor
 ```
 
-Sigue la **[guía de inicio rápido](docs/guia-inicio.md)** para el tour del editor y tu primer juego en 8 pasos. Instaladores del editor y binarios del CLI en [Releases](https://github.com/agilphp/ai-game-studio/releases).
+Follow the **[quick start guide](docs/guia-inicio.md)** for a tour of the editor and your first game in 8 steps. Editor installers and CLI binaries are available in [Releases](https://github.com/agilphp/ai-game-studio/releases).
 
-## Qué funciona hoy (0.3.0)
+## What works today (0.3.0)
 
-- 🎨 **Editor visual** (Tauri 2 + React): viewport con arrastre/zoom/pan, árbol de escena, inspector, recursos con importación, consola con métricas en vivo, undo/redo global y exportación Desktop/Web/Android desde un desplegable.
-- 🎞 **Timeline estilo Flash**: pistas por entidad y propiedad, keyframes arrastrables con easing, scrubbing y reproducción con preview en el viewport.
-- 🕹 **Comportamientos sin código**: "cuando *tecla/clic/inicio de escena/fin de animación/colisión* → *mover / ir a escena / reproducir animación/sonido / emitir partículas*", editados desde el inspector.
-- ⚙️ **Runtime propio en Rust**: ECS con índices generacionales, render 2D instanciado sobre WGPU, game loop a 60 Hz con render interpolado, multi-escena. Consultar 10k entidades cuesta ~21 µs ([benchmarks](docs/testing.md)).
-- 🧱 **Física 2D** (rapier2d), **audio** (kira), **spritesheets y máquinas de estados de animación**, y **partículas** como entidades ECS.
-- 📜 **Scripting de usuario** (rhai sandboxeado) con estado persistente **entre escenas y entre partidas reales** (`save.json`, autoguardado) — ver la demo [Tamagotchi](examples/tamagotchi/).
-- 📦 **Exportación a Desktop, Web y Android**: `aigs export --target desktop|web|android` — el mismo proyecto corre nativo, en el navegador (WebGPU/WebGL) o como APK firmado (Vulkan), sin tocarlo.
-- 👆 **Entrada táctil**: un dedo se comporta como el ratón, y el componente `virtual_button` simula teclas en pantalla para juegos pensados para teclado.
-- 📄 **Formato `.aigs` AI-Ready**: todo el juego son archivos JSON legibles y versionables — la base para que la IA cree y modifique juegos completos ([especificación](sdk/aigs-format/SPEC.md)).
-- 🔧 **CLI `aigs`**: `validate`, `run`, `export --target ...` y `script-api` para trabajar sin abrir el editor.
+- 🎨 **Visual editor** (Tauri 2 + React): viewport with drag/zoom/pan, scene tree, inspector, asset browser with import, live console with metrics, global undo/redo, and Desktop/Web/Android export from a dropdown.
+- 🎞 **Flash-style timeline**: per-entity/property tracks, draggable keyframes with easing, scrubbing and playback with viewport preview.
+- 🕹 **Code-free behaviors**: "when *key/click/scene start/animation end/collision* → *move / go to scene / play animation/sound / emit particles*", edited from the inspector.
+- ⚙️ **Custom Rust runtime**: ECS with generational indices, instanced 2D rendering over WGPU, 60 Hz game loop with interpolated rendering, multi-scene. Querying 10k entities costs ~21 µs ([benchmarks](docs/testing.md)).
+- 🧱 **2D physics** (rapier2d), **audio** (kira), **spritesheets and animation state machines**, and **particles** as ECS entities.
+- 📜 **User scripting** (sandboxed rhai) with persistent state **across scenes and across real play sessions** (`save.json`, autosave) — see the [Tamagotchi](examples/tamagotchi/) demo.
+- 📦 **Export to Desktop, Web and Android**: `aigs export --target desktop|web|android` — the same project runs natively, in the browser (WebGPU/WebGL) or as a signed APK (Vulkan), unchanged.
+- 👆 **Touch input**: a finger behaves like the mouse, and the `virtual_button` component simulates on-screen keys for keyboard-driven games.
+- 📄 **AI-Ready `.aigs` format**: the entire game is readable, versionable JSON — the foundation for AI to create and modify complete games ([specification](sdk/aigs-format/SPEC.md)).
+- 🔧 **`aigs` CLI**: `validate`, `run`, `export --target ...` and `script-api` to work without opening the editor.
 
-## Lo que viene
+## What's next
 
-- **Fase 3**: exportador iOS (M16), diferido sin fecha — necesita macOS + Xcode.
-- **Fase 4**: IA profunda — chat nativo con contexto del proyecto, agentes especializados, generación de juegos completos.
-- **Fase 5**: SDK de plugins, marketplace, colaboración.
+- **Phase 3**: iOS exporter (M16), deferred with no date — needs macOS + Xcode.
+- **Phase 4**: deep AI — native chat with project context, specialized agents, full game generation.
+- **Phase 5**: plugin SDK, marketplace, collaboration.
 
-## Ejemplos
+## Examples
 
-Cada carpeta tiene su propio `README.md` con instrucciones de ejecución y controles.
+Each folder has its own `README.md` with instructions and controls.
 
-| Proyecto | Qué demuestra |
+| Project | What it demonstrates |
 |---|---|
-| [`examples/robot-rescue/`](examples/robot-rescue/) | **Juego demo completo**: menú animado, nivel jugable (flechas + clic), dron con script y pantalla de victoria encadenada con `animation_end`. |
-| [`examples/tamagotchi/`](examples/tamagotchi/) | **Mascota virtual persistente** (M13): stats que decaen en tiempo real incluso con el juego cerrado, cuidada con teclas 1/2/3, un único script. |
-| [`examples/physics-playground/`](examples/physics-playground/) | Física 2D: cajas cayendo, pelota que rebota, robot que empuja cajas, sensor con partículas. |
-| [`examples/hello-world/`](examples/hello-world/) | Proyecto mínimo: escenas, animaciones y comportamientos básicos. |
-| [`examples/bouncing-sprites/`](examples/bouncing-sprites/) | Uso del runtime como biblioteca Rust, sin editor (cientos de sprites a 60 FPS). |
+| [`examples/robot-rescue/`](examples/robot-rescue/) | **Complete demo game**: animated menu, playable level (arrows + click), a scripted drone and a win screen chained via `animation_end`. |
+| [`examples/tamagotchi/`](examples/tamagotchi/) | **Persistent virtual pet** (M13): stats that decay in real time even while the game is closed, cared for with keys 1/2/3, a single script. |
+| [`examples/physics-playground/`](examples/physics-playground/) | 2D physics: falling crates, a bouncing ball, a robot pushing crates, a sensor with particles. |
+| [`examples/hello-world/`](examples/hello-world/) | Minimal project: scenes, animations and basic behaviors. |
+| [`examples/bouncing-sprites/`](examples/bouncing-sprites/) | Using the runtime as a Rust library, no editor (hundreds of sprites at 60 FPS). |
 
-## Estructura del monorepo
+## Monorepo structure
 
-| Directorio | Contenido |
+| Directory | Contents |
 |---|---|
-| [`docs/`](docs/) | Documentación de diseño: visión, arquitectura, plan, guía de inicio, decisiones. |
-| [`editor/`](editor/) | Editor visual — Tauri 2 + React + TypeScript. |
-| [`runtime/`](runtime/) | Motor — crates Rust: `aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`, `aigs-runtime`. |
-| [`cli/`](cli/) | Binario `aigs` (`validate`, `run`). |
-| [`exporters/`](exporters/) | Exportadores por plataforma (Fase 2+). |
-| [`sdk/`](sdk/) | Contrato público: especificación del formato `.aigs` y APIs de extensión. |
-| [`examples/`](examples/) | Juegos de ejemplo y demos. |
-| [`tests/`](tests/) | Tests de integración del sistema completo. |
+| [`docs/`](docs/) | Design documentation: vision, architecture, plan, quick start guide, decisions. |
+| [`editor/`](editor/) | Visual editor — Tauri 2 + React + TypeScript. |
+| [`runtime/`](runtime/) | Engine — Rust crates: `aigs-ecs`, `aigs-render`, `aigs-anim`, `aigs-project`, `aigs-runtime`. |
+| [`cli/`](cli/) | `aigs` binary (`validate`, `run`, `export`). |
+| [`exporters/`](exporters/) | Per-platform exporters (Phase 2+). |
+| [`sdk/`](sdk/) | Public contract: `.aigs` format specification and extension APIs. |
+| [`examples/`](examples/) | Example games and demos. |
+| [`tests/`](tests/) | Full-system integration tests. |
 
-## Documentación
+## Documentation
 
-- [Guía de inicio rápido](docs/guia-inicio.md) — instala, juega la demo y crea tu primer juego.
-- [Proyecto completo](docs/proyecto.md) — qué es, por qué nace, filosofía y objetivos.
-- [Plan maestro](docs/plan.md) — hitos del MVP (M0–M6) y fases siguientes.
-- [Arquitectura](docs/arquitectura.md) — módulos, formato `.aigs`, tabla de decisiones.
-- [Visión](docs/vision.md) · [Editor](docs/editor.md) · [Runtime](docs/runtime.md) · [IA](docs/ia.md) · [Exportadores](docs/exportadores.md) · [Plugins](docs/plugins.md) · [Testing](docs/testing.md) · [CI/CD](docs/ci-cd.md)
+- [Quick start guide](docs/guia-inicio.md) — install, play the demo and build your first game.
+- [Full project overview](docs/proyecto.md) — what it is, why it exists, philosophy and goals.
+- [Master plan](docs/plan.md) — MVP milestones (M0–M6) and later phases.
+- [Architecture](docs/arquitectura.md) — modules, `.aigs` format, decisions table.
+- [Vision](docs/vision.md) · [Editor](docs/editor.md) · [Runtime](docs/runtime.md) · [AI](docs/ia.md) · [Exporters](docs/exportadores.md) · [Plugins](docs/plugins.md) · [Testing](docs/testing.md) · [CI/CD](docs/ci-cd.md) · [Publishing guide](docs/guia-publicacion.md)
 
-## Tecnologías
+Most of `docs/` is written in Spanish (the project's primary working language); code, identifiers and commit messages are in English.
 
-**Rust** · **WGPU** · **Tauri 2** · **React** · **TypeScript** · **Ollama / Claude / GPT / Gemini** (Fase 4)
+## Technologies
 
-## Contribuir
+**Rust** · **WGPU** · **Tauri 2** · **React** · **TypeScript** · **Ollama / Claude / GPT / Gemini** (Phase 4)
 
-El proyecto es abierto a la comunidad. Lee [CONTRIBUTING.md](CONTRIBUTING.md) para empezar. El desarrollo sigue una metodología **AI First**: este MVP fue diseñado, implementado, probado y documentado en colaboración con IA, con trazabilidad completa en [CLAUDE.md](CLAUDE.md).
+## Contributing
 
-## Autoría
+The project is open to the community. Read [CONTRIBUTING.md](CONTRIBUTING.md) to get started. Development follows an **AI First** methodology: this project is designed, implemented, tested and documented in collaboration with AI, with full traceability in [CLAUDE.md](CLAUDE.md).
 
-Creado por **efrasoft@gmail.com** en **HarnessOS** con **Visual Studio Code** y **Claude**.
+## Authorship
 
-## Licencia
+Created by **efrasoft@gmail.com** on **HarnessOS** with **Visual Studio Code** and **Claude**.
+
+## License
 
 [MIT](LICENSE)
