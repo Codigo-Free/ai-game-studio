@@ -1,0 +1,15 @@
+[package]
+name = "aigs-export-android"
+description = "Android exporter: packs a project into the player template's assets and builds a signed APK"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+aigs-project = { path = "../../runtime/crates/aigs-project" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3"

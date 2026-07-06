@@ -31,6 +31,12 @@ struct BoundBehavior {
     action: ActionSpec,
 }
 
+/// A sprite entity that simulates a key while touched (milestone M15).
+struct BoundVirtualButton {
+    entity: Entity,
+    key: KeyCode,
+}
+
 /// A running animation state machine (one per entity with an `animator`).
 struct RunningAnimator {
     spec: Animator,
@@ -49,6 +55,10 @@ pub struct GamePlayer<R: ResolveTexture> {
     physics: Option<PhysicsWorld>,
     behaviors: Vec<BoundBehavior>,
     animators: Vec<RunningAnimator>,
+    virtual_buttons: Vec<BoundVirtualButton>,
+    /// Keys currently simulated by a held virtual button, to detect when a
+    /// finger lifts off (and the key must be released) between ticks.
+    virtual_keys_held: std::collections::HashSet<KeyCode>,
     scripts: ScriptHost,
     pending_scene: Option<String>,
     scene_started: bool,
@@ -77,6 +87,8 @@ impl<R: ResolveTexture> GamePlayer<R> {
             physics: None,
             behaviors: Vec::new(),
             animators: Vec::new(),
+            virtual_buttons: Vec::new(),
+            virtual_keys_held: std::collections::HashSet::new(),
             pending_scene: None,
             scene_started: false,
             warnings: Vec::new(),
@@ -128,6 +140,11 @@ impl<R: ResolveTexture> GamePlayer<R> {
         self.warnings = self.playback.warnings().to_vec();
         self.warnings.extend(destroy_warnings);
         self.behaviors = bind_behaviors(&scene.entities, &instance, &mut self.warnings);
+        // `virtual_keys_held` is intentionally NOT reset here: the next
+        // `sync_virtual_buttons` tick recomputes which keys are still held
+        // against the new scene's buttons and releases whatever no longer
+        // matches, so a key never gets stuck "pressed" across a switch.
+        self.virtual_buttons = bind_virtual_buttons(&scene.entities, &instance, &mut self.warnings);
         self.physics = PhysicsWorld::build(world, scene.gravity.unwrap_or_default());
 
         // Animation state machines: their animations don't autostart — the
@@ -160,7 +177,9 @@ impl<R: ResolveTexture> GamePlayer<R> {
     }
 
     /// Runs one simulation tick: animations, behaviors and scene switches.
-    pub fn update(&mut self, world: &mut World, time: &Time, input: &Input) {
+    pub fn update(&mut self, world: &mut World, time: &Time, input: &mut Input) {
+        self.sync_virtual_buttons(world, input);
+
         let started = !self.scene_started;
         self.scene_started = true;
 
@@ -323,6 +342,45 @@ impl<R: ResolveTexture> GamePlayer<R> {
         }
     }
 
+    /// Simulates each held virtual button's key for this tick (milestone
+    /// M15): while the pointer/finger is down over its sprite, its key
+    /// reads as pressed for behaviors, animators and scripts alike, exactly
+    /// like a physical key — released the moment it's no longer touched.
+    fn sync_virtual_buttons(&mut self, world: &World, input: &mut Input) {
+        let point = input
+            .mouse_pressed(crate::MouseButton::Left)
+            .then(|| cursor_to_world(world, input))
+            .flatten();
+        let mut held_now = std::collections::HashSet::new();
+        if let Some((world_x, world_y)) = point {
+            for button in &self.virtual_buttons {
+                if !world.is_alive(button.entity) {
+                    continue;
+                }
+                let Some(transform) = world.get::<Transform2D>(button.entity) else {
+                    continue;
+                };
+                let Some(sprite) = world.get::<Sprite>(button.entity) else {
+                    continue;
+                };
+                if point_in_sprite(world_x, world_y, &transform, &sprite) {
+                    held_now.insert(button.key);
+                }
+            }
+        }
+        for &key in &held_now {
+            if !self.virtual_keys_held.contains(&key) {
+                input.simulate_key(key, true);
+            }
+        }
+        for &key in &self.virtual_keys_held {
+            if !held_now.contains(&key) {
+                input.simulate_key(key, false);
+            }
+        }
+        self.virtual_keys_held = held_now;
+    }
+
     fn run_action(
         &mut self,
         world: &World,
@@ -474,8 +532,40 @@ fn collect_behaviors(
     }
 }
 
-/// Topmost sprite under the cursor, mapped through the scene camera.
-fn hit_test(world: &World, input: &Input) -> Option<Entity> {
+fn bind_virtual_buttons(
+    entities: &[EntityNode],
+    instance: &SceneInstance,
+    warnings: &mut Vec<String>,
+) -> Vec<BoundVirtualButton> {
+    let mut bound = Vec::new();
+    collect_virtual_buttons(entities, instance, warnings, &mut bound);
+    bound
+}
+
+fn collect_virtual_buttons(
+    entities: &[EntityNode],
+    instance: &SceneInstance,
+    warnings: &mut Vec<String>,
+    into: &mut Vec<BoundVirtualButton>,
+) {
+    for node in entities {
+        if let Some(button) = &node.components.virtual_button {
+            match (instance.entity(&node.id), parse_key(&button.key)) {
+                (Some(entity), Some(key)) => into.push(BoundVirtualButton { entity, key }),
+                (_, None) => warnings.push(format!(
+                    "entity \"{}\": virtual_button has unknown key name \"{}\"",
+                    node.id, button.key
+                )),
+                (None, _) => {}
+            }
+        }
+        collect_virtual_buttons(&node.children, instance, warnings, into);
+    }
+}
+
+/// Cursor/touch position in world space, through the scene's camera —
+/// shared by mouse click hit-testing and virtual button hit-testing.
+fn cursor_to_world(world: &World, input: &Input) -> Option<(f32, f32)> {
     let (view_w, view_h) = input.viewport();
     if view_w <= 0.0 || view_h <= 0.0 {
         return None;
@@ -489,18 +579,28 @@ fn hit_test(world: &World, input: &Input) -> Option<Entity> {
         }
     });
     let (mx, my) = input.mouse_position();
-    let world_x = camera.0 + (mx - view_w / 2.0) / camera.2;
-    let world_y = camera.1 + (view_h / 2.0 - my) / camera.2;
+    Some((
+        camera.0 + (mx - view_w / 2.0) / camera.2,
+        camera.1 + (view_h / 2.0 - my) / camera.2,
+    ))
+}
 
+/// Whether a world-space point falls inside a sprite's (rotated) box.
+fn point_in_sprite(world_x: f32, world_y: f32, transform: &Transform2D, sprite: &Sprite) -> bool {
+    let radians = transform.rotation.to_radians();
+    let (sin, cos) = radians.sin_cos();
+    let dx = world_x - transform.x;
+    let dy = world_y - transform.y;
+    let local_x = (dx * cos - dy * sin) / transform.scale_x.max(0.0001);
+    let local_y = (dx * sin + dy * cos) / transform.scale_y.max(0.0001);
+    local_x.abs() <= sprite.width / 2.0 && local_y.abs() <= sprite.height / 2.0
+}
+
+fn hit_test(world: &World, input: &Input) -> Option<Entity> {
+    let (world_x, world_y) = cursor_to_world(world, input)?;
     let mut best: Option<(i32, u32, Entity)> = None;
     world.for_each2::<Transform2D, Sprite>(|entity, transform, sprite| {
-        let radians = transform.rotation.to_radians();
-        let (sin, cos) = radians.sin_cos();
-        let dx = world_x - transform.x;
-        let dy = world_y - transform.y;
-        let local_x = (dx * cos - dy * sin) / transform.scale_x.max(0.0001);
-        let local_y = (dx * sin + dy * cos) / transform.scale_y.max(0.0001);
-        if local_x.abs() <= sprite.width / 2.0 && local_y.abs() <= sprite.height / 2.0 {
+        if point_in_sprite(world_x, world_y, transform, sprite) {
             let key = (sprite.layer, entity.index());
             if best.is_none_or(|(layer, index, _)| key >= (layer, index)) {
                 best = Some((sprite.layer, entity.index(), entity));
@@ -679,9 +779,9 @@ mod tests {
             &mut world,
         )
         .unwrap();
-        let input = Input::default();
-        player.update(&mut world, &tick_time(), &input);
-        player.update(&mut world, &tick_time(), &input);
+        let mut input = Input::default();
+        player.update(&mut world, &tick_time(), &mut input);
+        player.update(&mut world, &tick_time(), &mut input);
         // Discrete move: applied exactly once, as an instant offset.
         let mut x = None;
         world.for_each::<Transform2D>(|_, t| {
@@ -710,18 +810,18 @@ mod tests {
         let mut input = Input::default();
         input.set_viewport(800.0, 600.0);
         input.set_mouse_position(400.0 + 7.0, 300.0); // over the button (moved by scene_start... not yet: click happens after start on same tick)
-        player.update(&mut world, &tick_time(), &input); // scene_start moves button
+        player.update(&mut world, &tick_time(), &mut input); // scene_start moves button
         input.simulate_mouse(crate::MouseButton::Left);
-        player.update(&mut world, &tick_time(), &input);
+        player.update(&mut world, &tick_time(), &mut input);
         assert_eq!(player.current_scene(), "level");
         input.simulate_end_tick();
 
         // Hold ArrowRight for two ticks: 100 units/s * 0.2 s.
         input.simulate_key(KeyCode::ArrowRight, true);
-        player.update(&mut world, &tick_time(), &input);
+        player.update(&mut world, &tick_time(), &mut input);
         input.simulate_end_tick();
         input.simulate_key(KeyCode::ArrowRight, true);
-        player.update(&mut world, &tick_time(), &input);
+        player.update(&mut world, &tick_time(), &mut input);
         let mut x = 0.0;
         world.for_each::<Transform2D>(|_, t| x = t.x);
         assert!((x - 20.0).abs() < 0.01, "expected 20, got {x}");
@@ -729,7 +829,7 @@ mod tests {
 
         // Escape returns to the menu.
         input.simulate_key(KeyCode::Escape, true);
-        player.update(&mut world, &tick_time(), &input);
+        player.update(&mut world, &tick_time(), &mut input);
         assert_eq!(player.current_scene(), "menu");
         assert_eq!(world.len(), 2, "menu entities repopulated");
     }
@@ -748,6 +848,127 @@ mod tests {
                         { "on": { "type": "key_down", "key": "NotAKey" },
                           "do": { "type": "move", "dx": 1.0, "dy": 0.0 } }
                       ] } }]
+                }"#,
+            )
+            .unwrap(),
+        );
+        let mut world = World::new();
+        let player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            ScriptHost::empty(),
+            &mut world,
+        )
+        .unwrap();
+        assert_eq!(player.warnings().len(), 1);
+    }
+
+    fn virtual_button_project() -> (Project, HashMap<String, Scene>) {
+        let project = Project::from_json(
+            r#"{
+                "format": { "kind": "aigs-project", "version": 0 },
+                "name": "Touch Demo",
+                "initial_scene": "level",
+                "scenes": ["level"]
+            }"#,
+        )
+        .unwrap();
+        let level = Scene::from_json(
+            r#"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "level",
+                "entities": [
+                    { "id": "camera", "name": "Cam",
+                      "components": { "transform2d": {}, "camera2d": {} } },
+                    { "id": "pad", "name": "Pad",
+                      "components": {
+                        "transform2d": { "x": 200.0, "y": 0.0 },
+                        "sprite": { "asset": "button" },
+                        "virtual_button": { "key": "ArrowRight" }
+                      } },
+                    { "id": "robot", "name": "Robot",
+                      "components": {
+                        "transform2d": {},
+                        "sprite": { "asset": "robot" },
+                        "behaviors": [
+                            { "on": { "type": "key_down", "key": "ArrowRight" },
+                              "do": { "type": "move", "dx": 100.0, "dy": 0.0 } }
+                        ]
+                      } }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let mut scenes = HashMap::new();
+        scenes.insert("level".to_string(), level);
+        (project, scenes)
+    }
+
+    #[test]
+    fn virtual_button_simulates_its_key_while_touched() {
+        let (project, scenes) = virtual_button_project();
+        let mut world = World::new();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            ScriptHost::empty(),
+            &mut world,
+        )
+        .unwrap();
+
+        let mut input = Input::default();
+        input.set_viewport(800.0, 600.0);
+        // Screen center (400, 300) maps to world (0, 0); the pad sits at
+        // world (200, 0), so touching screen (600, 300) hits it.
+        input.set_mouse_position(600.0, 300.0);
+        input.simulate_mouse(crate::MouseButton::Left);
+        player.update(&mut world, &tick_time(), &mut input);
+        input.simulate_end_tick();
+        let mut x = 0.0;
+        world.for_each::<Transform2D>(|_, t| {
+            if t.x != 200.0 {
+                x = t.x
+            }
+        });
+        assert!(
+            (x - 10.0).abs() < 0.01,
+            "held virtual button should move the robot like a real key, got {x}"
+        );
+
+        // Lift the finger: the key must release, no further movement.
+        input.set_mouse_position(0.0, 0.0);
+        player.update(&mut world, &tick_time(), &mut input);
+        input.simulate_end_tick();
+        let mut x_after_release = 0.0;
+        world.for_each::<Transform2D>(|_, t| {
+            if t.x != 200.0 {
+                x_after_release = t.x
+            }
+        });
+        assert_eq!(
+            x_after_release, x,
+            "releasing the touch must stop simulating the key"
+        );
+    }
+
+    #[test]
+    fn virtual_button_with_unknown_key_is_reported() {
+        let (project, mut scenes) = virtual_button_project();
+        scenes.insert(
+            "level".to_string(),
+            Scene::from_json(
+                r#"{
+                    "format": { "kind": "aigs-scene", "version": 0 },
+                    "name": "level",
+                    "entities": [{ "id": "pad", "name": "Pad",
+                      "components": {
+                        "transform2d": {}, "sprite": { "asset": "button" },
+                        "virtual_button": { "key": "NotAKey" }
+                      } }]
                 }"#,
             )
             .unwrap(),
@@ -831,13 +1052,13 @@ mod tests {
             &mut world,
         )
         .unwrap();
-        let input = Input::default();
+        let mut input = Input::default();
         let time = Time {
             delta: 1.0 / 60.0,
             ..Time::default()
         };
         for _ in 0..240 {
-            player.update(&mut world, &time, &input);
+            player.update(&mut world, &time, &mut input);
         }
         let y = crate_y(&world);
         // Rests on the floor: floor top (20) + half box (16) = 36.
@@ -859,13 +1080,13 @@ mod tests {
             &mut world,
         )
         .unwrap();
-        let input = Input::default();
+        let mut input = Input::default();
         let time = Time {
             delta: 1.0 / 60.0,
             ..Time::default()
         };
         for _ in 0..240 {
-            player.update(&mut world, &time, &input);
+            player.update(&mut world, &time, &mut input);
             if player.current_scene() == "done" {
                 break;
             }
@@ -888,13 +1109,13 @@ mod tests {
             &mut world,
         )
         .unwrap();
-        let input = Input::default();
+        let mut input = Input::default();
         let time = Time {
             delta: 1.0 / 60.0,
             ..Time::default()
         };
         for _ in 0..240 {
-            player.update(&mut world, &time, &input);
+            player.update(&mut world, &time, &mut input);
         }
         let y = crate_y(&world);
         assert!(y < -100.0, "sensor must not block the fall, y = {y}");
@@ -963,14 +1184,14 @@ mod tests {
         };
 
         // Initial state: idle animation runs (frame stays 0).
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         assert_eq!(frame(&world), 0.0, "idle keeps frame 0");
 
         // Hold right: walk state animates frames >= 2.
         input.simulate_key(KeyCode::ArrowRight, true);
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         input.simulate_end_tick();
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         assert!(
             frame(&world) >= 2.0,
             "walk frames start at 2, got {}",
@@ -980,9 +1201,9 @@ mod tests {
         // Release: back to idle. The transition happens this tick; the idle
         // animation applies its values from the next advance on.
         input.simulate_key(KeyCode::ArrowRight, false);
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         input.simulate_end_tick();
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         assert_eq!(frame(&world), 0.0, "released -> idle resets frame");
     }
 
@@ -1041,14 +1262,14 @@ mod tests {
             &mut world,
         )
         .unwrap();
-        let input = Input::default();
+        let mut input = Input::default();
         let time = Time {
             delta: 0.1,
             ..Time::default()
         };
 
         // First tick: on_start teleports to 100, then moves 6 units.
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         let mut x = 0.0;
         world.for_each2::<Transform2D, crate::Sprite>(|_, _, _| {});
         world.for_each::<Transform2D>(|_, t| {
@@ -1066,7 +1287,7 @@ mod tests {
 
         // Keep walking right until distance_to(target) < 340 -> goto done.
         for _ in 0..120 {
-            player.update(&mut world, &time, &input);
+            player.update(&mut world, &time, &mut input);
             if player.current_scene() == "done" {
                 break;
             }
@@ -1150,7 +1371,7 @@ mod tests {
             ..Time::default()
         };
         for _ in 0..120 {
-            player.update(&mut world, &time, &input);
+            player.update(&mut world, &time, &mut input);
         }
         // The crate must have hit the floor and fired on_collision; the
         // scene hasn't switched yet, so on_destroy must not have run.
@@ -1164,7 +1385,7 @@ mod tests {
         // entity being left behind, and its deliberate error must surface
         // as a warning without crashing the player.
         input.simulate_key(KeyCode::Enter, true);
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         assert_eq!(player.current_scene(), "next");
         assert!(
             player
@@ -1238,17 +1459,17 @@ mod tests {
         let time = tick_time();
 
         // Two ticks in scene "a": counter reaches 2.
-        player.update(&mut world, &time, &input);
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
+        player.update(&mut world, &time, &mut input);
 
         // Switch to scene "b".
         input.simulate_key(KeyCode::Enter, true);
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         assert_eq!(player.current_scene(), "b");
 
         // One more tick in "b": the SAME "pet" id must keep counting from 2,
         // not restart at 0 — proving memory survived the scene switch.
-        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &mut input);
         let snapshot = player.snapshot_scripts();
         let pet_memory = snapshot.get("pet").expect("pet must have persisted memory");
         assert_eq!(

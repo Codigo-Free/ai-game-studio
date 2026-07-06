@@ -12,6 +12,7 @@ name = "aigs"
 path = "src/main.rs"
 
 [dependencies]
+aigs-export-android = { path = "../exporters/android" }
 aigs-export-desktop = { version = "0.2.0", path = "../exporters/desktop" }
 aigs-export-web = { path = "../exporters/web" }
 aigs-project = { path = "../runtime/crates/aigs-project" }

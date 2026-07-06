@@ -140,6 +140,8 @@ mi-juego/
 
 **`behaviors`** — lista de reglas sin código `{ "on": Evento, "do": Acción }` (ver sección Comportamientos).
 
+**`virtual_button`** — botón táctil en pantalla (M15): `{ "key": nombre }`. Mientras se mantiene tocado el sprite de la entidad, simula esa tecla como pulsada para behaviors, animators y scripts — el mismo evento que una tecla física, así que un proyecto pensado para teclado funciona en pantalla táctil sin más cambios que añadir este componente a un sprite. Se libera en cuanto el dedo se levanta o se mueve fuera del sprite.
+
 **Componentes de plugin:** cualquier otra clave con namespace (`"mi_plugin.iman"`) es válida y debe preservarse aunque el lector no la entienda.
 
 ### Comportamientos (v0)
@@ -166,6 +168,8 @@ mi-juego/
 | `collision` | `with` (opcional) | Cuando esta entidad empieza a tocar otro colisionador (M8); `with` filtra por id de entidad. |
 
 Nombres de tecla: estilo winit/W3C — `ArrowLeft/Right/Up/Down`, `Space`, `Enter`, `Escape`, `Tab`, letras (`a`/`KeyA`) y dígitos (`1`/`Digit1`).
+
+**Táctil (M15):** en Android (y cualquier pantalla táctil) un dedo se trata igual que el ratón — mover el dedo mueve el "cursor" y tocar dispara `click` exactamente igual que un clic izquierdo. Solo se sigue el primer dedo (sin multitáctil todavía). Para movimiento por teclado (`key_down`/`key_pressed`) sin teclado físico, usa `virtual_button`.
 
 **Acciones** (`do.type`):
 
@@ -245,7 +249,7 @@ El motor puede recordar el estado de un juego **entre ejecuciones reales** (cerr
 - Si `save.json` no existe, la partida arranca limpia (no es un error). Si existe pero está corrupto, se reporta por consola y también arranca limpia (nunca se ignora en silencio un archivo dañado).
 - Ubicación deliberada: junto a los datos del proyecto (no en un directorio de perfil de usuario), coherente con el diseño self-player de los exportados (M7).
 - Estructura: `{"version": 1, "saved_at_unix": <u64>, "scripts": {"<id de entidad>": {"<variable>": <f64>, ...}, ...}}`.
-- **Limitación conocida (M14):** el exportador Web no tiene todavía un `save.json` equivalente (no hay sistema de archivos en el navegador); `elapsed_since_save()` siempre devuelve `0` ahí. Un juego que dependa de persistencia real de partida (como el Tamagotchi de M13) no la tiene aún al exportarse a Web.
+- **Limitación conocida (M14/M15):** los exportadores Web y Android no tienen todavía un `save.json` equivalente (Web no tiene sistema de archivos; Android no lee/escribe fuera de sus propios assets empaquetados en el APK); `elapsed_since_save()` siempre devuelve `0` en ambos. Un juego que dependa de persistencia real de partida (como el Tamagotchi de M13) no la tiene aún al exportarse a Web o Android.
 
 ### Audio (v0, M9)
 

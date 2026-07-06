@@ -206,6 +206,9 @@ pub struct Components {
     /// User script (milestone M12): a `script` asset driving this entity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub script: Option<Script>,
+    /// On-screen touch button (milestone M15).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub virtual_button: Option<VirtualButton>,
     /// Code-free event → action rules (see `Behavior`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub behaviors: Vec<Behavior>,
@@ -241,6 +244,16 @@ pub struct Transition {
 pub struct Script {
     /// Id of an `Asset` of kind `script`.
     pub asset: String,
+}
+
+/// On-screen touch button (milestone M15): while held, simulates `key` as
+/// pressed for every behavior/script — the same event as a physical key,
+/// so existing keyboard-driven projects work on touch screens by adding
+/// this component to a sprite, with no other changes.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VirtualButton {
+    /// Key name it simulates, same names `behaviors`/scripts use (e.g. `"ArrowLeft"`).
+    pub key: String,
 }
 
 /// A code-free rule: when `on` happens, run `do`.

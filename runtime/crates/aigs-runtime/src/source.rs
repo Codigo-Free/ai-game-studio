@@ -1,8 +1,10 @@
-//! Where a project's bytes come from (milestone M14): a local directory on
-//! Desktop, or an in-memory bundle fetched ahead of time on Web, where there
-//! is no filesystem and fetching is asynchronous. `AssetStore`, `AudioPlayer`
-//! and `ScriptHost` read through this instead of touching `std::fs` directly,
-//! so the same loading/decoding code runs on both targets.
+//! Where a project's bytes come from (milestone M14/M15): a local directory
+//! on Desktop, an in-memory bundle fetched ahead of time on Web (there is no
+//! filesystem and fetching is asynchronous), or the APK's bundled assets on
+//! Android (synchronous, like Desktop — no browser-style fetch needed).
+//! `AssetStore`, `AudioPlayer` and `ScriptHost` read through this instead of
+//! touching `std::fs` directly, so the same loading/decoding code runs on
+//! every target.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -62,6 +64,35 @@ impl AssetSource for MemoryAssets {
                 format!("{relative_path} was not prefetched"),
             )
         })
+    }
+}
+
+/// Android: reads straight out of the APK's bundled `assets/` (packaged
+/// there at export time, see `exporters/android-player`) via the NDK's
+/// `AAssetManager` — synchronous, unlike Web's `fetch`, since the data
+/// lives on-device inside the app package.
+#[cfg(target_os = "android")]
+pub struct AndroidAssets(ndk::asset::AssetManager);
+
+#[cfg(target_os = "android")]
+impl AndroidAssets {
+    pub fn new(app: &winit::platform::android::activity::AndroidApp) -> Self {
+        Self(app.asset_manager())
+    }
+}
+
+#[cfg(target_os = "android")]
+impl AssetSource for AndroidAssets {
+    fn read(&self, relative_path: &str) -> std::io::Result<Vec<u8>> {
+        let name = std::ffi::CString::new(relative_path)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidInput, error))?;
+        let mut asset = self.0.open(&name).ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("{relative_path} is not bundled in the APK's assets"),
+            )
+        })?;
+        Ok(asset.buffer()?.to_vec())
     }
 }
 

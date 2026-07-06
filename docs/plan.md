@@ -10,7 +10,7 @@ Este documento define el plan de desarrollo del proyecto, fase por fase e hito p
 |---|---|---|---|
 | **1** | MVP | Editor visual, Timeline, Escenas, Assets, Runtime básico | 🟢 **Completada** — [release 0.1.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.1.0) (estado por hito en [ROADMAP.md](../ROADMAP.md)) |
 | **2** | Motor completo | Animaciones avanzadas, Física, Audio, Partículas, Exportación Desktop | 🟢 **Completada** — [release 0.2.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.2.0) |
-| **3** | Multiplataforma | M14–M17: exportadores Web (WASM), Android, iOS, optimización y publicación | 🔵 En curso — M14 (Web) implementado, pendiente de validación manual en navegador |
+| **3** | Multiplataforma | M14–M17: exportadores Web (WASM), Android, iOS, optimización y publicación | 🔵 En curso — M14 (Web) y M15 (Android) implementados, pendiente de validación manual en navegador/dispositivo real |
 | **4** | IA profunda | M18–M21: AI Core y chat, escritura asistida, agentes especializados, generación de juegos completos | ⚪ Pendiente |
 | **5** | Ecosistema | M22–M25: SDK de plugins, marketplace, colaboración en tiempo real, servicios cloud opcionales | ⚪ Pendiente |
 
@@ -335,12 +335,24 @@ El de menor riesgo técnico: `aigs-render` ya usa WGPU, que compila a WebGPU/Web
 
 ### M15 — Exportador Android
 
-**Tareas**
-- Empaquetado nativo (candidato: `cargo-apk` o `xbuild`, decisión registrada en arquitectura) sobre el backend Vulkan/GLES de `wgpu`.
-- Entrada táctil: tap ↔ `click`, y un esquema mínimo de botones virtuales en pantalla para juegos que dependen de teclado (extensión de formato documentada como componente opcional, no rompe proyectos sin él).
-- Ciclo de vida de Android (pausa/reanudación, pérdida de superficie) integrado con el loop fijo del runtime.
-- `aigs export --target android`: genera APK/AAB firmable.
-- **Entregable:** Robot Rescue instalado y jugable en un dispositivo Android real vía APK.
+Empaquetado elegido: **`cargo-apk`** (no `xbuild`) — es la herramienta que el propio ecosistema `winit`/`android-activity` da por hecha en sus ejemplos, y bastó con instalarla para producir un `.apk` real.
+
+**Entregado:**
+- `aigs_runtime::app`: `run_android(app: AndroidApp, …)` construye el `EventLoop` con `EventLoopBuilder::with_android_app` en vez de `EventLoop::new()`; el resto del bucle (`run_app`, bloqueante) es idéntico a Desktop — a diferencia de Web, Android sí puede bloquear su hilo con `pollster::block_on`, así que **no** necesitó la máquina de estados asíncrona del renderer de M14.
+- Ciclo de vida: `suspended()` tira `window`/`renderer` (la superficie nativa muere al pasar a segundo plano); el `resumed()` ya existente los reconstruye sin cambios. Limitación conocida y documentada: las texturas no se recargan tras un resume (el `World` sobrevive, los sprites simplemente no se dibujan — sin crash, gracias a que `Renderer::render` ya indexaba texturas con `.get()`).
+- `aigs_runtime::source::AndroidAssets`: lee del APK vía `AAssetManager`, **síncrono** (a diferencia de `MemoryAssets`/`fetch` en Web) — los assets ya están embebidos en el paquete, no hay red de por medio.
+- Entrada táctil: `WindowEvent::Touch` alimenta el mismo `Input` que el ratón (posición + `click`), sin cambios de formato ni de behaviors existentes.
+- Nuevo componente de formato `virtual_button: { key }` (ver SPEC.md): mientras se toca su sprite, simula esa tecla para behaviors/animators/scripts — necesario porque un juego de teclado (como Robot Rescue) no es jugable solo con tap-como-click.
+- Nuevos crates: `exporters/android-player` (`aigs-android-player`, cdylib `aarch64-linux-android`, excluido del workspace nativo) es la **plantilla de build** del jugador — a diferencia de Web, Android no admite un artefacto único reutilizable porque empaqueta los assets dentro del APK en tiempo de compilación, así que cada export copia la plantilla, la retoca (assets del proyecto + `package`/`apk_name` únicos) y la compila de verdad. `exporters/android` (`aigs-export-android`, sí en el workspace) hace esa copia/retoque y ejecuta `cargo apk build` como subproceso.
+- `aigs export --target android [--release]`: busca la plantilla en `<carpeta del ejecutable>/android-player-template/`; necesita NDK/SDK/`cargo-apk` instalados en la máquina que exporta (documentado, no es self-player al estilo M7).
+- Verificado de punta a punta en este entorno: se instaló de verdad el NDK r28c + SDK (build-tools 34, platform 34) + `cargo-apk` 0.10.0, y se exportó Robot Rescue a un `.apk` firmado (keystore de depuración autogenerado) con todo el motor enlazado para `arm64-v8a`, confirmado con `aapt dump badging`.
+
+**Pendiente / limitaciones conocidas:**
+- **Validación manual en un dispositivo o emulador Android real todavía no hecha** (no hay ninguno disponible en este entorno de desarrollo) — falta confirmar que de verdad renderiza, acepta entrada táctil y suena al instalarlo y jugarlo.
+- Sin `save.json` en Android todavía (mismo límite que Web).
+- Build de depuración por defecto; release necesita que el usuario configure su propio keystore de firma.
+- Sin botón "Exportar a Android" en el editor todavía (solo CLI).
+- La plantilla distribuida junto a un CLI empaquetado (fuera de este monorepo) todavía depende de rutas relativas hacia `runtime/crates/`; empaquetar una plantilla verdaderamente autónoma para distribución amplia queda pendiente.
 
 ---
 

@@ -79,6 +79,65 @@ jobs:
           test -f /tmp/web-dist/robot-rescue/aigs_web_player_bg.wasm
           test -f /tmp/web-dist/robot-rescue/data/game.aigs
 
+  android-player:
+    name: Android player (aarch64)
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_NDK_VERSION: r28c
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: exporters/android-player
+      - name: Install Android NDK
+        run: |
+          curl -sSL -o ndk.zip \
+            "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+          unzip -q ndk.zip -d "$HOME"
+          rm ndk.zip
+          echo "ANDROID_NDK_HOME=$HOME/android-ndk-${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+      - name: Install Android SDK (cmdline-tools, platform-tools, build-tools, platform 34)
+        run: |
+          echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
+          mkdir -p "$HOME/android-sdk/cmdline-tools"
+          curl -sSL -o tools.zip \
+            "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+          unzip -q tools.zip -d "$HOME/android-sdk/cmdline-tools"
+          mv "$HOME/android-sdk/cmdline-tools/cmdline-tools" "$HOME/android-sdk/cmdline-tools/latest"
+          rm tools.zip
+          yes | "$HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager" \
+            --sdk_root="$HOME/android-sdk" \
+            "platform-tools" "platforms;android-34" "build-tools;34.0.0" > /dev/null
+      - name: Install cargo-apk (pinned)
+        run: cargo install cargo-apk --version 0.10.0 --locked
+      - name: Lint
+        working-directory: exporters/android-player
+        run: cargo clippy --target aarch64-linux-android -- -D warnings
+      - name: Build the player template (debug, self-signed debug keystore)
+        working-directory: exporters/android-player
+        run: cargo apk build
+      - name: Export an example project to Android and check the APK
+        run: |
+          rm -rf exporters/android-player/target
+          mkdir -p /tmp/aigs-cli-android
+          # Symlinked (not copied): the template's Cargo.toml depends on
+          # aigs-project/aigs-runtime by a path relative to itself, and
+          # aigs-export-android resolves that path through this location —
+          # a symlink keeps it pointing at the real runtime/crates checkout
+          # (see fix_path_dependencies in exporters/android/src/lib.rs).
+          ln -s "$(pwd)/exporters/android-player" /tmp/aigs-cli-android/android-player-template
+          cargo build -p aigs-cli
+          cp target/debug/aigs /tmp/aigs-cli-android/aigs
+          /tmp/aigs-cli-android/aigs export examples/robot-rescue/game.aigs \
+            --target android --output /tmp/android-dist
+          apk=/tmp/android-dist/robot-rescue-android/target/debug/apk/robot-rescue.apk
+          test -f "$apk"
+          "$HOME/android-sdk/build-tools/34.0.0/aapt" dump badging "$apk" | grep -q "native-code: 'arm64-v8a'"
+
   editor-frontend:
     name: Editor frontend (typecheck + build)
     runs-on: ubuntu-latest

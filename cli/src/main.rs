@@ -38,6 +38,12 @@ enum Command {
         /// Export platform.
         #[arg(long, value_enum, default_value = "desktop")]
         target: ExportTarget,
+        /// Optimized, signed release build (Android only; needs a signing
+        /// keystore configured in the player template's Cargo.toml). Without
+        /// this flag, Android exports are debug builds signed with a local
+        /// debug keystore — fine for testing, not for distribution.
+        #[arg(long)]
+        release: bool,
     },
     /// Print the scripting API as machine-readable JSON: every lifecycle
     /// function and callable a `.rhai` script can use. Intended for AI
@@ -49,6 +55,7 @@ enum Command {
 enum ExportTarget {
     Desktop,
     Web,
+    Android,
 }
 
 fn main() -> ExitCode {
@@ -67,9 +74,11 @@ fn main() -> ExitCode {
             output,
             zip,
             target,
+            release,
         } => match target {
             ExportTarget::Desktop => export_project_desktop(&manifest, &output, zip),
             ExportTarget::Web => export_project_web(&manifest, &output),
+            ExportTarget::Android => export_project_android(&manifest, &output, release),
         },
         Command::ScriptApi => script_api(),
     }
@@ -164,6 +173,48 @@ fn export_project_web(manifest: &Path, output: &Path) -> ExitCode {
             );
             println!("serve it with any static file server and open index.html, e.g.:");
             println!("  npx serve {}", report.game_dir.display());
+            ExitCode::SUCCESS
+        }
+        Err(err) => fail(&format!("export: {err}")),
+    }
+}
+
+/// The Android player template has no build-once artifact to copy the way
+/// Web's does (see `aigs_export_android`'s module docs for why): it's the
+/// `exporters/android-player` crate's source, expected next to `aigs` in an
+/// `android-player-template/` folder — actually building it needs the
+/// Android NDK/SDK and `cargo-apk` installed on this machine.
+fn locate_android_player_template() -> Result<PathBuf, String> {
+    let exe = std::env::current_exe().map_err(|err| format!("cannot locate {err}"))?;
+    let dir = exe
+        .parent()
+        .ok_or("running executable has no parent directory")?
+        .join("android-player-template");
+    if !dir.join("Cargo.toml").is_file() {
+        return Err(format!(
+            "Android player template not found at {} (expected a copy of exporters/android-player)",
+            dir.display()
+        ));
+    }
+    Ok(dir)
+}
+
+fn export_project_android(manifest: &Path, output: &Path, release: bool) -> ExitCode {
+    let player_template = match locate_android_player_template() {
+        Ok(path) => path,
+        Err(err) => return fail(&err),
+    };
+    match aigs_export_android::export(
+        manifest,
+        &aigs_export_android::ExportOptions {
+            player_template: &player_template,
+            output,
+            release,
+        },
+    ) {
+        Ok(report) => {
+            println!("exported to {}", report.apk.display());
+            println!("install it with: adb install {}", report.apk.display());
             ExitCode::SUCCESS
         }
         Err(err) => fail(&format!("export: {err}")),

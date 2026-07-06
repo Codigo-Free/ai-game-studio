@@ -82,6 +82,7 @@ dependencies = [
  "getrandom 0.3.4",
  "image",
  "kira",
+ "ndk",
  "rapier2d",
  "rhai",
  "serde",

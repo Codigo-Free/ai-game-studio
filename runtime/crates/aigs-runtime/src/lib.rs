@@ -22,6 +22,8 @@ mod time;
 
 pub use aigs_ecs::{Entity, Schedule, World};
 pub use aigs_render::{Color, Renderer, TextureId, Viewport};
+#[cfg(target_os = "android")]
+pub use app::run_android;
 pub use app::{run, AppConfig, RunError, FIXED_DT};
 pub use assets::{AssetError, AssetStore, TextureInfo};
 pub use audio::AudioPlayer;
@@ -36,5 +38,7 @@ pub use scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
 pub use scripting::{
     api_manifest, ApiFunction, ApiLifecycle, ApiManifest, ApiParam, ScriptCommand, ScriptHost,
 };
+#[cfg(target_os = "android")]
+pub use source::AndroidAssets;
 pub use source::{AssetSource, MemoryAssets};
 pub use time::Time;

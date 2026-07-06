@@ -1,0 +1,37 @@
+[package]
+name = "aigs-android-player"
+description = "Android exporter (milestone M15): runs an .aigs project on Android via WGPU/Vulkan"
+version = "0.2.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+# Stand-alone: `cargo apk` (via cargo-subcommand) resolves the workspace
+# itself and doesn't honor the root workspace's `exclude` list the way
+# plain `cargo` does — this empty table stops it from trying anyway.
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+aigs-project = { path = "../../runtime/crates/aigs-project" }
+aigs-runtime = { path = "../../runtime/crates/aigs-runtime" }
+android-activity = { version = "0.6", features = ["native-activity"] }
+android_logger = "0.14"
+log = "0.4"
+
+[package.metadata.android]
+package = "studio.aigamestudio.player"
+apk_name = "aigs-player"
+# Populated at export time with the project's game.aigs/scenes/assets by
+# aigs-export-android — the generic player itself doesn't ship any project.
+assets = "assets/data"
+
+[package.metadata.android.sdk]
+min_sdk_version = 26
+target_sdk_version = 34
+
+[profile.release]
+opt-level = "s"
+lto = true

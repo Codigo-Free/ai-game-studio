@@ -6,7 +6,7 @@ use std::time::Instant;
 use aigs_ecs::World;
 use aigs_render::{CameraView, Color, RenderError, Renderer, SpriteInstance, SurfaceError};
 use winit::application::ApplicationHandler;
-use winit::event::WindowEvent;
+use winit::event::{MouseButton, WindowEvent};
 use winit::event_loop::{ActiveEventLoop, EventLoop};
 use winit::window::{Window, WindowId};
 
@@ -53,7 +53,7 @@ impl Default for AppConfig {
 }
 
 type SetupFn = Box<dyn FnOnce(&mut World, &mut Renderer)>;
-type UpdateFn = Box<dyn FnMut(&mut World, &Time, &Input)>;
+type UpdateFn = Box<dyn FnMut(&mut World, &Time, &mut Input)>;
 
 /// Opens a window and runs the game loop until the window closes.
 ///
@@ -62,9 +62,34 @@ type UpdateFn = Box<dyn FnMut(&mut World, &Time, &Input)>;
 pub fn run(
     config: AppConfig,
     setup: impl FnOnce(&mut World, &mut Renderer) + 'static,
-    update: impl FnMut(&mut World, &Time, &Input) + 'static,
+    update: impl FnMut(&mut World, &Time, &mut Input) + 'static,
 ) -> Result<(), RunError> {
-    let event_loop = EventLoop::new()?;
+    run_with_event_loop(EventLoop::new()?, config, setup, update)
+}
+
+/// Same as [`run`], but for Android: the OS hands the app its [`AndroidApp`]
+/// handle through the `android_main` entry point, and winit needs it to
+/// build the event loop (there is no plain [`EventLoop::new`] on Android).
+///
+/// [`AndroidApp`]: winit::platform::android::activity::AndroidApp
+#[cfg(target_os = "android")]
+pub fn run_android(
+    app: winit::platform::android::activity::AndroidApp,
+    config: AppConfig,
+    setup: impl FnOnce(&mut World, &mut Renderer) + 'static,
+    update: impl FnMut(&mut World, &Time, &mut Input) + 'static,
+) -> Result<(), RunError> {
+    use winit::platform::android::EventLoopBuilderExtAndroid;
+    let event_loop = EventLoop::builder().with_android_app(app).build()?;
+    run_with_event_loop(event_loop, config, setup, update)
+}
+
+fn run_with_event_loop(
+    event_loop: EventLoop<()>,
+    config: AppConfig,
+    setup: impl FnOnce(&mut World, &mut Renderer) + 'static,
+    update: impl FnMut(&mut World, &Time, &mut Input) + 'static,
+) -> Result<(), RunError> {
     let app = App {
         config,
         world: World::new(),
@@ -188,7 +213,7 @@ impl App {
         while self.accumulator >= FIXED_DT {
             snapshot_prev_transforms(&mut self.world);
             self.time.delta = FIXED_DT;
-            (self.update)(&mut self.world, &self.time, &self.input);
+            (self.update)(&mut self.world, &self.time, &mut self.input);
             self.input.end_tick();
             self.time.elapsed += f64::from(FIXED_DT);
             self.time.tick += 1;
@@ -330,6 +355,23 @@ impl ApplicationHandler for App {
             WindowEvent::MouseInput { state, button, .. } => {
                 self.input.on_mouse_button(state, button)
             }
+            // A single finger drives the same click/cursor model as a mouse
+            // (milestone M15): behaviors and scripts using `click`/mouse
+            // position work on touch screens with no changes. Only the
+            // first finger down is tracked; multi-touch isn't needed yet.
+            WindowEvent::Touch(touch) => {
+                self.input
+                    .set_mouse_position(touch.location.x as f32, touch.location.y as f32);
+                match touch.phase {
+                    winit::event::TouchPhase::Started => self
+                        .input
+                        .on_mouse_button(winit::event::ElementState::Pressed, MouseButton::Left),
+                    winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => self
+                        .input
+                        .on_mouse_button(winit::event::ElementState::Released, MouseButton::Left),
+                    winit::event::TouchPhase::Moved => {}
+                }
+            }
             WindowEvent::RedrawRequested => self.tick(event_loop),
             _ => {}
         }
@@ -347,6 +389,19 @@ impl ApplicationHandler for App {
         // display connection closes segfaults on Wayland + EGL (Mesa).
         self.renderer = None;
         self.window = None;
+    }
+
+    /// Android (milestone M15): backgrounding the app destroys its native
+    /// window/surface at the OS level — using it further would crash. Drop
+    /// it here; the existing `resumed()` already rebuilds everything from
+    /// scratch, since on Desktop/Web it only ever expected to run once.
+    fn suspended(&mut self, _event_loop: &ActiveEventLoop) {
+        self.renderer = None;
+        self.window = None;
+        #[cfg(target_arch = "wasm32")]
+        {
+            self.pending_renderer = None;
+        }
     }
 }
 

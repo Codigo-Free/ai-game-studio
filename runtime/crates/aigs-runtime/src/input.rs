@@ -96,8 +96,9 @@ impl Input {
         self.viewport = (width, height);
     }
 
-    /// Test helpers: simulate device input without a window.
-    #[cfg(test)]
+    /// Synthesizes a key press/release exactly like a physical key event —
+    /// used by virtual buttons (touch, milestone M15) and by tests to
+    /// simulate device input without a window.
     pub(crate) fn simulate_key(&mut self, code: KeyCode, pressed: bool) {
         if pressed {
             if self.pressed.insert(code) {
