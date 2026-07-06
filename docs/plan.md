@@ -371,8 +371,9 @@ Empaquetado elegido: **`cargo-apk`** (no `xbuild`) — es la herramienta que el 
 **Tareas**
 - Compresión de texturas y presupuesto de tamaño por plataforma; medición de arranque/FPS en gama media (no solo en la máquina de desarrollo).
 - Matriz de CI que valida los cuatro exportadores (Desktop ya cubierto, + Web/Android/iOS nuevos) contra los ejemplos de `examples/`.
+- **Menú de exportación en el editor:** el botón **⬇ Exportar** de la toolbar solo conoce Desktop (`export_project` en `editor/src-tauri/src/lib.rs` llama a `aigs export` sin `--target`, siempre con `--zip`). Pendiente: un desplegable Desktop/Web/Android(/iOS) que pase `--target` al CLI, sin `--zip` fuera de Desktop, y que en Android muestre con claridad si falta el NDK/SDK/`cargo-apk` en la máquina (error esperado, no un fallo críptico).
 - Guía de usuario "publica tu primer juego" por tienda (Web/Play Store/App Store), con los pasos manuales de cada una explicados.
-- **Entregable:** **release 0.3** — mismo proyecto exportado y verificado en las cuatro plataformas.
+- **Entregable:** **release 0.3** — mismo proyecto exportado y verificado en las cuatro plataformas, exportable también desde el editor.
 
 ## Riesgos de la Fase 3
 

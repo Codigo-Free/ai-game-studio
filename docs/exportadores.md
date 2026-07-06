@@ -62,7 +62,7 @@ Mismo diseño **self-player** que Desktop, adaptado a que en WASM no existe el e
 - `aigs export --target web` **no compila nada**: copia un jugador ya compilado (`aigs_web_player.js`/`_bg.wasm`), esperado en `web-player/` junto al propio binario `aigs` — igual de "cero toolchain para quien exporta" que Desktop. Ese jugador se compila una sola vez con `wasm-bindgen` (ver CI, job *Web player*) y se distribuye junto al CLI.
 - El renderer WGPU corre sobre WebGPU o WebGL2 según lo que el navegador soporte, sin cambios en el código del motor.
 - Servir el resultado con cualquier servidor de archivos estáticos (`npx serve dist/mi-juego`); no funciona abriendo `index.html` con `file://` (los navegadores bloquean `fetch` sobre ese esquema).
-- Limitaciones conocidas: sin `save.json` todavía (ver SPEC.md, sección de persistencia) y sin exportación desde el editor todavía (solo CLI; el botón del editor llega cuando el flujo esté validado en un navegador real).
+- Limitaciones conocidas: sin `save.json` todavía (ver SPEC.md, sección de persistencia) y sin exportación desde el editor todavía (solo CLI; menú Desktop/Web/Android en el editor, previsto para M17).
 
 ## Exportador Android (M15)
 
@@ -84,7 +84,7 @@ dist/mi-juego-android/
 - Requiere que la máquina que exporta tenga instalados el **NDK/SDK de Android** y `cargo-apk` (`cargo install cargo-apk`) — documentado como requisito externo, igual que Xcode para iOS (M16). El propio `aigs export` no instala nada de esto.
 - Lectura de assets **síncrona** (`AndroidAssets` sobre `AAssetManager`, ver `aigs_runtime::AssetSource`) — a diferencia de Web, no hace falta ningún `fetch` asíncrono porque los datos ya están dentro del APK.
 - Entrada táctil: un dedo se comporta como el ratón (mover = cursor, tocar = `click`); para controles estilo teclado sin teclado físico, usa el componente `virtual_button` (ver SPEC.md).
-- Limitaciones conocidas: build de depuración por defecto (release necesita un keystore propio configurado en `[package.metadata.android.signing.release]`); las texturas no se recargan si la app se suspende y reanuda (ver arquitectura.md); sin `save.json` todavía; sin exportación desde el editor todavía (solo CLI).
+- Limitaciones conocidas: build de depuración por defecto (release necesita un keystore propio configurado en `[package.metadata.android.signing.release]`); las texturas no se recargan si la app se suspende y reanuda (ver arquitectura.md); sin `save.json` todavía; sin exportación desde el editor todavía (solo CLI; menú Desktop/Web/Android en el editor, previsto para M17).
 - Validado en este entorno de desarrollo: instalación real del NDK r28c + SDK (build-tools 34, platform 34) + `cargo-apk` 0.10.0, con Robot Rescue exportado y comprobado como APK arm64-v8a válido (`aapt dump badging`) — **pendiente instalar y jugar en un dispositivo o emulador real**.
 
 ## Diseño general
