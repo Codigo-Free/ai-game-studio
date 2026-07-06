@@ -102,6 +102,15 @@ impl<R: ResolveTexture> GamePlayer<R> {
     }
 
     fn load_scene(&mut self, world: &mut World, path: &str) -> Result<(), PlayerError> {
+        // Give the scene being left a chance to clean up before its
+        // entities disappear (e.g. a final log message or sound). Captured
+        // separately: `self.warnings` gets reset below for the new scene.
+        let destroy_commands = self.scripts.dispatch_destroy(world);
+        for (entity, command) in destroy_commands {
+            self.apply_destroy_script_command(world, entity, command);
+        }
+        let destroy_warnings = self.scripts.take_warnings();
+
         let scene = self
             .scenes
             .get(path)
@@ -110,6 +119,7 @@ impl<R: ResolveTexture> GamePlayer<R> {
         let instance = instantiate_scene(world, scene, &self.textures)?;
         self.playback = AnimationPlayback::bind(scene, &instance);
         self.warnings = self.playback.warnings().to_vec();
+        self.warnings.extend(destroy_warnings);
         self.behaviors = bind_behaviors(&scene.entities, &instance, &mut self.warnings);
         self.physics = PhysicsWorld::build(world, scene.gravity.unwrap_or_default());
 
@@ -239,33 +249,24 @@ impl<R: ResolveTexture> GamePlayer<R> {
         // movement drives kinematic bodies this same tick).
         let script_commands = self.scripts.tick(world, &self.instance, input, time.delta);
         for (entity, command) in script_commands {
-            match command {
-                ScriptCommand::GotoScene(path) => self.pending_scene = Some(path),
-                ScriptCommand::PlayAnimation(name) => {
-                    if !self.playback.restart(&name) {
-                        self.warnings
-                            .push(format!("script: unknown animation \"{name}\""));
-                    }
-                }
-                ScriptCommand::PlaySound(name, volume) => {
-                    self.audio.play_sound(&name, volume);
-                }
-                ScriptCommand::EmitParticles(count) => {
-                    if !particles::burst(world, entity, count) {
-                        self.warnings
-                            .push("script: entity has no particle emitter".to_string());
-                    }
-                }
-            }
+            self.apply_script_command(world, entity, command);
         }
         self.warnings.extend(self.scripts.take_warnings());
         self.warnings.extend(self.audio.take_warnings());
 
         // Physics step (after behaviors so kinematic bodies follow input),
-        // then collision behaviors fire within the same tick.
+        // then collision behaviors and scripts fire within the same tick.
         if let Some(physics) = self.physics.as_mut() {
             let contacts = physics.step(world, time.delta);
             if !contacts.is_empty() {
+                let script_commands =
+                    self.scripts
+                        .dispatch_collisions(world, &self.instance, &contacts);
+                for (entity, command) in script_commands {
+                    self.apply_script_command(world, entity, command);
+                }
+                self.warnings.extend(self.scripts.take_warnings());
+
                 let mut collision_actions: Vec<(Entity, ActionSpec)> = Vec::new();
                 for behavior in &self.behaviors {
                     let EventSpec::Collision { with } = &behavior.on else {
@@ -348,6 +349,47 @@ impl<R: ResolveTexture> GamePlayer<R> {
                 // Needs &mut World; handled by the caller (see `update`).
             }
         }
+    }
+
+    /// Applies an engine-level command a script queued (`goto_scene`,
+    /// `play_animation`, `play_sound`, `emit_particles`). Shared by
+    /// `on_update`/`on_collision` dispatch.
+    fn apply_script_command(&mut self, world: &mut World, entity: Entity, command: ScriptCommand) {
+        match command {
+            ScriptCommand::GotoScene(path) => self.pending_scene = Some(path),
+            ScriptCommand::PlayAnimation(name) => {
+                if !self.playback.restart(&name) {
+                    self.warnings
+                        .push(format!("script: unknown animation \"{name}\""));
+                }
+            }
+            ScriptCommand::PlaySound(name, volume) => {
+                self.audio.play_sound(&name, volume);
+            }
+            ScriptCommand::EmitParticles(count) => {
+                if !particles::burst(world, entity, count) {
+                    self.warnings
+                        .push("script: entity has no particle emitter".to_string());
+                }
+            }
+        }
+    }
+
+    /// Same as [`Self::apply_script_command`], but for `on_destroy`: a
+    /// scene switch is already underway, so `goto_scene` from on_destroy is
+    /// rejected (with a warning) instead of chaining into another switch.
+    fn apply_destroy_script_command(
+        &mut self,
+        world: &mut World,
+        entity: Entity,
+        command: ScriptCommand,
+    ) {
+        if matches!(command, ScriptCommand::GotoScene(_)) {
+            self.warnings
+                .push("script: goto_scene from on_destroy is ignored".to_string());
+            return;
+        }
+        self.apply_script_command(world, entity, command);
     }
 }
 
@@ -1023,6 +1065,108 @@ mod tests {
             }
         }
         assert_eq!(player.current_scene(), "done", "script goto_scene works");
+    }
+
+    #[test]
+    fn script_on_collision_and_on_destroy_lifecycle_events() {
+        let project = Project::from_json(
+            r#"{
+                "format": { "kind": "aigs-project", "version": 0 },
+                "name": "Lifecycle", "initial_scene": "fall", "scenes": ["fall", "next"]
+            }"#,
+        )
+        .unwrap();
+        let fall = Scene::from_json(
+            r#"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "fall",
+                "gravity": { "x": 0.0, "y": -980.0 },
+                "entities": [
+                    { "id": "crate", "name": "Crate",
+                      "components": {
+                        "transform2d": { "x": 0.0, "y": 100.0 },
+                        "sprite": { "asset": "crate", "width": 32.0, "height": 32.0 },
+                        "rigidbody2d": { "fixed_rotation": true },
+                        "collider2d": {},
+                        "script": { "asset": "watcher" }
+                      } },
+                    { "id": "floor", "name": "Floor",
+                      "components": {
+                        "transform2d": {},
+                        "collider2d": { "width": 800.0, "height": 40.0 }
+                      } },
+                    { "id": "switch", "name": "Switch",
+                      "components": { "behaviors": [
+                        { "on": { "type": "key_pressed", "key": "Enter" },
+                          "do": { "type": "goto_scene", "scene": "next" } }
+                      ] } }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let next = Scene::from_json(
+            r#"{ "format": { "kind": "aigs-scene", "version": 0 }, "name": "next", "entities": [] }"#,
+        )
+        .unwrap();
+        let mut scenes = HashMap::new();
+        scenes.insert("fall".to_string(), fall);
+        scenes.insert("next".to_string(), next);
+
+        let mut host = ScriptHost::empty();
+        host.add_source(
+            "watcher",
+            r#"
+                fn on_collision(other) {
+                    set_var("hit", 1.0);
+                    log("touched " + other);
+                }
+                fn on_destroy() {
+                    set_var("destroyed", 1.0);
+                    this_does_not_exist();
+                }
+            "#,
+        );
+
+        let mut world = World::new();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            host,
+            &mut world,
+        )
+        .unwrap();
+        let mut input = Input::default();
+        let time = Time {
+            delta: 1.0 / 60.0,
+            ..Time::default()
+        };
+        for _ in 0..120 {
+            player.update(&mut world, &time, &input);
+        }
+        // The crate must have hit the floor and fired on_collision; the
+        // scene hasn't switched yet, so on_destroy must not have run.
+        assert!(
+            !player.warnings().iter().any(|w| w.contains("on_destroy")),
+            "on_destroy must not fire while still in the same scene: {:?}",
+            player.warnings()
+        );
+
+        // Now force a scene switch: on_destroy must fire for the scripted
+        // entity being left behind, and its deliberate error must surface
+        // as a warning without crashing the player.
+        input.simulate_key(KeyCode::Enter, true);
+        player.update(&mut world, &time, &input);
+        assert_eq!(player.current_scene(), "next");
+        assert!(
+            player
+                .warnings()
+                .iter()
+                .any(|w| w.contains("on_destroy") && w.contains("watcher")),
+            "on_destroy must have run (and reported its error): {:?}",
+            player.warnings()
+        );
     }
 
     #[test]

@@ -30,5 +30,7 @@ pub use physics::PhysicsWorld;
 pub use playback::AnimationPlayback;
 pub use player::{parse_key, GamePlayer, PlayerError};
 pub use scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
-pub use scripting::{ScriptCommand, ScriptHost};
+pub use scripting::{
+    api_manifest, ApiFunction, ApiLifecycle, ApiManifest, ApiParam, ScriptCommand, ScriptHost,
+};
 pub use time::Time;

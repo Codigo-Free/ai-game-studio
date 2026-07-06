@@ -206,23 +206,32 @@ Reglas con teclas, entidades, escenas o animaciones desconocidas generan adverte
 
 ### Scripting (v0, M12)
 
-Los scripts son archivos **rhai** sandboxeados (sin IO, con presupuesto de operaciones por tick). Un script puede definir:
+Los scripts son archivos **rhai** sandboxeados (sin IO, con presupuesto de operaciones por tick — un script fuera de control se degrada a advertencia, nunca cuelga el juego). Un script puede definir cuatro funciones de ciclo de vida, todas opcionales:
 
-- `fn on_start()` — una vez, al cargar la escena.
-- `fn on_update(dt)` — cada tick de simulación (dt en segundos).
-
-El estado del `Scope` persiste entre ticks (usa `this.campo` para variables de instancia). API disponible:
-
-| Función | Descripción |
+| Función | Cuándo se llama |
 |---|---|
-| `x()`, `y()`, `rotation()`, `frame()` | Estado de la propia entidad. |
-| `set_pos(x, y)`, `move_by(dx, dy)`, `set_rotation(r)`, `set_frame(f)` | Mutan la propia entidad (se aplican al terminar la llamada). |
-| `x_of(id)`, `y_of(id)`, `distance_to(id)` | Posiciones de otras entidades de la escena por id. |
-| `key_down(n)`, `key_pressed(n)`, `key_released(n)` | Entrada (mismos nombres de tecla que los behaviors). |
-| `goto_scene(ruta)`, `play_animation(nombre)`, `play_sound(id[, vol])`, `emit_particles(n)` | Acciones del motor. |
-| `log(msg)` | Escribe en la consola (`[script:asset] msg`). |
+| `fn on_start()` | Una vez, justo al cargar la escena. |
+| `fn on_update(dt)` | Cada tick de simulación (dt en segundos). |
+| `fn on_collision(other)` | Cuando el colisionador de esta entidad empieza a tocar otro; `other` es el id de la entidad tocada (`""` si no tiene). |
+| `fn on_destroy()` | Una vez, justo antes de que la escena se destruya (p. ej. al cambiar de escena). |
+
+**Contrato tipado y máquina-legible:** la API completa (cada función, sus parámetros tipados y su descripción) vive en `aigs_runtime::api_manifest()` y se publica como snapshot en [`scripting-api.json`](scripting-api.json) (regenerar con `aigs script-api > sdk/aigs-format/scripting-api.json`); un test de integración falla si el snapshot queda desactualizado respecto al motor.
+
+**Estado persistente — `get_var`/`set_var`, no `this`:** las funciones (`fn`) de rhai no ven variables externas entre llamadas, así que un script que quiera recordar algo entre ticks debe usar `get_var(nombre)` / `set_var(nombre, valor)` (memoria float por instancia, no por variable capturada). Se reinicia si el script se recarga en caliente o la escena reinicia.
+
+| Función | Categoría | Descripción |
+|---|---|---|
+| `x()`, `y()`, `rotation()`, `frame()` | Estado propio | Transform/frame de la propia entidad. |
+| `get_var(nombre)`, `set_var(nombre, valor)` | Estado persistente | Memoria de esta instancia entre ticks. |
+| `x_of(id)`, `y_of(id)`, `distance_to(id)` | Otras entidades | Posiciones por id de entidad autor. |
+| `key_down(n)`, `key_pressed(n)`, `key_released(n)` | Entrada | Mismos nombres de tecla que los behaviors. |
+| `set_pos(x, y)`, `move_by(dx, dy)`, `set_rotation(r)`, `set_frame(f)` | Transform | Mutan la propia entidad (se aplican al terminar la llamada). |
+| `goto_scene(ruta)`, `play_animation(nombre)`, `play_sound(id[, vol])`, `emit_particles(n)` | Motor | `goto_scene` se ignora (con advertencia) si se llama desde `on_destroy`. |
+| `log(msg)` | Utilidad | Escribe en la consola (`[script:asset] msg`). |
 
 Errores de compilación o ejecución se reportan como advertencias (visibles en la consola del editor); el script fallido se desactiva sin tumbar el juego.
+
+**Hot reload:** mientras el juego corre desde un directorio de proyecto (no exportado), el runtime revisa el `mtime` de cada `.rhai` un par de veces por segundo; si cambió, lo recompila y reinicia el estado local de sus instancias (`get_var`/`set_var` y si ya se ejecutó `on_start`). Editar y guardar un script mientras el modo Play está corriendo lo actualiza sin reiniciar la partida. Un error de compilación durante la recarga conserva la versión anterior (que sigue funcionando) y lo reporta como advertencia.
 
 ### Audio (v0, M9)
 

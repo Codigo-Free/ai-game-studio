@@ -29,11 +29,18 @@ pub enum SceneError {
 #[derive(Debug, Default)]
 pub struct SceneInstance {
     by_id: HashMap<String, Entity>,
+    id_of: HashMap<Entity, String>,
 }
 
 impl SceneInstance {
     pub fn entity(&self, id: &str) -> Option<Entity> {
         self.by_id.get(id).copied()
+    }
+
+    /// Authored id of a live entity, if it came from this scene (reverse of
+    /// [`SceneInstance::entity`]; used by scripts' `on_collision`).
+    pub fn id_of(&self, entity: Entity) -> Option<&str> {
+        self.id_of.get(&entity).map(String::as_str)
     }
 
     pub fn len(&self) -> usize {
@@ -89,6 +96,7 @@ fn spawn_node(
     if instance.by_id.insert(node.id.clone(), entity).is_some() {
         return Err(SceneError::DuplicatedId(node.id.clone()));
     }
+    instance.id_of.insert(entity, node.id.clone());
     world.insert(entity, Name(node.name.clone()));
     world.insert(entity, Visibility::default());
     world.insert(entity, world_transform);

@@ -36,6 +36,10 @@ enum Command {
         #[arg(long)]
         zip: bool,
     },
+    /// Print the scripting API as machine-readable JSON: every lifecycle
+    /// function and callable a `.rhai` script can use. Intended for AI
+    /// agents and editor tooling (see sdk/aigs-format/scripting-api.json).
+    ScriptApi,
 }
 
 fn main() -> ExitCode {
@@ -54,6 +58,17 @@ fn main() -> ExitCode {
             output,
             zip,
         } => export_project(&manifest, &output, zip),
+        Command::ScriptApi => script_api(),
+    }
+}
+
+fn script_api() -> ExitCode {
+    match serde_json::to_string_pretty(&aigs_runtime::api_manifest()) {
+        Ok(json) => {
+            println!("{json}");
+            ExitCode::SUCCESS
+        }
+        Err(err) => fail(&format!("script-api: {err}")),
     }
 }
 

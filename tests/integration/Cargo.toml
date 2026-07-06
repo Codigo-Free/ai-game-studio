@@ -11,3 +11,4 @@ authors.workspace = true
 [dependencies]
 aigs-project = { path = "../../runtime/crates/aigs-project" }
 aigs-runtime = { path = "../../runtime/crates/aigs-runtime" }
+serde_json = { workspace = true }

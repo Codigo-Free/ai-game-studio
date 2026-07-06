@@ -63,6 +63,7 @@ dependencies = [
  "aigs-project",
  "aigs-runtime",
  "clap",
+ "serde_json",
 ]
 
 [[package]]
@@ -88,6 +89,7 @@ version = "0.1.0"
 dependencies = [
  "aigs-project",
  "aigs-runtime",
+ "serde_json",
 ]
 
 [[package]]
@@ -124,6 +126,7 @@ dependencies = [
  "kira",
  "rapier2d",
  "rhai",
+ "serde",
  "thiserror 2.0.18",
  "winit",
 ]

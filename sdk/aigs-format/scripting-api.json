@@ -1,0 +1,298 @@
+{
+  "version": 1,
+  "language": "rhai",
+  "lifecycle": [
+    {
+      "name": "on_start",
+      "params": [],
+      "description": "Called once, right after the scene loads."
+    },
+    {
+      "name": "on_update",
+      "params": [
+        {
+          "name": "dt",
+          "type": "float"
+        }
+      ],
+      "description": "Called every simulation tick (60/s). dt is the fixed step in seconds."
+    },
+    {
+      "name": "on_collision",
+      "params": [
+        {
+          "name": "other",
+          "type": "string"
+        }
+      ],
+      "description": "Called when this entity's collider starts touching another. 'other' is the id of the touched entity, or \"\" if it has none."
+    },
+    {
+      "name": "on_destroy",
+      "params": [],
+      "description": "Called once, right before the scene is torn down (e.g. a scene switch)."
+    }
+  ],
+  "functions": [
+    {
+      "name": "x",
+      "params": [],
+      "returns": "float",
+      "category": "entity_state",
+      "description": "This entity's world X position."
+    },
+    {
+      "name": "y",
+      "params": [],
+      "returns": "float",
+      "category": "entity_state",
+      "description": "This entity's world Y position."
+    },
+    {
+      "name": "rotation",
+      "params": [],
+      "returns": "float",
+      "category": "entity_state",
+      "description": "This entity's rotation in degrees, clockwise."
+    },
+    {
+      "name": "frame",
+      "params": [],
+      "returns": "float",
+      "category": "entity_state",
+      "description": "This entity's current spritesheet frame index."
+    },
+    {
+      "name": "get_var",
+      "params": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "returns": "float",
+      "category": "state",
+      "description": "Reads this script instance's persistent state (0.0 if never set). rhai `fn` bodies can't see outer scope variables between calls, so use get_var/set_var — not a captured variable — to remember values across ticks."
+    },
+    {
+      "name": "set_var",
+      "params": [
+        {
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "name": "value",
+          "type": "float"
+        }
+      ],
+      "returns": null,
+      "category": "state",
+      "description": "Writes this script instance's persistent state, readable in later ticks via get_var. Reset when the script hot-reloads or the scene restarts."
+    },
+    {
+      "name": "x_of",
+      "params": [
+        {
+          "name": "id",
+          "type": "string"
+        }
+      ],
+      "returns": "float",
+      "category": "other_entities",
+      "description": "World X position of another entity in the scene, by its authored id (0.0 if unknown)."
+    },
+    {
+      "name": "y_of",
+      "params": [
+        {
+          "name": "id",
+          "type": "string"
+        }
+      ],
+      "returns": "float",
+      "category": "other_entities",
+      "description": "World Y position of another entity in the scene, by its authored id (0.0 if unknown)."
+    },
+    {
+      "name": "distance_to",
+      "params": [
+        {
+          "name": "id",
+          "type": "string"
+        }
+      ],
+      "returns": "float",
+      "category": "other_entities",
+      "description": "Euclidean distance from this entity to another by id (a very large number if unknown)."
+    },
+    {
+      "name": "key_down",
+      "params": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "returns": "bool",
+      "category": "input",
+      "description": "True while the named key is held down (same key names as behaviors, e.g. \"ArrowRight\")."
+    },
+    {
+      "name": "key_pressed",
+      "params": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "returns": "bool",
+      "category": "input",
+      "description": "True on the single tick the named key went down."
+    },
+    {
+      "name": "key_released",
+      "params": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "returns": "bool",
+      "category": "input",
+      "description": "True on the single tick the named key went up."
+    },
+    {
+      "name": "set_pos",
+      "params": [
+        {
+          "name": "x",
+          "type": "float"
+        },
+        {
+          "name": "y",
+          "type": "float"
+        }
+      ],
+      "returns": null,
+      "category": "transform",
+      "description": "Sets this entity's world position immediately."
+    },
+    {
+      "name": "move_by",
+      "params": [
+        {
+          "name": "dx",
+          "type": "float"
+        },
+        {
+          "name": "dy",
+          "type": "float"
+        }
+      ],
+      "returns": null,
+      "category": "transform",
+      "description": "Offsets this entity's world position by (dx, dy)."
+    },
+    {
+      "name": "set_rotation",
+      "params": [
+        {
+          "name": "degrees",
+          "type": "float"
+        }
+      ],
+      "returns": null,
+      "category": "transform",
+      "description": "Sets this entity's rotation in degrees, clockwise."
+    },
+    {
+      "name": "set_frame",
+      "params": [
+        {
+          "name": "frame",
+          "type": "float"
+        }
+      ],
+      "returns": null,
+      "category": "transform",
+      "description": "Sets this entity's spritesheet frame index."
+    },
+    {
+      "name": "goto_scene",
+      "params": [
+        {
+          "name": "path",
+          "type": "string"
+        }
+      ],
+      "returns": null,
+      "category": "engine",
+      "description": "Switches to another scene of the project (path as listed in the manifest). Ignored if called from on_destroy."
+    },
+    {
+      "name": "play_animation",
+      "params": [
+        {
+          "name": "name",
+          "type": "string"
+        }
+      ],
+      "returns": null,
+      "category": "engine",
+      "description": "Restarts a scene animation by name."
+    },
+    {
+      "name": "play_sound",
+      "params": [
+        {
+          "name": "asset",
+          "type": "string"
+        }
+      ],
+      "returns": null,
+      "category": "engine",
+      "description": "Plays a sound effect at full volume (overload of play_sound(asset, volume))."
+    },
+    {
+      "name": "play_sound",
+      "params": [
+        {
+          "name": "asset",
+          "type": "string"
+        },
+        {
+          "name": "volume",
+          "type": "float"
+        }
+      ],
+      "returns": null,
+      "category": "engine",
+      "description": "Plays a sound effect (audio asset id) at the given linear volume (0.0-1.0)."
+    },
+    {
+      "name": "emit_particles",
+      "params": [
+        {
+          "name": "count",
+          "type": "int"
+        }
+      ],
+      "returns": null,
+      "category": "engine",
+      "description": "Spawns a burst from this entity's particle emitter (requires a particles component)."
+    },
+    {
+      "name": "log",
+      "params": [
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ],
+      "returns": null,
+      "category": "utility",
+      "description": "Writes a line to the game console, prefixed with [script:<asset>]."
+    }
+  ]
+}
