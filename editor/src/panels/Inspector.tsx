@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { allEntityIds, findEntity, patchComponents, updateEntity } from "../document";
 import { useStore } from "../store";
+import { useRef } from "react";
 import type {
   ActionSpec,
   AnimatorComponent,
@@ -8,6 +9,7 @@ import type {
   BodyType,
   Components,
   EventSpec,
+  ParticlesComponent,
 } from "../types";
 
 const COMMON_KEYS = [
@@ -46,7 +48,9 @@ function describeBehavior(behavior: Behavior): string {
         ? `ir a ${act.scene.split("/").pop()?.replace(".scene.aigs", "")}`
         : act.type === "play_animation"
           ? `animar "${act.animation}"`
-          : `sonar "${act.asset}"`;
+          : act.type === "play_sound"
+            ? `sonar "${act.asset}"`
+            : `emitir ${act.count ?? 20} partículas`;
   return `${event} → ${action}`;
 }
 
@@ -74,6 +78,7 @@ function BehaviorForm({
   const [scene, setScene] = useState(scenes[0] ?? "");
   const [actionAnim, setActionAnim] = useState("");
   const [sound, setSound] = useState("");
+  const [burstCount, setBurstCount] = useState("20");
 
   const add = () => {
     const on: EventSpec =
@@ -96,10 +101,15 @@ function BehaviorForm({
               type: "play_animation",
               animation: actionAnim || animations[0] || "",
             }
-          : {
-              type: "play_sound",
-              asset: sound || audioAssets[0] || "",
-            };
+          : actionType === "play_sound"
+            ? {
+                type: "play_sound",
+                asset: sound || audioAssets[0] || "",
+              }
+            : {
+                type: "emit_particles",
+                count: Math.max(1, Number(burstCount) || 20),
+              };
     onAdd({ on, do: run });
   };
 
@@ -152,6 +162,7 @@ function BehaviorForm({
           <option value="goto_scene">ir a escena</option>
           <option value="play_animation">reproducir animación</option>
           <option value="play_sound">reproducir sonido</option>
+          <option value="emit_particles">emitir partículas</option>
         </select>
         {actionType === "move" && (
           <>
@@ -172,6 +183,15 @@ function BehaviorForm({
               <option key={name} value={name}>{name}</option>
             ))}
           </select>
+        )}
+        {actionType === "emit_particles" && (
+          <input
+            type="number"
+            value={burstCount}
+            onChange={(e) => setBurstCount(e.target.value)}
+            style={{ width: 60 }}
+            title="Cantidad de partículas (la entidad necesita el componente Partículas)"
+          />
         )}
         {actionType === "play_sound" && (
           <select value={sound} onChange={(e) => setSound(e.target.value)}>
@@ -396,6 +416,128 @@ function AnimatorSection({
   );
 }
 
+/** Miniature live simulation of the emitter (mirrors the runtime rules). */
+function ParticlePreview({ particles }: { particles: ParticlesComponent }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const specRef = useRef(particles);
+  specRef.current = particles;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    interface P { x: number; y: number; vx: number; vy: number; age: number }
+    let pool: P[] = [];
+    let accumulator = 0;
+    let raf = 0;
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const spec = specRef.current;
+      const lifetime = Math.max(0.05, spec.lifetime ?? 0.8);
+      const rate = spec.emitting === false ? 0 : (spec.rate ?? 20);
+      accumulator += rate * dt;
+      // Idle emitters still preview a periodic burst so you can see something.
+      if (rate === 0 && pool.length === 0) accumulator = 12;
+      let toSpawn = Math.floor(accumulator);
+      accumulator -= toSpawn;
+      while (toSpawn-- > 0) {
+        const arc = ((spec.spread ?? 360) * Math.PI) / 180;
+        const angle = ((spec.direction ?? 90) * Math.PI) / 180 + (Math.random() - 0.5) * arc;
+        const speed = (spec.speed ?? 120) * (0.6 + 0.4 * Math.random()) * 0.4;
+        pool.push({ x: 0, y: 0, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, age: 0 });
+      }
+      pool = pool.filter((p) => (p.age += dt) < lifetime);
+      ctx.fillStyle = "#14151c";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      for (const p of pool) {
+        p.vy += (spec.gravity ?? 0) * dt * 0.4;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        const t = p.age / lifetime;
+        const scale = (spec.start_scale ?? 1) + ((spec.end_scale ?? 0.2) - (spec.start_scale ?? 1)) * t;
+        const opacity = (spec.start_opacity ?? 1) + ((spec.end_opacity ?? 0) - (spec.start_opacity ?? 1)) * t;
+        ctx.globalAlpha = Math.max(0, opacity);
+        ctx.fillStyle = "#ffd85e";
+        const size = Math.max(1, 5 * scale);
+        ctx.fillRect(cx + p.x - size / 2, cy - p.y - size / 2, size, size);
+      }
+      ctx.globalAlpha = 1;
+      raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  return <canvas ref={canvasRef} width={230} height={110} className="particle-preview" />;
+}
+
+function ParticlesSection({
+  particles,
+  imageAssets,
+  onChange,
+}: {
+  particles?: ParticlesComponent;
+  imageAssets: string[];
+  onChange: (particles: ParticlesComponent | undefined) => void;
+}) {
+  return (
+    <section>
+      <h4>
+        Partículas
+        {!particles && (
+          <button
+            onClick={() => onChange({ asset: imageAssets[0] ?? "" })}
+            disabled={imageAssets.length === 0}
+          >
+            ＋
+          </button>
+        )}
+        {particles && <button onClick={() => onChange(undefined)}>✕</button>}
+      </h4>
+      {particles && (
+        <div className="field-grid">
+          <ParticlePreview particles={particles} />
+          <label className="field">
+            <span>Asset</span>
+            <select
+              value={particles.asset}
+              onChange={(e) => onChange({ ...particles, asset: e.target.value })}
+            >
+              {imageAssets.map((id) => (
+                <option key={id} value={id}>{id}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Emitir</span>
+            <input
+              type="checkbox"
+              checked={particles.emitting ?? true}
+              onChange={(e) => onChange({ ...particles, emitting: e.target.checked })}
+            />
+          </label>
+          <NumberField label="Tasa/s" value={particles.rate ?? 20} onCommit={(rate) => onChange({ ...particles, rate: Math.max(0, rate) })} />
+          <NumberField label="Vida (s)" value={particles.lifetime ?? 0.8} step={0.1} onCommit={(lifetime) => onChange({ ...particles, lifetime: Math.max(0.05, lifetime) })} />
+          <NumberField label="Velocidad" value={particles.speed ?? 120} onCommit={(speed) => onChange({ ...particles, speed })} />
+          <NumberField label="Dirección" value={particles.direction ?? 90} onCommit={(direction) => onChange({ ...particles, direction })} />
+          <NumberField label="Apertura" value={particles.spread ?? 360} onCommit={(spread) => onChange({ ...particles, spread: Math.max(0, Math.min(360, spread)) })} />
+          <NumberField label="Gravedad" value={particles.gravity ?? 0} onCommit={(gravity) => onChange({ ...particles, gravity })} />
+          <NumberField label="Escala ini" value={particles.start_scale ?? 1} step={0.1} onCommit={(start_scale) => onChange({ ...particles, start_scale })} />
+          <NumberField label="Escala fin" value={particles.end_scale ?? 0.2} step={0.1} onCommit={(end_scale) => onChange({ ...particles, end_scale })} />
+          <NumberField label="Opac. ini" value={particles.start_opacity ?? 1} step={0.05} onCommit={(start_opacity) => onChange({ ...particles, start_opacity })} />
+          <NumberField label="Opac. fin" value={particles.end_opacity ?? 0} step={0.05} onCommit={(end_opacity) => onChange({ ...particles, end_opacity })} />
+          <NumberField label="Capa" value={particles.layer ?? 5} onCommit={(layer) => onChange({ ...particles, layer: Math.floor(layer) })} />
+          <p className="hint">Con "Emitir" apagado, usa la acción "emitir partículas"</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function Inspector() {
   const { state, dispatch, currentScene } = useStore();
   const selection = state.selection;
@@ -607,6 +749,14 @@ export function Inspector() {
             </div>
           )}
         </section>
+
+        <ParticlesSection
+          particles={node.components?.particles}
+          imageAssets={(state.loaded?.project.assets ?? [])
+            .filter((a) => a.kind === "image")
+            .map((a) => a.id)}
+          onChange={(particles) => patch({ particles })}
+        />
 
         <AnimatorSection
           animator={node.components?.animator}

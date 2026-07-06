@@ -339,3 +339,12 @@ code { background: #10121a; padding: 1px 5px; border-radius: 3px; }
   flex-wrap: wrap;
 }
 .behavior-form-row select, .behavior-form-row input { width: auto; }
+
+/* --- particle preview --- */
+.particle-preview {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 6px;
+  background: #14151c;
+}

@@ -41,7 +41,8 @@ export type ActionSpec =
   | { type: "move"; dx: number; dy: number }
   | { type: "goto_scene"; scene: string }
   | { type: "play_animation"; animation: string }
-  | { type: "play_sound"; asset: string; volume?: number };
+  | { type: "play_sound"; asset: string; volume?: number }
+  | { type: "emit_particles"; count?: number };
 
 /** Code-free rule: when `on` happens, run `do`. */
 export interface Behavior {
@@ -81,6 +82,22 @@ export interface AnimatorComponent {
   transitions?: AnimatorTransition[];
 }
 
+export interface ParticlesComponent {
+  asset: string;
+  rate?: number;
+  lifetime?: number;
+  speed?: number;
+  direction?: number;
+  spread?: number;
+  gravity?: number;
+  start_scale?: number;
+  end_scale?: number;
+  start_opacity?: number;
+  end_opacity?: number;
+  layer?: number;
+  emitting?: boolean;
+}
+
 export interface Components {
   transform2d?: Transform2D;
   sprite?: SpriteComponent;
@@ -88,6 +105,7 @@ export interface Components {
   rigidbody2d?: Rigidbody2DComponent;
   collider2d?: Collider2DComponent;
   animator?: AnimatorComponent;
+  particles?: ParticlesComponent;
   behaviors?: Behavior[];
   // Plugin components (namespaced keys) must survive round-trips.
   [key: string]: unknown;

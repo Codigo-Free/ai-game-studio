@@ -134,6 +134,8 @@ mi-juego/
 
 **`animator`** — máquina de estados de animación (M10): `initial` (estado de arranque), `states` (mapa `estado → nombre de animación de la escena`) y `transitions` (lista de `{ "from": estado | "any", "to": estado, "when": Evento }`; eventos soportados: teclas, `scene_start`, `animation_end`). **Las animaciones referenciadas por un animator no se auto-reproducen** — las controla la máquina, empezando por `initial`; al salir de un estado su animación se detiene y al entrar se reinicia.
 
+**`particles`** — emisor de partículas (M11): `asset` (imagen, obligatorio), `rate` (partículas/s mientras `emitting`, default `20`; `0` = solo ráfagas), `lifetime` (s, default `0.8`), `speed` (unidades/s, default `120`), `direction` (grados, `90` = arriba), `spread` (arco en grados centrado en `direction`, default `360`), `gravity` (aceleración vertical, default `0`), `start_scale`/`end_scale` (default `1`/`0.2`), `start_opacity`/`end_opacity` (default `1`/`0`), `layer` (default `5`), `emitting` (default `true`). Las partículas se simulan en el runtime y **no** forman parte del documento.
+
 **`behaviors`** — lista de reglas sin código `{ "on": Evento, "do": Acción }` (ver sección Comportamientos).
 
 **Componentes de plugin:** cualquier otra clave con namespace (`"mi_plugin.iman"`) es válida y debe preservarse aunque el lector no la entienda.
@@ -171,6 +173,7 @@ Nombres de tecla: estilo winit/W3C — `ArrowLeft/Right/Up/Down`, `Space`, `Ente
 | `goto_scene` | `scene` | Cambia a otra escena del manifiesto (al final del tick; el mundo se repuebla). |
 | `play_animation` | `animation` | Reinicia una animación de la escena por nombre. |
 | `play_sound` | `asset`, `volume` (default `1.0`) | Reproduce un efecto de sonido (asset `audio`), M9. |
+| `emit_particles` | `count` (default `20`) | Ráfaga desde el emisor de la propia entidad (M11); requiere componente `particles`. |
 
 Reglas con teclas, entidades, escenas o animaciones desconocidas generan advertencia y se ignoran (no son error fatal).
 
@@ -227,4 +230,4 @@ Comprueba: JSON bien formado, cabeceras y versiones, `initial_scene` listada, es
 ## Evolución del formato
 
 - Los cambios de esquema incrementan `version` y añaden una migración en `aigs-project`.
-- Cambios pendientes conocidos: curvas de easing personalizadas (bezier), partículas y scripting (Fase 2, M11–M12).
+- Cambios pendientes conocidos: curvas de easing personalizadas (bezier) y scripting (Fase 2, M12–M13).

@@ -28,8 +28,8 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M8 | Física 2D (rapier2d, colisiones → behaviors) | 🟢 Completado |
 | M9 | Audio (efectos, música, acción `play_sound`) | 🟢 Completado |
 | M10 | Spritesheets y máquinas de estados de animación | 🟢 Completado (bezier diferido a M13) |
-| M11 | Partículas | 🔵 Siguiente |
-| M12 | Scripting de usuario (rhai) | ⚪ |
+| M11 | Partículas | 🟢 Completado |
+| M12 | Scripting de usuario (rhai) | 🔵 Siguiente |
 | M13 | Demo de plataformas y release **0.2** | ⚪ |
 
 ## Fase 3 — Multiplataforma ⚪

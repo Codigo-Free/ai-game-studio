@@ -14,6 +14,7 @@ use crate::assets::{AssetStore, TextureInfo};
 use crate::components::{
     Camera2D, Collider2DShape, Name, RigidBody2D, Sprite, Transform2D, Visibility,
 };
+use crate::particles::ParticleEmitter;
 
 #[derive(Debug, thiserror::Error)]
 pub enum SceneError {
@@ -110,6 +111,30 @@ fn spawn_node(
 
     if let Some(camera) = &node.components.camera2d {
         world.insert(entity, Camera2D { zoom: camera.zoom });
+    }
+
+    if let Some(particles) = &node.components.particles {
+        let texture =
+            textures
+                .resolve(&particles.asset)
+                .ok_or_else(|| SceneError::UnknownAsset {
+                    entity: node.id.clone(),
+                    asset: particles.asset.clone(),
+                })?;
+        // Seed from the entity id so bursts differ between emitters.
+        let seed = node.id.bytes().fold(0x9E3779B97F4A7C15u64, |acc, byte| {
+            acc.rotate_left(7) ^ u64::from(byte)
+        });
+        world.insert(
+            entity,
+            ParticleEmitter::new(
+                texture.id,
+                texture.frame_width,
+                texture.frame_height,
+                particles,
+                seed,
+            ),
+        );
     }
 
     if let Some(body) = &node.components.rigidbody2d {

@@ -62,7 +62,22 @@
               "scene": "scenes/menu.scene.aigs"
             }
           }
-        ]
+        ],
+        "particles": {
+          "asset": "star",
+          "rate": 14.0,
+          "lifetime": 1.6,
+          "speed": 220.0,
+          "direction": 90.0,
+          "spread": 120.0,
+          "gravity": -420.0,
+          "start_scale": 0.3,
+          "end_scale": 0.1,
+          "start_opacity": 1.0,
+          "end_opacity": 0.0,
+          "layer": 3,
+          "emitting": true
+        }
       }
     },
     {

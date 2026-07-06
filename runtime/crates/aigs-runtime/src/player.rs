@@ -9,6 +9,7 @@ use aigs_project::{ActionSpec, Animator, EntityNode, EventSpec, Project, Scene};
 use crate::audio::AudioPlayer;
 use crate::components::{Camera2D, Sprite, Transform2D};
 use crate::input::Input;
+use crate::particles;
 use crate::physics::PhysicsWorld;
 use crate::playback::AnimationPlayback;
 use crate::scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
@@ -179,6 +180,13 @@ impl<R: ResolveTexture> GamePlayer<R> {
             }
         }
         for (entity, action, continuous) in to_run {
+            if let ActionSpec::EmitParticles { count } = &action {
+                if !particles::burst(world, entity, *count) {
+                    self.warnings
+                        .push("emit_particles: entity has no particle emitter".to_string());
+                }
+                continue;
+            }
             self.run_action(world, entity, &action, continuous, time.delta);
         }
 
@@ -254,10 +262,19 @@ impl<R: ResolveTexture> GamePlayer<R> {
                     }
                 }
                 for (entity, action) in collision_actions {
+                    if let ActionSpec::EmitParticles { count } = &action {
+                        if !particles::burst(world, entity, *count) {
+                            self.warnings
+                                .push("emit_particles: entity has no particle emitter".to_string());
+                        }
+                        continue;
+                    }
                     self.run_action(world, entity, &action, false, time.delta);
                 }
             }
         }
+
+        particles::tick(world, time.delta);
 
         if let Some(path) = self.pending_scene.take() {
             if let Err(error) = self.load_scene(world, &path) {
@@ -294,6 +311,9 @@ impl<R: ResolveTexture> GamePlayer<R> {
             ActionSpec::PlaySound { asset, volume } => {
                 self.audio.play_sound(asset, *volume);
                 self.warnings.extend(self.audio.take_warnings());
+            }
+            ActionSpec::EmitParticles { .. } => {
+                // Needs &mut World; handled by the caller (see `update`).
             }
         }
     }

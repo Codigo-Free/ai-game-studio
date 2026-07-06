@@ -198,6 +198,9 @@ pub struct Components {
     /// Animation state machine (milestone M10).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub animator: Option<Animator>,
+    /// Particle emitter (milestone M11).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub particles: Option<Particles>,
     /// Code-free event → action rules (see `Behavior`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub behaviors: Vec<Behavior>,
@@ -276,6 +279,15 @@ pub enum ActionSpec {
         #[serde(default = "default_volume")]
         volume: f32,
     },
+    /// Spawns a burst from this entity's particle emitter (milestone M11).
+    EmitParticles {
+        #[serde(default = "default_burst")]
+        count: u32,
+    },
+}
+
+fn default_burst() -> u32 {
+    20
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -416,6 +428,55 @@ pub enum ColliderShape {
     #[default]
     Box,
     Circle,
+}
+
+/// Particle emitter (milestone M11). Particles spawn at the entity's
+/// position and are simulated by the runtime (not part of the document).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Particles {
+    /// Image asset used by each particle.
+    pub asset: String,
+    /// Particles per second while `emitting` (0 = bursts only).
+    pub rate: f32,
+    /// Particle lifetime in seconds.
+    pub lifetime: f32,
+    /// Initial speed in units/s.
+    pub speed: f32,
+    /// Emission direction in degrees (90 = up).
+    pub direction: f32,
+    /// Emission arc in degrees centered on `direction` (360 = all around).
+    pub spread: f32,
+    /// Vertical acceleration applied to particles (units/s²).
+    pub gravity: f32,
+    pub start_scale: f32,
+    pub end_scale: f32,
+    pub start_opacity: f32,
+    pub end_opacity: f32,
+    /// Draw layer of the particles.
+    pub layer: i32,
+    /// Emit continuously from scene start.
+    pub emitting: bool,
+}
+
+impl Default for Particles {
+    fn default() -> Self {
+        Self {
+            asset: String::new(),
+            rate: 20.0,
+            lifetime: 0.8,
+            speed: 120.0,
+            direction: 90.0,
+            spread: 360.0,
+            gravity: 0.0,
+            start_scale: 1.0,
+            end_scale: 0.2,
+            start_opacity: 1.0,
+            end_opacity: 0.0,
+            layer: 5,
+            emitting: true,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -705,6 +766,43 @@ mod tests {
             animator.transitions[1].when,
             EventSpec::KeyReleased { ref key } if key == "ArrowRight"
         ));
+        let saved = scene.to_json().unwrap();
+        assert_eq!(Scene::from_json(&saved).unwrap(), scene);
+    }
+
+    #[test]
+    fn particles_round_trip() {
+        let json = r#"{
+            "format": { "kind": "aigs-scene", "version": 0 },
+            "name": "fx",
+            "entities": [{
+                "id": "spark", "name": "Spark",
+                "components": {
+                    "particles": { "asset": "dot", "rate": 0.0, "speed": 200.0, "emitting": false },
+                    "behaviors": [
+                        { "on": { "type": "click" },
+                          "do": { "type": "emit_particles", "count": 30 } },
+                        { "on": { "type": "scene_start" },
+                          "do": { "type": "emit_particles" } }
+                    ]
+                }
+            }]
+        }"#;
+        let scene = Scene::from_json(json).unwrap();
+        let particles = scene.entities[0].components.particles.as_ref().unwrap();
+        assert_eq!(particles.asset, "dot");
+        assert_eq!(particles.rate, 0.0);
+        assert!(!particles.emitting);
+        assert_eq!(particles.lifetime, 0.8, "defaults fill in");
+        assert_eq!(
+            scene.entities[0].components.behaviors[0].action,
+            ActionSpec::EmitParticles { count: 30 }
+        );
+        assert_eq!(
+            scene.entities[0].components.behaviors[1].action,
+            ActionSpec::EmitParticles { count: 20 },
+            "default burst count"
+        );
         let saved = scene.to_json().unwrap();
         assert_eq!(Scene::from_json(&saved).unwrap(), scene);
     }
