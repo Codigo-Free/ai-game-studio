@@ -106,6 +106,7 @@ export interface Components {
   collider2d?: Collider2DComponent;
   animator?: AnimatorComponent;
   particles?: ParticlesComponent;
+  script?: { asset: string };
   behaviors?: Behavior[];
   // Plugin components (namespaced keys) must survive round-trips.
   [key: string]: unknown;
@@ -146,7 +147,7 @@ export interface Scene {
   animations?: SceneAnimation[];
 }
 
-export type AssetKind = "image" | "audio" | "font" | "other";
+export type AssetKind = "image" | "audio" | "font" | "script" | "other";
 
 export interface Asset {
   id: string;

@@ -121,6 +121,16 @@ impl Input {
         self.mouse_pressed.clear();
     }
 
+    /// Snapshot of the key sets (pressed, just pressed, just released),
+    /// used by the script host.
+    pub(crate) fn key_snapshot(&self) -> (HashSet<KeyCode>, HashSet<KeyCode>, HashSet<KeyCode>) {
+        (
+            self.pressed.clone(),
+            self.just_pressed.clone(),
+            self.just_released.clone(),
+        )
+    }
+
     /// Clears per-tick state; called after each simulation tick.
     pub(crate) fn end_tick(&mut self) {
         self.just_pressed.clear();

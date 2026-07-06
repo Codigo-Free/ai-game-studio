@@ -60,6 +60,8 @@ function Thumbnail({ root, asset }: { root: string; asset: Asset }) {
   }, [root, asset, url]);
 
   if (asset.kind === "audio") return <AudioCard root={root} asset={asset} />;
+  if (asset.kind === "script")
+    return <span className="thumb-placeholder">📜</span>;
   return url ? (
     <img src={url} alt={asset.id} draggable={false} />
   ) : (
@@ -79,7 +81,7 @@ export function AssetsPanel() {
         title: "Importar recursos",
         multiple: true,
         filters: [
-          { name: "Imágenes y audio", extensions: ["png", "jpg", "jpeg", "gif", "webp", ...AUDIO_EXTENSIONS] },
+          { name: "Imágenes y audio", extensions: ["png", "jpg", "jpeg", "gif", "webp", "rhai", ...AUDIO_EXTENSIONS] },
         ],
       });
       const files =
@@ -97,7 +99,11 @@ export function AssetsPanel() {
           continue;
         }
         const extension = imported.path.split(".").pop()?.toLowerCase() ?? "";
-        const kind = AUDIO_EXTENSIONS.includes(extension) ? "audio" : "image";
+        const kind = AUDIO_EXTENSIONS.includes(extension)
+          ? "audio"
+          : extension === "rhai"
+            ? "script"
+            : "image";
         assets.push({ id: imported.id, kind, path: imported.path });
         dispatch({
           type: "LOG",

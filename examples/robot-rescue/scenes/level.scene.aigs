@@ -184,6 +184,26 @@
           "layer": 1
         }
       }
+    },
+    {
+      "id": "drone",
+      "name": "Patrol Drone",
+      "components": {
+        "transform2d": {
+          "x": -250.0,
+          "y": 60.0,
+          "scale_x": 0.8,
+          "scale_y": 0.8
+        },
+        "sprite": {
+          "asset": "star",
+          "opacity": 0.9,
+          "layer": 2
+        },
+        "script": {
+          "asset": "patrol"
+        }
+      }
     }
   ],
   "animations": [

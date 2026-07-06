@@ -29,8 +29,8 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M9 | Audio (efectos, música, acción `play_sound`) | 🟢 Completado |
 | M10 | Spritesheets y máquinas de estados de animación | 🟢 Completado (bezier diferido a M13) |
 | M11 | Partículas | 🟢 Completado |
-| M12 | Scripting de usuario (rhai) | 🔵 Siguiente |
-| M13 | Demo de plataformas y release **0.2** | ⚪ |
+| M12 | Scripting de usuario (rhai) | 🟢 Completado |
+| M13 | Demo de plataformas y release **0.2** | 🔵 Siguiente |
 
 ## Fase 3 — Multiplataforma ⚪
 

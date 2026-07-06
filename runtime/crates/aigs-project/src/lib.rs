@@ -111,6 +111,8 @@ pub enum AssetKind {
     Image,
     Audio,
     Font,
+    /// A rhai script (milestone M12).
+    Script,
     Other,
 }
 
@@ -201,6 +203,9 @@ pub struct Components {
     /// Particle emitter (milestone M11).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub particles: Option<Particles>,
+    /// User script (milestone M12): a `script` asset driving this entity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub script: Option<Script>,
     /// Code-free event → action rules (see `Behavior`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub behaviors: Vec<Behavior>,
@@ -228,6 +233,14 @@ pub struct Transition {
     pub from: String,
     pub to: String,
     pub when: EventSpec,
+}
+
+/// Attaches a rhai script asset to the entity. The script may define
+/// `fn on_start()` (runs once) and `fn on_update(dt)` (runs every tick).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Script {
+    /// Id of an `Asset` of kind `script`.
+    pub asset: String,
 }
 
 /// A code-free rule: when `on` happens, run `do`.
@@ -766,6 +779,32 @@ mod tests {
             animator.transitions[1].when,
             EventSpec::KeyReleased { ref key } if key == "ArrowRight"
         ));
+        let saved = scene.to_json().unwrap();
+        assert_eq!(Scene::from_json(&saved).unwrap(), scene);
+    }
+
+    #[test]
+    fn script_component_round_trips() {
+        let json = r#"{
+            "format": { "kind": "aigs-scene", "version": 0 },
+            "name": "s",
+            "entities": [{
+                "id": "drone", "name": "Drone",
+                "components": { "script": { "asset": "patrol" } }
+            }]
+        }"#;
+        let scene = Scene::from_json(json).unwrap();
+        assert_eq!(
+            scene.entities[0].components.script.as_ref().unwrap().asset,
+            "patrol"
+        );
+        let manifest = r#"{
+            "format": { "kind": "aigs-project", "version": 0 },
+            "name": "X", "initial_scene": "s", "scenes": ["s"],
+            "assets": [{ "id": "patrol", "kind": "script", "path": "scripts/patrol.rhai" }]
+        }"#;
+        let project = Project::from_json(manifest).unwrap();
+        assert_eq!(project.assets[0].kind, AssetKind::Script);
         let saved = scene.to_json().unwrap();
         assert_eq!(Scene::from_json(&saved).unwrap(), scene);
     }

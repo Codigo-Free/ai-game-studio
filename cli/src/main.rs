@@ -143,7 +143,7 @@ fn validate(manifest: &Path) -> ExitCode {
 /// Runs a project's initial scene: milestone M2 deliverable — the runtime
 /// executing a game defined entirely as `.aigs` data.
 fn run_project(manifest: &Path) -> ExitCode {
-    use aigs_runtime::{AppConfig, AssetStore, AudioPlayer, GamePlayer};
+    use aigs_runtime::{AppConfig, AssetStore, AudioPlayer, GamePlayer, ScriptHost};
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
@@ -187,7 +187,8 @@ fn run_project(manifest: &Path) -> ExitCode {
                 }
             };
             let audio = AudioPlayer::load(&root, &project_for_setup.assets);
-            match GamePlayer::new(&project_for_setup, scenes, store, audio, world) {
+            let scripts = ScriptHost::load(&root, &project_for_setup.assets);
+            match GamePlayer::new(&project_for_setup, scenes, store, audio, scripts, world) {
                 Ok(game) => {
                     for warning in game.warnings() {
                         eprintln!("warning: {warning}");

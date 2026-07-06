@@ -750,6 +750,49 @@ export function Inspector() {
           )}
         </section>
 
+        <section>
+          <h4>
+            Script
+            {!node.components?.script && (
+              <button
+                onClick={() => {
+                  const scripts = (state.loaded?.project.assets ?? [])
+                    .filter((a) => a.kind === "script")
+                    .map((a) => a.id);
+                  if (scripts.length > 0) patch({ script: { asset: scripts[0] } });
+                }}
+                disabled={(state.loaded?.project.assets ?? []).every((a) => a.kind !== "script")}
+                title="Importa un archivo .rhai en Recursos primero"
+              >
+                ＋
+              </button>
+            )}
+            {node.components?.script && (
+              <button onClick={() => patch({ script: undefined })}>✕</button>
+            )}
+          </h4>
+          {node.components?.script && (
+            <div className="field-grid">
+              <label className="field">
+                <span>Asset</span>
+                <select
+                  value={node.components.script.asset}
+                  onChange={(e) => patch({ script: { asset: e.target.value } })}
+                >
+                  {(state.loaded?.project.assets ?? [])
+                    .filter((a) => a.kind === "script")
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>{a.id}</option>
+                    ))}
+                </select>
+              </label>
+              <p className="hint">
+                fn on_start() y fn on_update(dt); errores del script en la Consola al hacer Play
+              </p>
+            </div>
+          )}
+        </section>
+
         <ParticlesSection
           particles={node.components?.particles}
           imageAssets={(state.loaded?.project.assets ?? [])

@@ -15,6 +15,7 @@ mod physics;
 mod playback;
 mod player;
 mod scene;
+mod scripting;
 mod time;
 
 pub use aigs_ecs::{Entity, Schedule, World};
@@ -29,4 +30,5 @@ pub use physics::PhysicsWorld;
 pub use playback::AnimationPlayback;
 pub use player::{parse_key, GamePlayer, PlayerError};
 pub use scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
+pub use scripting::{ScriptCommand, ScriptHost};
 pub use time::Time;

@@ -43,6 +43,11 @@ impl SceneInstance {
     pub fn is_empty(&self) -> bool {
         self.by_id.is_empty()
     }
+
+    /// Iterates every authored id with its live entity.
+    pub fn ids(&self) -> impl Iterator<Item = (&String, Entity)> {
+        self.by_id.iter().map(|(id, entity)| (id, *entity))
+    }
 }
 
 /// Resolves an asset id to a loaded texture. Implemented by [`AssetStore`];

@@ -13,6 +13,7 @@ use crate::particles;
 use crate::physics::PhysicsWorld;
 use crate::playback::AnimationPlayback;
 use crate::scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
+use crate::scripting::{ScriptCommand, ScriptHost};
 use crate::time::Time;
 use crate::KeyCode;
 
@@ -48,6 +49,7 @@ pub struct GamePlayer<R: ResolveTexture> {
     physics: Option<PhysicsWorld>,
     behaviors: Vec<BoundBehavior>,
     animators: Vec<RunningAnimator>,
+    scripts: ScriptHost,
     pending_scene: Option<String>,
     scene_started: bool,
     warnings: Vec<String>,
@@ -61,12 +63,14 @@ impl<R: ResolveTexture> GamePlayer<R> {
         scenes: HashMap<String, Scene>,
         textures: R,
         audio: AudioPlayer,
+        scripts: ScriptHost,
         world: &mut World,
     ) -> Result<Self, PlayerError> {
         let mut player = Self {
             scenes,
             textures,
             audio,
+            scripts,
             current: String::new(),
             instance: SceneInstance::default(),
             playback: AnimationPlayback::default(),
@@ -130,6 +134,8 @@ impl<R: ResolveTexture> GamePlayer<R> {
 
         self.audio.set_music(scene.music.as_ref());
         self.warnings.extend(self.audio.take_warnings());
+        self.scripts.bind(&scene.entities, &instance);
+        self.warnings.extend(self.scripts.take_warnings());
         self.instance = instance;
         self.current = path.to_string();
         self.scene_started = false;
@@ -228,6 +234,32 @@ impl<R: ResolveTexture> GamePlayer<R> {
                 }
             }
         }
+
+        // User scripts (after behaviors/animators, before physics so their
+        // movement drives kinematic bodies this same tick).
+        let script_commands = self.scripts.tick(world, &self.instance, input, time.delta);
+        for (entity, command) in script_commands {
+            match command {
+                ScriptCommand::GotoScene(path) => self.pending_scene = Some(path),
+                ScriptCommand::PlayAnimation(name) => {
+                    if !self.playback.restart(&name) {
+                        self.warnings
+                            .push(format!("script: unknown animation \"{name}\""));
+                    }
+                }
+                ScriptCommand::PlaySound(name, volume) => {
+                    self.audio.play_sound(&name, volume);
+                }
+                ScriptCommand::EmitParticles(count) => {
+                    if !particles::burst(world, entity, count) {
+                        self.warnings
+                            .push("script: entity has no particle emitter".to_string());
+                    }
+                }
+            }
+        }
+        self.warnings.extend(self.scripts.take_warnings());
+        self.warnings.extend(self.audio.take_warnings());
 
         // Physics step (after behaviors so kinematic bodies follow input),
         // then collision behaviors fire within the same tick.
@@ -594,6 +626,7 @@ mod tests {
             scenes,
             AnyTexture,
             AudioPlayer::disabled(),
+            ScriptHost::empty(),
             &mut world,
         )
         .unwrap();
@@ -619,6 +652,7 @@ mod tests {
             scenes,
             AnyTexture,
             AudioPlayer::disabled(),
+            ScriptHost::empty(),
             &mut world,
         )
         .unwrap();
@@ -675,6 +709,7 @@ mod tests {
             scenes,
             AnyTexture,
             AudioPlayer::disabled(),
+            ScriptHost::empty(),
             &mut world,
         )
         .unwrap();
@@ -743,6 +778,7 @@ mod tests {
             scenes,
             AnyTexture,
             AudioPlayer::disabled(),
+            ScriptHost::empty(),
             &mut world,
         )
         .unwrap();
@@ -770,6 +806,7 @@ mod tests {
             scenes,
             AnyTexture,
             AudioPlayer::disabled(),
+            ScriptHost::empty(),
             &mut world,
         )
         .unwrap();
@@ -798,6 +835,7 @@ mod tests {
             scenes,
             AnyTexture,
             AudioPlayer::disabled(),
+            ScriptHost::empty(),
             &mut world,
         )
         .unwrap();
@@ -862,6 +900,7 @@ mod tests {
             scenes,
             AnyTexture,
             AudioPlayer::disabled(),
+            ScriptHost::empty(),
             &mut world,
         )
         .unwrap();
@@ -896,6 +935,94 @@ mod tests {
         input.simulate_end_tick();
         player.update(&mut world, &time, &input);
         assert_eq!(frame(&world), 0.0, "released -> idle resets frame");
+    }
+
+    #[test]
+    fn script_drives_an_entity_and_reports_errors() {
+        let project = Project::from_json(
+            r#"{
+                "format": { "kind": "aigs-project", "version": 0 },
+                "name": "Scripted", "initial_scene": "s", "scenes": ["s", "done"]
+            }"#,
+        )
+        .unwrap();
+        let scene = Scene::from_json(
+            r#"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "s",
+                "entities": [
+                    { "id": "drone", "name": "Drone",
+                      "components": { "transform2d": { "x": 0.0 }, "script": { "asset": "patrol" } } },
+                    { "id": "broken", "name": "Broken",
+                      "components": { "transform2d": {}, "script": { "asset": "boom" } } },
+                    { "id": "target", "name": "Target",
+                      "components": { "transform2d": { "x": 500.0, "y": 0.0 } } }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let done = Scene::from_json(
+            r#"{ "format": { "kind": "aigs-scene", "version": 0 }, "name": "done", "entities": [] }"#,
+        )
+        .unwrap();
+        let mut scenes = HashMap::new();
+        scenes.insert("s".to_string(), scene);
+        scenes.insert("done".to_string(), done);
+
+        let mut host = ScriptHost::empty();
+        host.add_source(
+            "patrol",
+            r#"
+                fn on_start() { set_pos(100.0, 0.0); }
+                fn on_update(dt) {
+                    move_by(60.0 * dt, 0.0);
+                    if distance_to("target") < 340.0 { goto_scene("done"); }
+                }
+            "#,
+        );
+        host.add_source("boom", r#"fn on_update(dt) { this_does_not_exist(); }"#);
+
+        let mut world = World::new();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            host,
+            &mut world,
+        )
+        .unwrap();
+        let input = Input::default();
+        let time = Time {
+            delta: 0.1,
+            ..Time::default()
+        };
+
+        // First tick: on_start teleports to 100, then moves 6 units.
+        player.update(&mut world, &time, &input);
+        let mut x = 0.0;
+        world.for_each2::<Transform2D, crate::Sprite>(|_, _, _| {});
+        world.for_each::<Transform2D>(|_, t| {
+            if t.x > 50.0 && t.x < 200.0 {
+                x = t.x;
+            }
+        });
+        assert!((x - 106.0).abs() < 0.01, "expected 106, got {x}");
+        // Broken script must warn exactly once and not crash the player.
+        assert!(
+            player.warnings().iter().any(|w| w.contains("boom")),
+            "broken script warning expected: {:?}",
+            player.warnings()
+        );
+
+        // Keep walking right until distance_to(target) < 340 -> goto done.
+        for _ in 0..120 {
+            player.update(&mut world, &time, &input);
+            if player.current_scene() == "done" {
+                break;
+            }
+        }
+        assert_eq!(player.current_scene(), "done", "script goto_scene works");
     }
 
     #[test]

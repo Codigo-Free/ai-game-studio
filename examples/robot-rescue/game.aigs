@@ -50,6 +50,11 @@
       "id": "win-jingle",
       "kind": "audio",
       "path": "assets/win.wav"
+    },
+    {
+      "id": "patrol",
+      "kind": "script",
+      "path": "scripts/patrol.rhai"
     }
   ]
 }

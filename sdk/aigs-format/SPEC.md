@@ -66,7 +66,7 @@ mi-juego/
 | Campo | Tipo | Descripción |
 |---|---|---|
 | `id` | string | Único en el proyecto; referenciado por componentes (`sprite.asset`). |
-| `kind` | enum | `"image"` \| `"audio"` \| `"font"` \| `"other"`. |
+| `kind` | enum | `"image"` \| `"audio"` \| `"font"` \| `"script"` (rhai, M12) \| `"other"`. |
 | `path` | string | Ruta relativa al archivo. |
 | `spritesheet` | objeto | Opcional (M10): `{ "frame_width": N, "frame_height": N }` convierte la imagen en rejilla de frames (row-major desde arriba-izquierda; columnas/filas se derivan del tamaño de la textura). |
 
@@ -136,6 +136,8 @@ mi-juego/
 
 **`particles`** — emisor de partículas (M11): `asset` (imagen, obligatorio), `rate` (partículas/s mientras `emitting`, default `20`; `0` = solo ráfagas), `lifetime` (s, default `0.8`), `speed` (unidades/s, default `120`), `direction` (grados, `90` = arriba), `spread` (arco en grados centrado en `direction`, default `360`), `gravity` (aceleración vertical, default `0`), `start_scale`/`end_scale` (default `1`/`0.2`), `start_opacity`/`end_opacity` (default `1`/`0`), `layer` (default `5`), `emitting` (default `true`). Las partículas se simulan en el runtime y **no** forman parte del documento.
 
+**`script`** — script de usuario (M12): `{ "asset": id }` donde el asset es de tipo `script` (archivo `.rhai`). Ver sección Scripting.
+
 **`behaviors`** — lista de reglas sin código `{ "on": Evento, "do": Acción }` (ver sección Comportamientos).
 
 **Componentes de plugin:** cualquier otra clave con namespace (`"mi_plugin.iman"`) es válida y debe preservarse aunque el lector no la entienda.
@@ -202,6 +204,26 @@ Reglas con teclas, entidades, escenas o animaciones desconocidas generan adverte
 
 ---
 
+### Scripting (v0, M12)
+
+Los scripts son archivos **rhai** sandboxeados (sin IO, con presupuesto de operaciones por tick). Un script puede definir:
+
+- `fn on_start()` — una vez, al cargar la escena.
+- `fn on_update(dt)` — cada tick de simulación (dt en segundos).
+
+El estado del `Scope` persiste entre ticks (usa `this.campo` para variables de instancia). API disponible:
+
+| Función | Descripción |
+|---|---|
+| `x()`, `y()`, `rotation()`, `frame()` | Estado de la propia entidad. |
+| `set_pos(x, y)`, `move_by(dx, dy)`, `set_rotation(r)`, `set_frame(f)` | Mutan la propia entidad (se aplican al terminar la llamada). |
+| `x_of(id)`, `y_of(id)`, `distance_to(id)` | Posiciones de otras entidades de la escena por id. |
+| `key_down(n)`, `key_pressed(n)`, `key_released(n)` | Entrada (mismos nombres de tecla que los behaviors). |
+| `goto_scene(ruta)`, `play_animation(nombre)`, `play_sound(id[, vol])`, `emit_particles(n)` | Acciones del motor. |
+| `log(msg)` | Escribe en la consola (`[script:asset] msg`). |
+
+Errores de compilación o ejecución se reportan como advertencias (visibles en la consola del editor); el script fallido se desactiva sin tumbar el juego.
+
 ### Audio (v0, M9)
 
 - `music` a nivel de escena: `asset` (id de un asset `audio`), `volume` lineal 0–1 (default `1.0`), `looped` (default `true`).
@@ -230,4 +252,4 @@ Comprueba: JSON bien formado, cabeceras y versiones, `initial_scene` listada, es
 ## Evolución del formato
 
 - Los cambios de esquema incrementan `version` y añaden una migración en `aigs-project`.
-- Cambios pendientes conocidos: curvas de easing personalizadas (bezier) y scripting (Fase 2, M12–M13).
+- Cambios pendientes conocidos: curvas de easing personalizadas (bezier), previstas para M13.
