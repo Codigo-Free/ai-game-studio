@@ -204,7 +204,7 @@ Reglas con teclas, entidades, escenas o animaciones desconocidas generan adverte
 
 ---
 
-### Scripting (v0, M12)
+### Scripting (v0, M12–M13)
 
 Los scripts son archivos **rhai** sandboxeados (sin IO, con presupuesto de operaciones por tick — un script fuera de control se degrada a advertencia, nunca cuelga el juego). Un script puede definir cuatro funciones de ciclo de vida, todas opcionales:
 
@@ -223,15 +223,28 @@ Los scripts son archivos **rhai** sandboxeados (sin IO, con presupuesto de opera
 |---|---|---|
 | `x()`, `y()`, `rotation()`, `frame()` | Estado propio | Transform/frame de la propia entidad. |
 | `get_var(nombre)`, `set_var(nombre, valor)` | Estado persistente | Memoria de esta instancia entre ticks. |
+| `elapsed_since_save()` | Estado persistente | Segundos reales transcurridos desde el último autoguardado (0.0 si no hay guardado previo o ya se consumió). **Se consume al llamarla**: solo el primer script que la invoca en la sesión recibe el valor real; todas las llamadas siguientes (misma entidad u otra, misma escena u otra) devuelven `0.0`. Pensado para leerse una vez en `on_start`. |
 | `x_of(id)`, `y_of(id)`, `distance_to(id)` | Otras entidades | Posiciones por id de entidad autor. |
 | `key_down(n)`, `key_pressed(n)`, `key_released(n)` | Entrada | Mismos nombres de tecla que los behaviors. |
-| `set_pos(x, y)`, `move_by(dx, dy)`, `set_rotation(r)`, `set_frame(f)` | Transform | Mutan la propia entidad (se aplican al terminar la llamada). |
+| `set_pos(x, y)`, `move_by(dx, dy)`, `set_rotation(r)`, `set_frame(f)`, `set_scale(sx, sy)` | Transform | Mutan la propia entidad (se aplican al terminar la llamada). |
 | `goto_scene(ruta)`, `play_animation(nombre)`, `play_sound(id[, vol])`, `emit_particles(n)` | Motor | `goto_scene` se ignora (con advertencia) si se llama desde `on_destroy`. |
 | `log(msg)` | Utilidad | Escribe en la consola (`[script:asset] msg`). |
 
 Errores de compilación o ejecución se reportan como advertencias (visibles en la consola del editor); el script fallido se desactiva sin tumbar el juego.
 
 **Hot reload:** mientras el juego corre desde un directorio de proyecto (no exportado), el runtime revisa el `mtime` de cada `.rhai` un par de veces por segundo; si cambió, lo recompila y reinicia el estado local de sus instancias (`get_var`/`set_var` y si ya se ejecutó `on_start`). Editar y guardar un script mientras el modo Play está corriendo lo actualiza sin reiniciar la partida. Un error de compilación durante la recarga conserva la versión anterior (que sigue funcionando) y lo reporta como advertencia.
+
+**Memoria entre escenas:** la memoria `get_var`/`set_var` de cada instancia de script se identifica por el **id de entidad autor** (no por el handle de ECS, que no es estable entre escenas) y sobrevive a un `goto_scene`: si la escena destino tiene una entidad con el mismo id y el mismo script, retoma su memoria donde la dejó.
+
+### Persistencia entre partidas — `save.json` (M13)
+
+El motor puede recordar el estado de un juego **entre ejecuciones reales** (cerrar y volver a abrir), no solo entre escenas. Esto vive fuera del formato `.aigs` deliberadamente: `save.json` es estado de partida de un jugador concreto, no dato de diseño, así que no se versiona con el proyecto ni lo toca el editor.
+
+- `aigs run` escribe `save.json` junto a `game.aigs` cada ~10 s de simulación (autoguardado periódico; no hay todavía un gancho de cierre limpio, así que en el peor caso se pierden hasta ~10 s de progreso).
+- Al arrancar, si existe `save.json`, se restaura la memoria de todos los scripts (`get_var`/`set_var` por id de entidad) y se calcula el tiempo real transcurrido desde `saved_at_unix`, disponible una única vez vía `elapsed_since_save()`.
+- Si `save.json` no existe, la partida arranca limpia (no es un error). Si existe pero está corrupto, se reporta por consola y también arranca limpia (nunca se ignora en silencio un archivo dañado).
+- Ubicación deliberada: junto a los datos del proyecto (no en un directorio de perfil de usuario), coherente con el diseño self-player de los exportados (M7).
+- Estructura: `{"version": 1, "saved_at_unix": <u64>, "scripts": {"<id de entidad>": {"<variable>": <f64>, ...}, ...}}`.
 
 ### Audio (v0, M9)
 
@@ -261,4 +274,4 @@ Comprueba: JSON bien formado, cabeceras y versiones, `initial_scene` listada, es
 ## Evolución del formato
 
 - Los cambios de esquema incrementan `version` y añaden una migración en `aigs-project`.
-- Cambios pendientes conocidos: curvas de easing personalizadas (bezier), previstas para M13.
+- Cambios pendientes conocidos: curvas de easing personalizadas (bezier), diferidas sin fecha (M13 pasó a ser persistencia + demo Tamagotchi).

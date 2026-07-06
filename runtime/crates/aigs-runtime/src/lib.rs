@@ -14,6 +14,7 @@ mod particles;
 mod physics;
 mod playback;
 mod player;
+mod save;
 mod scene;
 mod scripting;
 mod time;
@@ -29,6 +30,7 @@ pub use particles::{burst, tick as particles_tick, Particle, ParticleEmitter};
 pub use physics::PhysicsWorld;
 pub use playback::AnimationPlayback;
 pub use player::{parse_key, GamePlayer, PlayerError};
+pub use save::{SaveData, SAVE_VERSION};
 pub use scene::{instantiate_scene, ResolveTexture, SceneError, SceneInstance};
 pub use scripting::{
     api_manifest, ApiFunction, ApiLifecycle, ApiManifest, ApiParam, ScriptCommand, ScriptHost,

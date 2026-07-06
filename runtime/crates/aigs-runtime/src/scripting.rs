@@ -73,6 +73,10 @@ struct Shared {
     /// don't see the calling Scope, so this is the supported way for a
     /// script to remember a value across ticks — see `load_memory`).
     memory: RefCell<HashMap<String, f64>>,
+    /// Real-world seconds since the last save (milestone M13). Consumed
+    /// once: the first script to call `elapsed_since_save()` gets the
+    /// value, everyone else (including later ticks/scenes) gets 0.
+    offline_seconds: RefCell<f64>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -81,6 +85,7 @@ enum TransformCommand {
     MoveBy(f32, f32),
     SetRotation(f32),
     SetFrame(f32),
+    SetScale(f32, f32),
 }
 
 struct RunningScript {
@@ -118,6 +123,10 @@ pub struct ScriptHost {
     sources: HashMap<String, PathBuf>,
     mtimes: HashMap<String, SystemTime>,
     running: Vec<RunningScript>,
+    /// Script memory that survives a scene switch (and is what gets saved
+    /// to disk), keyed by authored entity id rather than `Entity` — handles
+    /// aren't stable across a `World::clear()` scene switch.
+    persisted_memory: HashMap<String, HashMap<String, f64>>,
     warnings: Vec<String>,
     ticks_since_reload_check: u32,
 }
@@ -160,8 +169,40 @@ impl ScriptHost {
             sources: HashMap::new(),
             mtimes: HashMap::new(),
             running: Vec::new(),
+            persisted_memory: HashMap::new(),
             warnings: Vec::new(),
             ticks_since_reload_check: 0,
+        }
+    }
+
+    /// Replaces the persisted (cross-scene / cross-session) script memory,
+    /// e.g. right after loading a save file, before the first [`bind`].
+    /// Entities not present in `data` keep an empty memory, same as a
+    /// fresh game.
+    pub fn import_memory(&mut self, data: HashMap<String, HashMap<String, f64>>) {
+        self.persisted_memory = data;
+    }
+
+    /// A snapshot of every script's persistent state, by authored entity
+    /// id — including the currently running scene (flushed first). This is
+    /// what a save file should serialize.
+    pub fn export_memory(&mut self) -> HashMap<String, HashMap<String, f64>> {
+        self.flush_running_memory();
+        self.persisted_memory.clone()
+    }
+
+    /// Sets the real-world seconds since the last save; the first script to
+    /// call `elapsed_since_save()` (in any scene) consumes it.
+    pub fn set_offline_seconds(&mut self, seconds: f64) {
+        *self.shared.offline_seconds.borrow_mut() = seconds;
+    }
+
+    /// Copies every running script's current memory into `persisted_memory`
+    /// (keyed by entity id) without clearing `running`.
+    fn flush_running_memory(&mut self) {
+        for script in &self.running {
+            self.persisted_memory
+                .insert(script.entity_id.clone(), script.memory.clone());
         }
     }
 
@@ -192,8 +233,11 @@ impl ScriptHost {
         std::mem::take(&mut self.warnings)
     }
 
-    /// Creates the running instances for a freshly loaded scene.
+    /// Creates the running instances for a freshly loaded scene. Any
+    /// previously running script's memory is preserved (by entity id) so
+    /// switching scenes and back doesn't reset a script's state.
     pub fn bind(&mut self, entities: &[EntityNode], instance: &SceneInstance) {
+        self.flush_running_memory();
         self.running.clear();
         self.bind_rec(entities, instance);
     }
@@ -203,6 +247,11 @@ impl ScriptHost {
             if let Some(script) = &node.components.script {
                 match (self.asts.get(&script.asset), instance.entity(&node.id)) {
                     (Some(ast), Some(entity)) => {
+                        let memory = self
+                            .persisted_memory
+                            .get(&node.id)
+                            .cloned()
+                            .unwrap_or_default();
                         let mut running = RunningScript {
                             entity,
                             entity_id: node.id.clone(),
@@ -214,7 +263,7 @@ impl ScriptHost {
                             has_update: false,
                             has_on_collision: false,
                             has_on_destroy: false,
-                            memory: HashMap::new(),
+                            memory,
                         };
                         running.refresh_flags(ast);
                         if !running.has_start
@@ -503,6 +552,12 @@ fn apply_moves(shared: &Shared, world: &World, entity: Entity) {
                     sprite.frame = frame;
                 }
             }
+            TransformCommand::SetScale(sx, sy) => {
+                if let Some(mut t) = world.get_mut::<Transform2D>(entity) {
+                    t.scale_x = sx;
+                    t.scale_y = sy;
+                }
+            }
         }
     }
 }
@@ -648,6 +703,13 @@ pub fn api_manifest() -> ApiManifest {
                 description: "Writes this script instance's persistent state, readable in later ticks via get_var. Reset when the script hot-reloads or the scene restarts.".to_string(),
             },
             ApiFunction {
+                name: "elapsed_since_save".to_string(),
+                params: vec![],
+                returns: Some("float".to_string()),
+                category: "state".to_string(),
+                description: "Real-world seconds since the game was last saved (milestone M13). Consumed once per session: the first script to call this gets the real gap, every other call (from any entity, any scene, for the rest of the session) gets 0. Apply it once (e.g. in on_start), not every tick, or you will double-count.".to_string(),
+            },
+            ApiFunction {
                 name: "x_of".to_string(),
                 params: vec![param("id", "string")],
                 returns: Some("float".to_string()),
@@ -716,6 +778,13 @@ pub fn api_manifest() -> ApiManifest {
                 returns: None,
                 category: "transform".to_string(),
                 description: "Sets this entity's spritesheet frame index.".to_string(),
+            },
+            ApiFunction {
+                name: "set_scale".to_string(),
+                params: vec![param("sx", "float"), param("sy", "float")],
+                returns: None,
+                category: "transform".to_string(),
+                description: "Sets this entity's scale (e.g. for a pet that grows with age).".to_string(),
             },
             ApiFunction {
                 name: "goto_scene".to_string(),
@@ -808,6 +877,8 @@ fn build_engine(shared: &Rc<Shared>) -> Engine {
     engine.register_fn("set_var", move |name: ImmutableString, value: f64| {
         s.memory.borrow_mut().insert(name.to_string(), value);
     });
+    let s = Rc::clone(shared);
+    engine.register_fn("elapsed_since_save", move || s.offline_seconds.replace(0.0));
 
     // -- input ---------------------------------------------------------------
     let s = Rc::clone(shared);
@@ -847,6 +918,12 @@ fn build_engine(shared: &Rc<Shared>) -> Engine {
         s.moves
             .borrow_mut()
             .push(TransformCommand::SetFrame(frame as f32));
+    });
+    let s = Rc::clone(shared);
+    engine.register_fn("set_scale", move |sx: f64, sy: f64| {
+        s.moves
+            .borrow_mut()
+            .push(TransformCommand::SetScale(sx as f32, sy as f32));
     });
     let s = Rc::clone(shared);
     engine.register_fn("goto_scene", move |path: ImmutableString| {
@@ -898,10 +975,12 @@ mod tests {
             let e = x_of("other"); let f = y_of("other"); let g = distance_to("other");
             let h = key_down("Space"); let i = key_pressed("Space"); let j = key_released("Space");
             set_var("n", get_var("n") + 1.0);
+            let offline = elapsed_since_save();
             set_pos(1.0, 2.0);
             move_by(1.0, 1.0);
             set_rotation(90.0);
             set_frame(3.0);
+            set_scale(1.2, 1.2);
             goto_scene("scenes/x.scene.aigs");
             play_animation("idle");
             play_sound("blip");
@@ -939,6 +1018,7 @@ mod tests {
             "frame",
             "get_var",
             "set_var",
+            "elapsed_since_save",
             "x_of",
             "y_of",
             "distance_to",

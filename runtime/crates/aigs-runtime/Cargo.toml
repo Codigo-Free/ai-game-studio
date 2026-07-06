@@ -17,5 +17,6 @@ kira = { version = "0.12.1", default-features = false, features = ["cpal", "pcm"
 rapier2d = "0.33.0"
 rhai = "1.25.1"
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 winit = "0.30"

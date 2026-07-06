@@ -23,3 +23,7 @@ Thumbs.db
 # Env
 .env
 .env.local
+
+# Player save state (M13) — generated per-player next to a project's
+# game.aigs by `aigs run`; not design data, never checked in.
+save.json

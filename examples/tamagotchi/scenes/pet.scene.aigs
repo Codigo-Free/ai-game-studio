@@ -1,0 +1,121 @@
+{
+  "format": { "kind": "aigs-scene", "version": 0 },
+  "name": "pet",
+  "entities": [
+    {
+      "id": "camera",
+      "name": "Main Camera",
+      "components": { "transform2d": {}, "camera2d": { "zoom": 1.0 } }
+    },
+    {
+      "id": "pet",
+      "name": "Pet",
+      "components": {
+        "transform2d": { "x": 0.0, "y": 20.0, "scale_x": 0.6, "scale_y": 0.6 },
+        "sprite": { "asset": "pet", "layer": 2 },
+        "script": { "asset": "pet-brain" }
+      }
+    },
+    {
+      "id": "icon-feed",
+      "name": "Feed Icon",
+      "components": {
+        "transform2d": { "x": -140.0, "y": -180.0 },
+        "sprite": { "asset": "icon-feed", "layer": 1, "opacity": 0.85 }
+      }
+    },
+    {
+      "id": "icon-play",
+      "name": "Play Icon",
+      "components": {
+        "transform2d": { "x": 0.0, "y": -180.0 },
+        "sprite": { "asset": "icon-play", "layer": 1, "opacity": 0.85 }
+      }
+    },
+    {
+      "id": "icon-medicine",
+      "name": "Medicine Icon",
+      "components": {
+        "transform2d": { "x": 140.0, "y": -180.0 },
+        "sprite": { "asset": "icon-medicine", "layer": 1, "opacity": 0.85 }
+      }
+    }
+  ],
+  "animations": [
+    {
+      "name": "feed-pulse",
+      "fps": 30,
+      "loop": false,
+      "tracks": [
+        {
+          "entity": "icon-feed",
+          "property": "transform2d.scale_x",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 8, "value": 1.6, "easing": "ease_in" },
+            { "frame": 18, "value": 1.0, "easing": "linear" }
+          ]
+        },
+        {
+          "entity": "icon-feed",
+          "property": "transform2d.scale_y",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 8, "value": 1.6, "easing": "ease_in" },
+            { "frame": 18, "value": 1.0, "easing": "linear" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "play-pulse",
+      "fps": 30,
+      "loop": false,
+      "tracks": [
+        {
+          "entity": "icon-play",
+          "property": "transform2d.scale_x",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 8, "value": 1.6, "easing": "ease_in" },
+            { "frame": 18, "value": 1.0, "easing": "linear" }
+          ]
+        },
+        {
+          "entity": "icon-play",
+          "property": "transform2d.scale_y",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 8, "value": 1.6, "easing": "ease_in" },
+            { "frame": 18, "value": 1.0, "easing": "linear" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "medicine-pulse",
+      "fps": 30,
+      "loop": false,
+      "tracks": [
+        {
+          "entity": "icon-medicine",
+          "property": "transform2d.scale_x",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 8, "value": 1.6, "easing": "ease_in" },
+            { "frame": 18, "value": 1.0, "easing": "linear" }
+          ]
+        },
+        {
+          "entity": "icon-medicine",
+          "property": "transform2d.scale_y",
+          "keyframes": [
+            { "frame": 0, "value": 1.0, "easing": "ease_out" },
+            { "frame": 8, "value": 1.6, "easing": "ease_in" },
+            { "frame": 18, "value": 1.0, "easing": "linear" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -91,6 +91,13 @@
       "description": "Writes this script instance's persistent state, readable in later ticks via get_var. Reset when the script hot-reloads or the scene restarts."
     },
     {
+      "name": "elapsed_since_save",
+      "params": [],
+      "returns": "float",
+      "category": "state",
+      "description": "Real-world seconds since the game was last saved (milestone M13). Consumed once per session: the first script to call this gets the real gap, every other call (from any entity, any scene, for the rest of the session) gets 0. Apply it once (e.g. in on_start), not every tick, or you will double-count."
+    },
+    {
       "name": "x_of",
       "params": [
         {
@@ -217,6 +224,22 @@
       "returns": null,
       "category": "transform",
       "description": "Sets this entity's spritesheet frame index."
+    },
+    {
+      "name": "set_scale",
+      "params": [
+        {
+          "name": "sx",
+          "type": "float"
+        },
+        {
+          "name": "sy",
+          "type": "float"
+        }
+      ],
+      "returns": null,
+      "category": "transform",
+      "description": "Sets this entity's scale (e.g. for a pet that grows with age)."
     },
     {
       "name": "goto_scene",

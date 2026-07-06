@@ -1,0 +1,18 @@
+{
+  "format": { "kind": "aigs-project", "version": 0 },
+  "name": "Tamagotchi",
+  "description": "M13 demo: a persistent virtual pet. Feed (1), play (2) and give medicine (3) with the keyboard; its hunger, happiness and health keep changing even while the game is closed — close it and reopen it later to see the difference (elapsed_since_save). No code beyond one script.",
+  "initial_scene": "scenes/pet.scene.aigs",
+  "scenes": ["scenes/pet.scene.aigs"],
+  "assets": [
+    { "id": "pet", "kind": "image", "path": "assets/pet.png", "spritesheet": { "frame_width": 56, "frame_height": 56 } },
+    { "id": "icon-feed", "kind": "image", "path": "assets/icon-feed.png" },
+    { "id": "icon-play", "kind": "image", "path": "assets/icon-play.png" },
+    { "id": "icon-medicine", "kind": "image", "path": "assets/icon-medicine.png" },
+    { "id": "chomp", "kind": "audio", "path": "assets/chomp.wav" },
+    { "id": "giggle", "kind": "audio", "path": "assets/giggle.wav" },
+    { "id": "heal", "kind": "audio", "path": "assets/heal.wav" },
+    { "id": "alert", "kind": "audio", "path": "assets/alert.wav" },
+    { "id": "pet-brain", "kind": "script", "path": "scripts/pet.rhai" }
+  ]
+}

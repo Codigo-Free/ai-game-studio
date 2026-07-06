@@ -27,10 +27,10 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M7 | Exportador Desktop (`aigs export`, binario auto-contenido) | 🟢 Completado |
 | M8 | Física 2D (rapier2d, colisiones → behaviors) | 🟢 Completado |
 | M9 | Audio (efectos, música, acción `play_sound`) | 🟢 Completado |
-| M10 | Spritesheets y máquinas de estados de animación | 🟢 Completado (bezier diferido a M13) |
+| M10 | Spritesheets y máquinas de estados de animación | 🟢 Completado (bezier diferido, sin fecha) |
 | M11 | Partículas | 🟢 Completado |
 | M12 | Scripting de usuario (rhai) | 🟢 Completado |
-| M13 | Demo de plataformas y release **0.2** | 🔵 Siguiente |
+| M13 | Persistencia de scripts + demo **Tamagotchi**, release **0.2** (reemplaza al platformer original) | 🔵 En curso |
 
 ## Fase 3 — Multiplataforma ⚪
 

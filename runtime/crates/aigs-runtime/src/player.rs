@@ -96,6 +96,13 @@ impl<R: ResolveTexture> GamePlayer<R> {
         &self.warnings
     }
 
+    /// Snapshot of every script's persistent state (`get_var`/`set_var`),
+    /// by authored entity id, across every scene bound so far this session
+    /// (milestone M13). What a save file should serialize.
+    pub fn snapshot_scripts(&mut self) -> HashMap<String, HashMap<String, f64>> {
+        self.scripts.export_memory()
+    }
+
     /// Number of animations in the current scene.
     pub fn animation_count(&self) -> usize {
         self.playback.len()
@@ -1166,6 +1173,88 @@ mod tests {
                 .any(|w| w.contains("on_destroy") && w.contains("watcher")),
             "on_destroy must have run (and reported its error): {:?}",
             player.warnings()
+        );
+    }
+
+    #[test]
+    fn script_memory_survives_scene_switch_and_can_be_snapshotted() {
+        let project = Project::from_json(
+            r#"{
+                "format": { "kind": "aigs-project", "version": 0 },
+                "name": "Persist", "initial_scene": "a", "scenes": ["a", "b"]
+            }"#,
+        )
+        .unwrap();
+        // Same entity id ("pet") appears in both scenes, each with the same
+        // script: its counter must keep incrementing across the switch.
+        let scene_a = Scene::from_json(
+            r#"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "a",
+                "entities": [
+                    { "id": "pet", "name": "Pet",
+                      "components": { "transform2d": {}, "script": { "asset": "counter" } } },
+                    { "id": "switch", "name": "Switch",
+                      "components": { "behaviors": [
+                        { "on": { "type": "key_pressed", "key": "Enter" },
+                          "do": { "type": "goto_scene", "scene": "b" } }
+                      ] } }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let scene_b = Scene::from_json(
+            r#"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "b",
+                "entities": [
+                    { "id": "pet", "name": "Pet",
+                      "components": { "transform2d": {}, "script": { "asset": "counter" } } }
+                ]
+            }"#,
+        )
+        .unwrap();
+        let mut scenes = HashMap::new();
+        scenes.insert("a".to_string(), scene_a);
+        scenes.insert("b".to_string(), scene_b);
+
+        let mut host = ScriptHost::empty();
+        host.add_source(
+            "counter",
+            r#"fn on_update(dt) { set_var("n", get_var("n") + 1.0); }"#,
+        );
+
+        let mut world = World::new();
+        let mut player = GamePlayer::new(
+            &project,
+            scenes,
+            AnyTexture,
+            AudioPlayer::disabled(),
+            host,
+            &mut world,
+        )
+        .unwrap();
+        let mut input = Input::default();
+        let time = tick_time();
+
+        // Two ticks in scene "a": counter reaches 2.
+        player.update(&mut world, &time, &input);
+        player.update(&mut world, &time, &input);
+
+        // Switch to scene "b".
+        input.simulate_key(KeyCode::Enter, true);
+        player.update(&mut world, &time, &input);
+        assert_eq!(player.current_scene(), "b");
+
+        // One more tick in "b": the SAME "pet" id must keep counting from 2,
+        // not restart at 0 — proving memory survived the scene switch.
+        player.update(&mut world, &time, &input);
+        let snapshot = player.snapshot_scripts();
+        let pet_memory = snapshot.get("pet").expect("pet must have persisted memory");
+        assert_eq!(
+            pet_memory.get("n"),
+            Some(&4.0),
+            "counter must have kept incrementing across the scene switch: {snapshot:?}"
         );
     }
 

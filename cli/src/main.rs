@@ -158,16 +158,20 @@ fn validate(manifest: &Path) -> ExitCode {
 /// Runs a project's initial scene: milestone M2 deliverable — the runtime
 /// executing a game defined entirely as `.aigs` data.
 fn run_project(manifest: &Path) -> ExitCode {
-    use aigs_runtime::{AppConfig, AssetStore, AudioPlayer, GamePlayer, ScriptHost};
+    use aigs_runtime::{AppConfig, AssetStore, AudioPlayer, GamePlayer, SaveData, ScriptHost};
     use std::cell::RefCell;
     use std::collections::HashMap;
     use std::rc::Rc;
+
+    /// Autosave every 10 seconds of simulated time at the fixed 60 Hz tick.
+    const AUTOSAVE_INTERVAL_TICKS: u64 = 600;
 
     let project = match Project::load(manifest) {
         Ok(project) => project,
         Err(err) => return fail(&format!("{}: {err}", manifest.display())),
     };
     let root = manifest.parent().unwrap_or(Path::new(".")).to_path_buf();
+    let save_path = root.join("save.json");
     let mut scenes = HashMap::new();
     for path in &project.scenes {
         match Scene::load(&root.join(path)) {
@@ -191,6 +195,8 @@ fn run_project(manifest: &Path) -> ExitCode {
     let player_setup = Rc::clone(&player);
     let assets = project.assets.clone();
     let project_for_setup = project.clone();
+    let save_path_setup = save_path.clone();
+    let save_path_update = save_path.clone();
     let result = aigs_runtime::run(
         config,
         move |world, renderer| {
@@ -202,7 +208,20 @@ fn run_project(manifest: &Path) -> ExitCode {
                 }
             };
             let audio = AudioPlayer::load(&root, &project_for_setup.assets);
-            let scripts = ScriptHost::load(&root, &project_for_setup.assets);
+            let mut scripts = ScriptHost::load(&root, &project_for_setup.assets);
+            match SaveData::load(&save_path_setup) {
+                Ok(Some(save)) => {
+                    println!(
+                        "save: loaded ({} entities, {:.0}s since last save)",
+                        save.scripts.len(),
+                        save.offline_seconds()
+                    );
+                    scripts.set_offline_seconds(save.offline_seconds());
+                    scripts.import_memory(save.scripts);
+                }
+                Ok(None) => println!("save: none found, starting fresh"),
+                Err(error) => eprintln!("warning: {error} (starting fresh)"),
+            }
             match GamePlayer::new(&project_for_setup, scenes, store, audio, scripts, world) {
                 Ok(game) => {
                     for warning in game.warnings() {
@@ -245,6 +264,14 @@ fn run_project(manifest: &Path) -> ExitCode {
                             0.0
                         }
                     );
+                }
+                // Periodic autosave (milestone M13): no clean-shutdown hook
+                // yet, so the worst case is losing up to this interval.
+                if time.tick % AUTOSAVE_INTERVAL_TICKS == 0 && time.tick > 0 {
+                    let save = SaveData::now(game.snapshot_scripts());
+                    if let Err(error) = save.write(&save_path_update) {
+                        eprintln!("warning: autosave failed: {error}");
+                    }
                 }
             }
         },

@@ -262,9 +262,23 @@ El primer binario de juego independiente del editor.
 - Editor: asset de script + errores en consola.
 - **Entregable:** un enemigo patrulla con un script de 20 líneas.
 
-### M13 — Demo de plataformas y release 0.2
-- Juego de plataformas completo (spritesheets + física + audio + partículas) en `examples/`.
-- Benchmarks nuevos (física, partículas), migración de formato v0→v1 si hubo cambios de esquema, CHANGELOG y **release 0.2** con instaladores + demo exportada como artefacto.
+### M13 — Persistencia y demo Tamagotchi, release 0.2
+
+**Cambio de alcance (2026-07-06):** el plan original de M13 era una demo de plataformas. A petición del usuario, la demo de cierre de Fase 2 pasa a ser un **Tamagotchi persistente en el tiempo** — no necesita física ni plataformas, pero exige una capacidad de motor que no existía: guardar y recuperar el estado de los scripts entre sesiones, con el tiempo real transcurrido mientras el juego estaba cerrado. Las curvas bezier (diferidas desde M10) quedan diferidas de nuevo, sin fecha; no son necesarias para esta demo.
+
+**Sistema de persistencia (nuevo, decisión en `docs/arquitectura.md`):**
+- `save.json` junto al `game.aigs` del proyecto (o de los datos exportados): `{ version, saved_at_unix, scripts: { <id de entidad>: { <variable>: valor } } }`. No forma parte del formato `.aigs` (es estado de partida del jugador, no datos de diseño).
+- La memoria de `get_var`/`set_var` de cada script pasa a sobrevivir también **al cambiar de escena dentro de una misma sesión** (antes se perdía al salir de la escena) — se conserva por id de entidad autor en `ScriptHost`, independiente del ciclo de vida de la escena.
+- Nueva función de scripting `elapsed_since_save()`: segundos reales desde el último guardado, **consumible una sola vez** por sesión (la primera llamada de cualquier script la devuelve; el resto reciben `0`) — así el script de la mascota puede adelantar hambre/ánimo analíticamente sin importar en qué escena o entidad se consulte.
+- Autoguardado periódico (no al cerrar la ventana, para no añadir un hook de cierre limpio todavía); pérdida máxima aceptada: la ventana entre autoguardados.
+- Limitación documentada: el archivo de guardado vive junto a los datos del proyecto (no en un directorio de perfil de usuario); válido para el MVP de esta demo, revisar si se generaliza a más juegos.
+
+**Tareas:**
+- `aigs-runtime`: `SaveData` (serde), `ScriptHost::persisted_memory` entre escenas, `elapsed_since_save()` en la API de scripting (manifiesto + JSON regenerado), tests sin GPU (round-trip, segundos offline, memoria que sobrevive un cambio de escena).
+- `GamePlayer`: cargar/exportar el estado de scripts; inyectar `offline_seconds` antes del primer `bind`.
+- CLI (`aigs run`): cargar `save.json` al iniciar si existe, autoguardado cada ~10 s.
+- Demo `examples/tamagotchi/`: mascota con stats (hambre/ánimo/edad) que decaen con `on_update(dt)`, cambios de estado por spritesheet/`play_animation`, controles por teclado (alimentar/jugar/limpiar/medicina — un icono clicable que module el estado de *otra* entidad no está soportado por la API de scripting v0; se documenta como limitación conocida), sonidos de interacción, fin de partida por abandono.
+- Benchmarks nuevos si aplica, CHANGELOG y **release 0.2** con instaladores + demo exportada como artefacto.
 
 ## Riesgos de la Fase 2
 
