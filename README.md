@@ -1,5 +1,7 @@
 # AI Game Studio
 
+<p align="center"><img src="logo.png" alt="AI Game Studio" width="200"></p>
+
 > **Build Games at the Speed of Imagination.**
 
 [![CI](https://github.com/agilphp/ai-game-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/agilphp/ai-game-studio/actions/workflows/ci.yml)
