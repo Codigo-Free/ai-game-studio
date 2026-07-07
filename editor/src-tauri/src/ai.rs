@@ -391,7 +391,17 @@ fn build_json_proposal_prompt(
          transform2d {{x,y,rotation,scale_x,scale_y}}, sprite {{asset,frame,width,height,opacity,layer}}, \
          rigidbody2d {{body: \"dynamic\"|\"kinematic\"|\"static\",gravity_scale,vx,vy,fixed_rotation}}, \
          collider2d {{shape: \"box\"|\"circle\" (NOT \"rectangle\"/\"square\"/\"sphere\"),width,height,radius,sensor,restitution,friction}}, \
-         animator {{initial,states,transitions}}, script {{asset}}, behaviors [ {{on, do}} ].\n\n\
+         animator {{initial,states,transitions}}, script {{asset}}.\n\n\
+         behaviors is a list of {{\"on\": EventSpec, \"do\": ActionSpec}} rules. EventSpec and \
+         ActionSpec are each a JSON OBJECT with a \"type\" field naming the exact variant below \
+         plus that variant's own fields at the same level (NEVER a plain string):\n\
+         EventSpec: {{\"type\":\"key_down\",\"key\":string}} | {{\"type\":\"key_pressed\",\"key\":string}} | \
+         {{\"type\":\"key_released\",\"key\":string}} | {{\"type\":\"click\"}} | {{\"type\":\"scene_start\"}} | \
+         {{\"type\":\"animation_end\",\"animation\":string}} | {{\"type\":\"collision\",\"with\":string (optional)}}.\n\
+         ActionSpec: {{\"type\":\"move\",\"dx\":number,\"dy\":number}} | {{\"type\":\"goto_scene\",\"scene\":string}} | \
+         {{\"type\":\"play_animation\",\"animation\":string}} | {{\"type\":\"play_sound\",\"asset\":string,\"volume\":number (optional)}} | \
+         {{\"type\":\"emit_particles\",\"count\":number (optional)}}.\n\
+         Example: {{\"on\":{{\"type\":\"scene_start\"}},\"do\":{{\"type\":\"play_sound\",\"asset\":\"theme\"}}}}.\n\n\
          Entity ids already in the current scene (this may include entities another step of the \
          same plan just added): {entity_ids_list}\n\
          If you need to change one of THESE entities (e.g. add a collider or a script to an \
@@ -943,6 +953,36 @@ mod tests {
             parse_and_validate_proposal(&json.to_string(), &["drone".to_string()], &[], &[], None)
                 .unwrap();
         assert_eq!(proposal.summary, default_summary());
+    }
+
+    #[test]
+    fn proposal_with_a_well_formed_behavior_is_accepted() {
+        // Real failure observed live: a model set "on" to a plain string
+        // ("space_background") instead of a tagged EventSpec object,
+        // because the prompt only said `{on, do}` without spelling out
+        // the variant shapes. This proves the documented example shape
+        // (see build_json_proposal_prompt) actually round-trips.
+        let raw = serde_json::json!({
+            "summary": "Plays music when the scene starts",
+            "entities_to_update": [{
+                "id": "player",
+                "components_patch": {
+                    "behaviors": [
+                        { "on": { "type": "scene_start" }, "do": { "type": "play_sound", "asset": "theme" } }
+                    ]
+                }
+            }]
+        })
+        .to_string();
+        let proposal = parse_and_validate_proposal(
+            &raw,
+            &["theme".to_string()],
+            &["player".to_string()],
+            &[],
+            None,
+        )
+        .unwrap();
+        assert_eq!(proposal.entities_to_update.len(), 1);
     }
 
     #[test]
