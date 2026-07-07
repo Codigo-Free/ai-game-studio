@@ -10,7 +10,7 @@
 
 use std::collections::HashSet;
 
-use aigs_project::{Components, EntityNode, Gravity, Music};
+use aigs_project::{ActionSpec, Components, EntityNode, Gravity, Music};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -409,13 +409,21 @@ fn build_json_proposal_prompt(
          put that same id in \"entities_to_add\", that would try to create a duplicate and gets \
          rejected. Only use \"entities_to_add\" for a genuinely new entity, with a fresh id not \
          in this list.\n\n\
-         Existing project assets you may reference by id from \"sprite\"/\"particles\": {assets_list}\n\n\
+         Existing project assets you may reference by id from \"sprite\"/\"particles\"/\"script\", \
+         \"scene_patch.music\" and the \"play_sound\" action: {assets_list}\n\
+         If the asset you need for one of those (e.g. an audio asset for \"scene_patch.music\" or \
+         \"play_sound\") is NOT in this list, DO NOT invent an id and DO NOT set that field to \
+         `null` — just leave the whole field/section out of your JSON entirely (e.g. omit \
+         \"scene_patch\", or omit that one behavior) and mention the gap in \"summary\" instead. \
+         A smaller, honest proposal that only uses what actually exists is always better than one \
+         that references or nulls out something that isn't there.\n\n\
          Existing scene animations you may reference by name from an \"animator\" component \
          (do not invent new ones — authoring keyframes is a separate, manual step): {animations_list}\n\n\
          Never use `null` for a required string field (\"id\", \"name\", \"asset\", \"filename\", \
-         \"content\", ...) — pick a reasonable value instead. The only field allowed to be `null` \
-         is \"parent_id\"; every other optional field should simply be left out of the JSON \
-         entirely rather than set to `null`.\n\n\
+         \"content\", ...) — either give it a real value from the lists above, or omit the whole \
+         field/object/list entry it belongs to. The only field allowed to be `null` is \
+         \"parent_id\"; every other optional field should simply be left out of the JSON entirely \
+         rather than set to `null`.\n\n\
          {scripting_section}\
          Current project/scene state:\n{context}"
     )
@@ -645,6 +653,30 @@ fn check_components_asset_refs(
             return Err(format!("references unknown asset \"{}\"", particles.asset));
         }
     }
+    for behavior in &components.behaviors {
+        if let ActionSpec::PlaySound { asset, .. } = &behavior.action {
+            if !available.contains(asset) {
+                return Err(format!(
+                    "references unknown asset \"{asset}\" in a play_sound behavior"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+fn check_scene_patch_asset_refs(
+    patch: &ScenePatch,
+    available: &HashSet<String>,
+) -> Result<(), String> {
+    if let Some(music) = &patch.music {
+        if !available.contains(&music.asset) {
+            return Err(format!(
+                "scene_patch.music references unknown asset \"{}\"",
+                music.asset
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -731,6 +763,7 @@ pub fn parse_and_validate_proposal(
     }
 
     let mut available: HashSet<String> = known_asset_ids.iter().cloned().collect();
+    check_scene_patch_asset_refs(&proposal.scene_patch, &available)?;
     for script in &proposal.scripts {
         if !script.filename.ends_with(".rhai")
             || script.filename.contains('/')
@@ -983,6 +1016,56 @@ mod tests {
         )
         .unwrap();
         assert_eq!(proposal.entities_to_update.len(), 1);
+    }
+
+    #[test]
+    fn proposal_with_a_play_sound_of_an_unknown_asset_is_rejected() {
+        let raw = serde_json::json!({
+            "summary": "Adds a sound effect",
+            "entities_to_update": [{
+                "id": "player",
+                "components_patch": {
+                    "behaviors": [
+                        { "on": { "type": "click" }, "do": { "type": "play_sound", "asset": "made-up-sfx" } }
+                    ]
+                }
+            }]
+        })
+        .to_string();
+        let error =
+            parse_and_validate_proposal(&raw, &[], &["player".to_string()], &[], None).unwrap_err();
+        assert!(error.contains("made-up-sfx"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn proposal_setting_scene_music_to_an_unknown_asset_is_rejected() {
+        // Real failure observed live: the Audio agent had no real audio
+        // asset to reference (the project had none) and emitted `null`
+        // instead — this test covers the sibling case where it instead
+        // hallucinates an asset id, which must be rejected the same way
+        // sprite/script/particles asset references already are.
+        let raw = serde_json::json!({
+            "summary": "Adds background music",
+            "scene_patch": { "music": { "asset": "made-up-theme" } }
+        })
+        .to_string();
+        let error = parse_and_validate_proposal(&raw, &[], &[], &[], None).unwrap_err();
+        assert!(error.contains("made-up-theme"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn proposal_setting_scene_music_to_a_known_asset_is_accepted() {
+        let raw = serde_json::json!({
+            "summary": "Adds background music",
+            "scene_patch": { "music": { "asset": "theme" } }
+        })
+        .to_string();
+        let proposal =
+            parse_and_validate_proposal(&raw, &["theme".to_string()], &[], &[], None).unwrap();
+        assert_eq!(
+            proposal.scene_patch.music.map(|m| m.asset),
+            Some("theme".to_string())
+        );
     }
 
     #[test]
