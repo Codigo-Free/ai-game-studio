@@ -295,6 +295,7 @@ pub struct ScenePatch {
 /// absent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChangeProposal {
+    #[serde(default = "default_summary")]
     pub summary: String,
     #[serde(default)]
     pub entities_to_add: Vec<EntityToAdd>,
@@ -306,6 +307,16 @@ pub struct ChangeProposal {
     pub scripts: Vec<ScriptToWrite>,
     #[serde(default)]
     pub scene_patch: ScenePatch,
+}
+
+/// Fallback for `summary`-shaped fields the model sometimes omits under
+/// token pressure or plain instruction-following slips. `summary` is pure
+/// descriptive metadata — unlike a scope violation, a bad asset reference
+/// or a script that fails to compile, a missing one says nothing about
+/// whether the rest of the proposal is safe to apply, so it doesn't
+/// deserve the same hard rejection.
+pub(crate) fn default_summary() -> String {
+    "(no summary provided)".to_string()
 }
 
 /// Shared core of every "propose a JSON change" prompt (M19's single
@@ -917,6 +928,21 @@ mod tests {
             parse_and_validate_proposal(&raw, &known_assets, &known_entities, &[], None).unwrap();
         assert_eq!(proposal.entities_to_add.len(), 1);
         assert_eq!(proposal.scripts.len(), 1);
+    }
+
+    #[test]
+    fn proposal_missing_summary_is_accepted_with_a_default() {
+        // Real failure observed live: a model omitted "summary" entirely
+        // (not null — absent) while the rest of the proposal was valid.
+        // Unlike scope/asset/script violations, a missing summary says
+        // nothing about safety, so it shouldn't sink an otherwise-good
+        // proposal.
+        let mut json = drone_proposal_json();
+        json.as_object_mut().unwrap().remove("summary");
+        let proposal =
+            parse_and_validate_proposal(&json.to_string(), &["drone".to_string()], &[], &[], None)
+                .unwrap();
+        assert_eq!(proposal.summary, default_summary());
     }
 
     #[test]

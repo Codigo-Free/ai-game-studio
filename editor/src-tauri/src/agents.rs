@@ -12,8 +12,8 @@ use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
 
 use crate::ai::{
-    build_scoped_agent_prompt, collect_entity_ids, parse_and_validate_proposal, AgentKind,
-    AssetRef, ChangeProposal, ChatMessage, Provider,
+    build_scoped_agent_prompt, collect_entity_ids, default_summary, parse_and_validate_proposal,
+    AgentKind, AssetRef, ChangeProposal, ChatMessage, Provider,
 };
 
 /// One step of an `OrchestrationPlan`: run `instruction` through `agent`.
@@ -25,6 +25,7 @@ pub struct AgentStep {
 
 #[derive(Debug, Clone, Deserialize)]
 struct OrchestrationPlan {
+    #[serde(default = "default_summary")]
     summary: String,
     #[serde(default)]
     steps: Vec<AgentStep>,
@@ -245,6 +246,7 @@ pub struct ScenePlan {
 
 #[derive(Debug, Clone, Deserialize)]
 struct ProducerPlan {
+    #[serde(default = "default_summary")]
     summary: String,
     #[serde(default)]
     scenes: Vec<ScenePlan>,
@@ -498,6 +500,16 @@ mod tests {
         assert_eq!(plan.steps.len(), 2);
         assert_eq!(plan.steps[0].agent, AgentKind::Architect);
         assert_eq!(plan.steps[1].agent, AgentKind::Physics);
+    }
+
+    #[test]
+    fn parse_plan_accepts_a_plan_missing_summary() {
+        let raw = serde_json::json!({
+            "steps": [{ "agent": "architect", "instruction": "place a platform" }]
+        })
+        .to_string();
+        let plan = parse_plan(&raw).unwrap();
+        assert_eq!(plan.summary, default_summary());
     }
 
     #[test]
