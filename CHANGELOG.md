@@ -2,6 +2,30 @@
 
 Todos los cambios notables de AI Game Studio se documentan aquí. El formato sigue [Keep a Changelog](https://keepachangelog.com/es/) y el versionado es [SemVer](https://semver.org/lang/es/).
 
+## [0.4.0] — 2026-07-07 · IA profunda (Fase 4)
+
+El chat del editor pasa de responder preguntas a proponer y aplicar cambios reales sobre el proyecto, coordinar varios agentes especializados, y generar un juego completo (varias escenas) a partir de una instrucción en lenguaje natural — siempre con confirmación explícita y deshacer de un solo paso.
+
+### AI Core y chat de solo lectura (M18)
+- `Provider` (Ollama local / Claude cloud) tras la misma interfaz; contexto del proyecto construido por el frontend a partir del estado en memoria del editor.
+- Panel de **Chat** nuevo junto a Timeline/Consola.
+
+### Escritura asistida (M19)
+- Modo **"Proponer cambios"**: el modelo responde un único `ChangeProposal` (JSON) validado contra los tipos reales del formato antes de mostrarse — assets inventados, ids duplicados o scripts que no compilan se rechazan ahí mismo.
+- Aplicar reutiliza el undo/redo del editor: deshacer una propuesta de la IA es `Ctrl+Z`.
+
+### Agentes especializados (M20)
+- Modo **"Orquestar agentes"**: un Arquitecto reparte una instrucción de alto nivel entre especialistas (Arquitecto, Diseñador de niveles, Programador, Física, Audio, Animador), cada uno limitado por una lista blanca de componentes comprobada en el backend.
+- "Optimización" queda diferido (sin datos de perfilado todavía); "Animador" solo conecta animaciones ya existentes.
+
+### Generación de juegos completos (M21)
+- Modo **"Generar juego"**: un nuevo rol "Productor" decide qué escenas hacen falta (nuevas y/o la abierta) y cada una se construye con el mismo motor de M20. Aplicar un juego generado es un único commit de historial.
+- Genera **estructura completa** (escenas, entidades, física, comportamientos, scripts) reusando assets ya importados — sin generación de arte/audio nuevo, no hay modelo de imágenes/sonido integrado.
+
+### Verificación
+- Los cuatro hitos verificados de punta a punta contra un Ollama real (`qwen2.5-coder:7b`), incluido un caso de estudio de generación de un mini-juego de dos escenas.
+- Recorrido de clics en la UI real no verificado (sin automatización de pantalla en este entorno de desarrollo); proveedor Claude implementado pero no verificado en vivo (necesita una API key propia).
+
 ## [0.3.0] — 2026-07-06 · Multiplataforma (Fase 3, parcial)
 
 Un mismo proyecto `.aigs`, sin cambios, corre en Desktop, en el navegador y en Android. iOS queda diferido (necesita macOS + Xcode, no disponibles en este ciclo de desarrollo).

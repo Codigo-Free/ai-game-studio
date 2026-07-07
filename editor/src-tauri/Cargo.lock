@@ -33,14 +33,14 @@ dependencies = [
 
 [[package]]
 name = "aigs-anim"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "aigs-project"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "aigs-anim",
  "serde",
@@ -919,7 +919,7 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 
 [[package]]
 name = "editor"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "aigs-project",
  "base64 0.22.1",

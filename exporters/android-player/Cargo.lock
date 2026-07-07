@@ -49,7 +49,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-android-player"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "aigs-project",
  "aigs-runtime",
@@ -60,18 +60,18 @@ dependencies = [
 
 [[package]]
 name = "aigs-anim"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "aigs-ecs"
-version = "0.2.0"
+version = "0.4.0"
 
 [[package]]
 name = "aigs-project"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "aigs-anim",
  "serde",
@@ -81,7 +81,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-render"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "bytemuck",
  "glam 0.29.3",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "aigs-runtime"
-version = "0.2.0"
+version = "0.4.0"
 dependencies = [
  "aigs-anim",
  "aigs-ecs",

@@ -13,9 +13,9 @@ path = "src/main.rs"
 
 [dependencies]
 aigs-export-android = { path = "../exporters/android" }
-aigs-export-desktop = { version = "0.3.0", path = "../exporters/desktop" }
+aigs-export-desktop = { version = "0.4.0", path = "../exporters/desktop" }
 aigs-export-web = { path = "../exporters/web" }
 aigs-project = { path = "../runtime/crates/aigs-project" }
-aigs-runtime = { version = "0.3.0", path = "../runtime/crates/aigs-runtime" }
+aigs-runtime = { version = "0.4.0", path = "../runtime/crates/aigs-runtime" }
 clap = { version = "4", features = ["derive"] }
 serde_json = { workspace = true }

@@ -14,7 +14,7 @@
 
 ## Project status
 
-🎉 **0.3.0 released** (Phases 1–2 complete + Phase 3 closed over Desktop/Web/Android, milestones M0–M17). The same `.aigs` project exports to Desktop, Web (WASM) and Android (signed APK) without touching the project; iOS is deferred with no date. See the [CHANGELOG](CHANGELOG.md) and the [roadmap](ROADMAP.md).
+🎉 **0.4.0 released** (Phases 1–2 complete, Phase 3 closed over Desktop/Web/Android, Phase 4 — deep AI — complete, milestones M0–M21). The editor's Chat can now answer questions, propose and apply reviewable changes, coordinate specialized agents, and generate a whole game across several scenes from a natural-language instruction. See the [CHANGELOG](CHANGELOG.md) and the [roadmap](ROADMAP.md).
 
 ## Get started in 3 minutes
 
@@ -27,7 +27,7 @@ cd editor && npm install && npm run tauri dev   # open the editor
 
 Follow the **[quick start guide](docs/guia-inicio.md)** for a tour of the editor and your first game in 8 steps. Editor installers and CLI binaries are available in [Releases](https://github.com/agilphp/ai-game-studio/releases).
 
-## What works today (0.3.0)
+## What works today (0.4.0)
 
 - 🎨 **Visual editor** (Tauri 2 + React): viewport with drag/zoom/pan, scene tree, inspector, asset browser with import, live console with metrics, global undo/redo, and Desktop/Web/Android export from a dropdown.
 - 🎞 **Flash-style timeline**: per-entity/property tracks, draggable keyframes with easing, scrubbing and playback with viewport preview.
@@ -38,12 +38,12 @@ Follow the **[quick start guide](docs/guia-inicio.md)** for a tour of the editor
 - 📦 **Export to Desktop, Web and Android**: `aigs export --target desktop|web|android` — the same project runs natively, in the browser (WebGPU/WebGL) or as a signed APK (Vulkan), unchanged.
 - 👆 **Touch input**: a finger behaves like the mouse, and the `virtual_button` component simulates on-screen keys for keyboard-driven games.
 - 📄 **AI-Ready `.aigs` format**: the entire game is readable, versionable JSON — the foundation for AI to create and modify complete games ([specification](sdk/aigs-format/SPEC.md)).
+- 🤖 **AI Chat, four modes**: ask questions about the open project; propose a reviewable change (entities/scripts) with one-click apply/undo; orchestrate specialized agents (Architect, Level Designer, Programmer, Physics, Audio, Animator) for a higher-level instruction; or generate a whole game across several scenes from a single natural-language prompt — all backed by a local Ollama model or Claude.
 - 🔧 **`aigs` CLI**: `validate`, `run`, `export --target ...` and `script-api` to work without opening the editor.
 
 ## What's next
 
 - **Phase 3**: iOS exporter (M16), deferred with no date — needs macOS + Xcode.
-- **Phase 4**: deep AI — native chat with project context, specialized agents, full game generation.
 - **Phase 5**: plugin SDK, marketplace, collaboration.
 
 ## Examples
