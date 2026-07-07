@@ -223,6 +223,199 @@ fn parse_plan(raw: &str) -> Result<OrchestrationPlan, String> {
     Ok(plan)
 }
 
+// --- Producer: whole-game/whole-scene generation (milestone M21) ---
+//
+// A "Producer" plans which SCENES a high-level instruction needs — the one
+// already open in the editor, brand-new ones, or both — before handing each
+// scene's goal to `orchestrate` exactly as M20 already does. This closes a
+// gap M20 left open (its own example, "create a second harder level",
+// actually needed a new scene, which `orchestrate` alone never supported):
+// see `docs/arquitectura.md` for why this is a thin planning layer on top
+// of the existing engine rather than a new generation mechanism.
+
+/// One scene an instruction needs: either the one already open in the
+/// editor (`is_new: false`) or a brand-new one to create (`is_new: true`).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScenePlan {
+    pub name: String,
+    #[serde(default)]
+    pub is_new: bool,
+    pub goal: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ProducerPlan {
+    summary: String,
+    #[serde(default)]
+    scenes: Vec<ScenePlan>,
+}
+
+/// Keeps a runaway plan from turning "make a game" into dozens of scenes,
+/// each itself a multi-step orchestration — this is the outermost of two
+/// step-count guards (see `MAX_STEPS` for the inner one).
+const MAX_SCENES: usize = 6;
+
+fn build_producer_prompt(context: &str, known_scene_names: &[String]) -> String {
+    let scenes_list = if known_scene_names.is_empty() {
+        "(none yet — this is a brand new project)".to_string()
+    } else {
+        known_scene_names.join(", ")
+    };
+    format!(
+        "You are the \"Producer\" for a game project in AI Game Studio. Given a high-level \
+         instruction, decide which scenes it needs and what each one should accomplish. A \
+         scene is either the one ALREADY OPEN in the editor (\"is_new\": false — use this for \
+         changes to what already exists; at most one scene in your plan may have \
+         \"is_new\": false) or a BRAND NEW one you name (\"is_new\": true).\n\n\
+         Existing scene names already in the project (do not reuse these for a new scene): \
+         {scenes_list}\n\n\
+         Respond with ONLY a single JSON object — no markdown code fences, no commentary \
+         before or after it:\n\
+         {{\n\
+         \x20 \"summary\": \"one-line description of the overall game\",\n\
+         \x20 \"scenes\": [ {{ \"name\": string, \"is_new\": boolean, \"goal\": \"what this scene should contain and do, in enough detail for a team to build it\" }} ]\n\
+         }}\n\n\
+         Keep it as short as the instruction actually needs (at most {MAX_SCENES} scenes) — a \
+         simple single-scene game needs only one entry with \"is_new\": false.\n\n\
+         Current project state:\n{context}"
+    )
+}
+
+/// One scene's validated result within a `ProjectProposal`.
+#[derive(Debug, Clone, Serialize)]
+pub struct ScenedProposal {
+    pub name: String,
+    pub is_new: bool,
+    pub proposal: ChangeProposal,
+}
+
+/// A complete-game (or complete-new-scene) generation result: one or more
+/// scenes, each with its own validated `ChangeProposal`. Meant to be
+/// applied together as a single atomic change — see `docs/arquitectura.md`
+/// on why undoing a generated game should be one `Ctrl+Z`, not one per
+/// scene.
+#[derive(Debug, Clone, Serialize)]
+pub struct ProjectProposal {
+    pub summary: String,
+    pub scenes: Vec<ScenedProposal>,
+}
+
+/// Generates a whole game, or a whole new scene within one, from a
+/// high-level `instruction`. The Producer decides which scenes are needed;
+/// each scene is then built by `orchestrate` exactly as in M20 — a new
+/// scene starts with no entities/animations of its own, the "current" one
+/// keeps whatever `current_entity_ids`/`current_animation_names` says it
+/// already has. Scenes run sequentially and share the growing asset list
+/// (a script one scene writes is visible to the next), same rationale as
+/// `orchestrate`'s sequential steps.
+pub async fn generate_project(
+    provider: &Provider,
+    context: &str,
+    instruction: String,
+    known_assets: Vec<AssetRef>,
+    known_scene_names: Vec<String>,
+    current_entity_ids: Vec<String>,
+    current_animation_names: Vec<String>,
+) -> Result<ProjectProposal, String> {
+    let planning_messages = [
+        ChatMessage {
+            role: "system".to_string(),
+            content: build_producer_prompt(context, &known_scene_names),
+        },
+        ChatMessage {
+            role: "user".to_string(),
+            content: instruction,
+        },
+    ];
+    let raw_plan = provider
+        .chat(&planning_messages, true)
+        .await
+        .map_err(|e| e.to_string())?;
+    let plan = parse_producer_plan(&raw_plan)?;
+
+    let mut known_assets = known_assets;
+    let mut used_names: HashSet<String> = known_scene_names.iter().cloned().collect();
+    let mut seen_current = false;
+    let mut scenes = Vec::new();
+
+    for scene_plan in &plan.scenes {
+        if scene_plan.is_new {
+            if !used_names.insert(scene_plan.name.clone()) {
+                return Err(format!(
+                    "the Producer's plan reuses scene name \"{}\"",
+                    scene_plan.name
+                ));
+            }
+        } else if !seen_current {
+            seen_current = true;
+        } else {
+            return Err(
+                "the Producer's plan targets the currently open scene more than once".to_string(),
+            );
+        }
+
+        let (entity_ids, animation_names) = if scene_plan.is_new {
+            (Vec::new(), Vec::new())
+        } else {
+            (current_entity_ids.clone(), current_animation_names.clone())
+        };
+
+        let proposal = orchestrate(
+            provider,
+            context,
+            scene_plan.goal.clone(),
+            known_assets.clone(),
+            entity_ids,
+            animation_names,
+        )
+        .await
+        .map_err(|e| format!("scene \"{}\" {e}", scene_plan.name))?;
+
+        for script in &proposal.scripts {
+            known_assets.push(AssetRef {
+                id: script.asset_id.clone(),
+                kind: "script".to_string(),
+            });
+        }
+
+        scenes.push(ScenedProposal {
+            name: scene_plan.name.clone(),
+            is_new: scene_plan.is_new,
+            proposal,
+        });
+    }
+
+    Ok(ProjectProposal {
+        summary: plan.summary,
+        scenes,
+    })
+}
+
+fn parse_producer_plan(raw: &str) -> Result<ProducerPlan, String> {
+    let json = extract_json_object(raw)?;
+    let plan: ProducerPlan = serde_json::from_str(json)
+        .map_err(|e| format!("the Producer's plan wasn't valid JSON: {e}"))?;
+    if plan.scenes.is_empty() {
+        return Err("the Producer's plan has no scenes — nothing to do".to_string());
+    }
+    if plan.scenes.len() > MAX_SCENES {
+        return Err(format!(
+            "the Producer's plan has {} scenes, more than the {MAX_SCENES} allowed",
+            plan.scenes.len()
+        ));
+    }
+    for scene in &plan.scenes {
+        if scene.name.trim().is_empty()
+            || scene.name.contains('/')
+            || scene.name.contains('\\')
+            || scene.name.contains("..")
+        {
+            return Err(format!("invalid scene name \"{}\"", scene.name));
+        }
+    }
+    Ok(plan)
+}
+
 /// Same tolerant extraction as `ai::parse_and_validate_proposal` uses —
 /// duplicated rather than shared because it's a tiny, self-contained
 /// parser and pulling it across the module boundary isn't worth a `pub`.
@@ -307,6 +500,52 @@ mod tests {
         assert_eq!(plan.steps[1].agent, AgentKind::Physics);
     }
 
+    #[test]
+    fn parse_producer_plan_rejects_an_empty_plan() {
+        let raw = serde_json::json!({ "summary": "nothing", "scenes": [] }).to_string();
+        let error = parse_producer_plan(&raw).unwrap_err();
+        assert!(error.contains("no scenes"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn parse_producer_plan_rejects_too_many_scenes() {
+        let scenes: Vec<_> = (0..MAX_SCENES + 1)
+            .map(|i| serde_json::json!({ "name": format!("scene-{i}"), "is_new": true, "goal": "x" }))
+            .collect();
+        let raw = serde_json::json!({ "summary": "too much", "scenes": scenes }).to_string();
+        let error = parse_producer_plan(&raw).unwrap_err();
+        assert!(error.contains("more than"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn parse_producer_plan_rejects_a_path_like_scene_name() {
+        let raw = serde_json::json!({
+            "summary": "plan",
+            "scenes": [{ "name": "../escape", "is_new": true, "goal": "x" }]
+        })
+        .to_string();
+        let error = parse_producer_plan(&raw).unwrap_err();
+        assert!(
+            error.contains("invalid scene name"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn parse_producer_plan_accepts_a_valid_multi_scene_plan() {
+        let raw = serde_json::json!({
+            "summary": "A menu and a level",
+            "scenes": [
+                { "name": "menu", "is_new": true, "goal": "a title screen with a start button" },
+                { "name": "level", "is_new": true, "goal": "a simple platform to stand on" }
+            ]
+        })
+        .to_string();
+        let plan = parse_producer_plan(&raw).unwrap();
+        assert_eq!(plan.scenes.len(), 2);
+        assert!(plan.scenes[0].is_new);
+    }
+
     /// Manual, exploratory probe (see `#[ignore]`): does a real local model
     /// actually plan and execute a two-step orchestration end to end? Run
     /// with `cargo test -- --ignored orchestrate_end_to_end`. Expect
@@ -351,5 +590,62 @@ mod tests {
             !proposal.entities_to_add.is_empty() || !proposal.entities_to_update.is_empty(),
             "expected the plan to touch at least one entity"
         );
+    }
+
+    /// Manual, exploratory probe (see `#[ignore]`): the M21 case study —
+    /// does a real local model turn one instruction into a brand-new,
+    /// multi-scene mini-game (menu + level)? Run with
+    /// `cargo test -- --ignored generate_project_end_to_end`. Expect this
+    /// to be slow: one Producer call plus a full `orchestrate` (its own
+    /// planning + step calls) per scene, all against a CPU-only local
+    /// model — tens of minutes, not seconds.
+    #[ignore]
+    #[tokio::test]
+    async fn generate_project_end_to_end_with_real_ollama() {
+        let base_url = "http://localhost:11434".to_string();
+        if reqwest::Client::new()
+            .get(format!("{base_url}/api/tags"))
+            .send()
+            .await
+            .is_err()
+        {
+            eprintln!("skipping: no Ollama reachable at {base_url}");
+            return;
+        }
+        let model =
+            std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5-coder:7b".to_string());
+        let provider = Provider::Ollama { base_url, model };
+        let known_assets = vec![AssetRef {
+            id: "hero".to_string(),
+            kind: "image".to_string(),
+        }];
+        let context =
+            r#"{"project":{"name":"Coin Runner","assets":[{"id":"hero","kind":"image"}]}}"#;
+        let project = generate_project(
+            &provider,
+            context,
+            "Make a tiny game with exactly two scenes, each as simple as possible: \
+             (1) a title screen scene with just one entity, the hero sprite centered \
+             on screen, nothing else; (2) a level scene with just one entity, a \
+             static platform using the hero sprite with a collider so the player can \
+             stand on it, nothing else."
+                .to_string(),
+            known_assets,
+            vec![],
+            vec![],
+            vec![],
+        )
+        .await
+        .expect("project generation should produce a valid multi-scene proposal");
+        eprintln!("generated project: {project:?}");
+        assert!(!project.scenes.is_empty(), "expected at least one scene");
+        for scene in &project.scenes {
+            assert!(
+                !scene.proposal.entities_to_add.is_empty()
+                    || !scene.proposal.entities_to_update.is_empty(),
+                "expected scene \"{}\" to touch at least one entity",
+                scene.name
+            );
+        }
     }
 }

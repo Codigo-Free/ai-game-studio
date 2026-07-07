@@ -1,7 +1,13 @@
 // Bridge to the Tauri backend (editor/src-tauri/src/lib.rs).
 
 import { invoke } from "@tauri-apps/api/core";
-import type { ChangeProposal, LoadedProject, Project, Scene } from "./types";
+import type {
+  ChangeProposal,
+  LoadedProject,
+  Project,
+  ProjectProposal,
+  Scene,
+} from "./types";
 
 export function loadProject(manifestPath: string): Promise<LoadedProject> {
   return invoke("load_project", { manifestPath });
@@ -96,6 +102,29 @@ export function orchestrateChange(
     knownAssets,
     knownEntityIds,
     knownAnimationNames,
+  });
+}
+
+/** Asks the AI Core to generate a whole game, or a whole new scene within
+ * one, from a high-level instruction (milestone M21). A "Producer" decides
+ * which scenes are needed (the one already open and/or brand-new ones);
+ * each is built by the same pipeline as `orchestrateChange`. Returns one
+ * validated `ChangeProposal` per scene, meant to be applied together. */
+export function generateProject(
+  context: string,
+  instruction: string,
+  knownAssets: { id: string; kind: string }[],
+  knownSceneNames: string[],
+  currentEntityIds: string[],
+  currentAnimationNames: string[],
+): Promise<ProjectProposal> {
+  return invoke("ai_generate_project", {
+    context,
+    instruction,
+    knownAssets,
+    knownSceneNames,
+    currentEntityIds,
+    currentAnimationNames,
   });
 }
 

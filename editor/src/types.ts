@@ -213,3 +213,21 @@ export interface ChangeProposal {
   scripts: ScriptToWrite[];
   scene_patch: ScenePatch;
 }
+
+// --- AI Core: complete-game generation (milestone M21) ---
+
+/** One scene's validated result within a `ProjectProposal`: `is_new` marks
+ * a brand-new scene to create vs. the one already open in the editor. */
+export interface ScenedProposal {
+  name: string;
+  is_new: boolean;
+  proposal: ChangeProposal;
+}
+
+/** A whole-game (or whole-new-scene) generation result: one or more
+ * scenes, meant to be applied together as a single atomic change — see
+ * `editor/src-tauri/src/agents.rs`. */
+export interface ProjectProposal {
+  summary: string;
+  scenes: ScenedProposal[];
+}

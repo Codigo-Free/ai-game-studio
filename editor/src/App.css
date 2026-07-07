@@ -205,6 +205,8 @@ input:focus, select:focus { outline: 1px solid var(--accent); }
 .proposal-details { margin: 0; padding-left: 18px; font-size: 11px; color: var(--text-dim); }
 .proposal-actions { display: flex; gap: 6px; margin-top: 6px; }
 .proposal-status { margin-top: 6px; font-size: 11px; color: var(--text-dim); font-style: italic; }
+.project-scene { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); }
+.project-scene-title { font-weight: 600; font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
 
 /* --- welcome --- */
 .welcome {

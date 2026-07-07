@@ -345,10 +345,16 @@ fn build_json_proposal_prompt(
     };
     let scripting_section = if include_scripting_api {
         format!(
-            "To give an entity a script, define it in \"scripts\" with a fresh \"asset_id\" \
-             (not in the asset list above) and reference that same id from a \
-             \"script\": {{ \"asset\": ... }} component. Script content must be valid rhai \
-             using only the API below (functions not listed here do not exist):\n\n{SCRIPTING_API_MANIFEST}\n\n"
+            "To give an entity a script: (1) add ONE entry to the top-level \"scripts\" list \
+             with a fresh \"asset_id\" (a plain string, not in the asset list above) and the \
+             rhai \"content\"; (2) on the entity's \"script\" component, set \"asset\" to that \
+             SAME plain string id — never the script's content or an object. Example: \
+             top-level `\"scripts\": [{{\"asset_id\": \"door-script\", \"filename\": \"door.rhai\", \"content\": \"fn on_start() {{}}\"}}]` \
+             plus, on the entity, `\"components\": {{\"script\": {{\"asset\": \"door-script\"}}}}` — \
+             note \"asset\" is the bare string \"door-script\", NOT `{{\"content\": ...}}`. The same \
+             rule applies to \"sprite\"/\"particles\": their \"asset\" is always a plain string id, \
+             never a nested object. Script content must be valid rhai using only the API below \
+             (functions not listed here do not exist):\n\n{SCRIPTING_API_MANIFEST}\n\n"
         )
     } else {
         String::new()
@@ -375,11 +381,20 @@ fn build_json_proposal_prompt(
          rigidbody2d {{body: \"dynamic\"|\"kinematic\"|\"static\",gravity_scale,vx,vy,fixed_rotation}}, \
          collider2d {{shape: \"box\"|\"circle\" (NOT \"rectangle\"/\"square\"/\"sphere\"),width,height,radius,sensor,restitution,friction}}, \
          animator {{initial,states,transitions}}, script {{asset}}, behaviors [ {{on, do}} ].\n\n\
-         Entity ids already in the current scene (do not reuse these for new entities; \
-         \"entities_to_update\"/\"entities_to_remove\" must reference one of these): {entity_ids_list}\n\n\
+         Entity ids already in the current scene (this may include entities another step of the \
+         same plan just added): {entity_ids_list}\n\
+         If you need to change one of THESE entities (e.g. add a collider or a script to an \
+         entity that already exists), use \"entities_to_update\" with its existing id — do NOT \
+         put that same id in \"entities_to_add\", that would try to create a duplicate and gets \
+         rejected. Only use \"entities_to_add\" for a genuinely new entity, with a fresh id not \
+         in this list.\n\n\
          Existing project assets you may reference by id from \"sprite\"/\"particles\": {assets_list}\n\n\
          Existing scene animations you may reference by name from an \"animator\" component \
          (do not invent new ones — authoring keyframes is a separate, manual step): {animations_list}\n\n\
+         Never use `null` for a required string field (\"id\", \"name\", \"asset\", \"filename\", \
+         \"content\", ...) — pick a reasonable value instead. The only field allowed to be `null` \
+         is \"parent_id\"; every other optional field should simply be left out of the JSON \
+         entirely rather than set to `null`.\n\n\
          {scripting_section}\
          Current project/scene state:\n{context}"
     )

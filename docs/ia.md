@@ -16,18 +16,20 @@ Esto significa que la calidad futura de la IA depende directamente de la clarida
 
 ## Capacidades objetivo (Fase 4)
 
-- Crear videojuegos completos a partir de lenguaje natural.
-- Diseñar personajes, enemigos y niveles.
-- Programar comportamientos.
-- Optimizar código y detectar errores.
-- Explicar código y generar documentación.
-- Crear pruebas automáticas y refactorizar proyectos.
+- Crear videojuegos completos a partir de lenguaje natural. — 🟢 M21: **estructura** completa (escenas, entidades, física, comportamientos, scripts), con assets ya importados por el usuario (ver límite honesto más abajo).
+- Diseñar personajes, enemigos y niveles. — 🟢 M20/M21 (Arquitecto, Diseñador de niveles).
+- Programar comportamientos. — 🟢 M19/M20 (Programador).
+- Optimizar código y detectar errores. — 🟤 Diferido (sin datos de perfilado que lleguen al modelo todavía).
+- Explicar código y generar documentación. — 🟢 M18 (chat de solo lectura).
+- Crear pruebas automáticas y refactorizar proyectos. — ⚪ Sin implementar.
 
 ### Flujo de trabajo típico
 
 El usuario escribe: *"Crea un juego de plataformas donde un robot debe rescatar a su mascota."*
 
 La IA crea el proyecto, genera el personaje, diseña el escenario, construye enemigos, configura físicas, agrega animaciones, implementa colisiones, genera música, crea efectos, produce el código y la documentación. Después, el desarrollador ajusta cualquier elemento mediante edición visual.
+
+**Límite honesto (M21):** "genera música/efectos" y "diseña el escenario" significan *conectar y componer con assets que el usuario ya importó* (imágenes, audio), no generar arte o audio nuevo — no hay ningún modelo de generación de imágenes/sonido integrado en este proyecto. Si la instrucción necesita un asset que no existe, ese paso falla la validación exactamente igual que en M19/M20, con el mismo mensaje claro; el usuario debe importar al menos arte de marcador de posición primero.
 
 ---
 
@@ -37,6 +39,7 @@ Sobre el AI Core se construyen agentes que colaboran compartiendo el contexto co
 
 | Agente | Rol | Estado |
 |---|---|---|
+| Productor | Decide qué escenas hace falta crear o modificar para una instrucción de alto nivel. | 🟢 M21 |
 | Arquitecto | Estructura del proyecto, escenas y componentes; coordina al resto. | 🟢 M20 |
 | Diseñador de niveles | Composición de escenarios (entidades + colisión). | 🟢 M20 |
 | Programador | Comportamientos, behaviors y scripts. | 🟢 M19/M20 |
@@ -87,6 +90,15 @@ El Chat gana un tercer modo, **"Orquestar agentes"**: una instrucción de alto n
 - **El resultado se fusiona en el mismo `ChangeProposal` de M19**: la tarjeta de propuesta y el aplicar/deshacer del editor no cambiaron nada para soportar esto.
 - **Verificado de punta a punta con Ollama real** (`qwen2.5-coder:7b`, planificación + 2 pasos): una primera ejecución real expuso la validación funcionando exactamente como se diseñó — el paso de Diseñador de niveles propuso `"shape": "rectangle"` (valor que el formato no admite, solo `"box"`/`"circle"`) y la orquestación completa se rechazó con un mensaje señalando el paso y el motivo; se ajustó el *prompt* para deletrear los valores exactos de esos enums, y una segunda ejecución confirmó un plan de dos pasos (Arquitecto coloca la plataforma, Diseñador de niveles le añade un colisionador de caja) generado, validado y fusionado correctamente.
 
+### Generación de juegos completos (M21)
+
+El Chat gana un cuarto modo, **"Generar juego"**: una instrucción de alto nivel puede crear escenas nuevas enteras, no solo modificar la ya abierta — cerrando una brecha que había quedado en M20 (su propio ejemplo, "crea un segundo nivel", necesitaba una escena nueva que M20 nunca soportó por sí solo).
+
+- **Un nuevo rol, "Productor"**, planifica por encima del Arquitecto: decide qué escenas hacen falta (la ya abierta y/o nuevas) y qué debe lograr cada una, y luego cada escena se construye reutilizando el **mismo** motor de M20 (Arquitecto → especialistas, alcance por lista blanca, todo o nada) sin ningún cambio.
+- **Aplicar un juego generado es un único commit de historial**: todas las escenas nuevas/actualizadas se escriben a la vez, así que deshacerlo es un solo `Ctrl+Z`.
+- **La iteración conversacional ("hazlo más rápido") no necesitó código nuevo**: el chat ya reconstruye su contexto desde el estado en memoria en cada mensaje, así que pedir un ajuste después de generar un juego es simplemente otra petición de "Proponer cambios"/"Orquestar agentes" sobre lo que ya existe.
+- **Verificado de punta a punta con Ollama real** (`qwen2.5-coder:7b`): un caso de estudio real generando un mini-juego de dos escenas (menú con el sprite del héroe centrado + nivel con una plataforma estática usando el mismo sprite) a partir de una única instrucción. **Hicieron falta cinco intentos reales** (5-14 minutos cada uno, en CPU) para llegar a un resultado válido; los cuatro primeros expusieron, cada uno, un fallo de validación genuino y distinto (un campo de texto obligatorio en `null`, un script anidado como objeto en vez de referenciado por id, y dos veces un especialista intentando recrear con `entities_to_add` una entidad que otro paso del mismo plan ya había creado, en vez de usar `entities_to_update`) — la validación rechazó cada uno correctamente, señalando el paso y el motivo exactos, nunca aplicando nada parcial; cada hallazgo se corrigió aclarando el *prompt* compartido de todos los agentes (beneficia también a M19/M20). El quinto intento generó, validó y fusionó las dos escenas correctamente, con una jerarquía padre-hijo razonable en el menú y la plataforma del nivel construida con altas y actualizaciones coherentes sobre la misma entidad.
+
 ---
 
 ## Hoja de ruta de la IA
@@ -94,5 +106,5 @@ El Chat gana un tercer modo, **"Orquestar agentes"**: una instrucción de alto n
 | Fase | Alcance IA |
 |---|---|
 | 1 (MVP) | Formato `.aigs` AI-Ready — el contrato que hace posible todo lo de más abajo. |
-| 4 | Chat IA nativo: de solo lectura (M18) a escritura asistida con propuesta/confirmación (M19, completado) a agentes especializados y generación de juegos completos (M20-M21, pendientes). |
+| 4 | Chat IA nativo: de solo lectura (M18) a escritura asistida con propuesta/confirmación (M19), agentes especializados (M20) y generación de juegos completos (M21) — **fase cerrada**, los cuatro hitos verificados con Ollama real. |
 | 5 | Agentes de comunidad vía SDK de plugins. |
