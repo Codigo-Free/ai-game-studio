@@ -50,7 +50,7 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | Hito | Alcance | Estado |
 |---|---|---|
 | M18 | AI Core y chat con contexto del proyecto (Ollama + cloud) | 🟡 Completado y verificado con Ollama real — **proveedor Claude implementado sin verificar** (necesita API key de un usuario), recorrido de UI no verificado (sin automatización de pantalla en este entorno) |
-| M19 | Escritura asistida y primer agente (Programador) | ⚪ Pendiente |
+| M19 | Escritura asistida y primer agente (Programador): propuesta de cambios (entidades + scripts) con confirmación explícita | 🟡 Completado y verificado de punta a punta con Ollama real (`qwen2.5-coder:7b`) — recorrido de UI no verificado (sin automatización de pantalla en este entorno) |
 | M20 | Agentes especializados (Arquitecto, Animador, Niveles, Audio, Física, Optimización) | ⚪ Pendiente |
 | M21 | Generación de juegos completos de punta a punta, release **0.4** | ⚪ Pendiente |
 

@@ -67,12 +67,21 @@ Vive en el backend Tauri (`editor/src-tauri/src/ai.rs`), no en el frontend: nece
 - **Panel de Chat** en el editor (pestaña junto a Timeline/Consola): de momento solo lectura — responde preguntas sobre el proyecto abierto, no aplica cambios (eso es M19).
 - Verificado con **Ollama real** corriendo en local (`llama3.2`, `qwen2.5-coder`, `deepseek-r1` ya instalados). El proveedor Claude se implementó contra la documentación pública de la Messages API pero no se ha podido probar sin una API key real de un usuario.
 
+### Escritura asistida: primer agente "Programador" (M19)
+
+El Chat gana un segundo modo, **"Proponer cambios"**, elegido explícitamente por el usuario (no algo que el modelo decide por sí mismo — más fiable con modelos locales pequeños). En ese modo, el modelo responde con un único objeto JSON (`ChangeProposal`: entidades a añadir/actualizar/eliminar + scripts `.rhai` nuevos) en vez de texto libre.
+
+- **Validación real, no solo esperanza:** la propuesta se deserializa contra los tipos Rust reales del formato (`aigs_project::EntityNode`/`Components`) — un componente inventado o mal tipado se rechaza ahí mismo. Las referencias a assets (`sprite`/`script`/`particles`) se comprueban contra los assets del proyecto; cada script nuevo se **compila de verdad** con el motor rhai antes de mostrarse; los ids de entidad se comprueban contra los ya existentes en la escena. Todo o nada: o la propuesta entera pasa la validación, o se rechaza con un motivo claro — nunca una aplicación parcial.
+- **El manifiesto de la API de scripting** (`scripting-api.json`, M12) se incluye en el prompt como contrato de funciones válidas, tal como preveía el plan.
+- **Aplicar es un cambio más del historial de undo/redo del editor** (ya existente desde M3): deshacer una propuesta de la IA es `Ctrl+Z`, sin mecanismo especial.
+- **Verificado de punta a punta con Ollama real** (`qwen2.5-coder:7b`): un pedido en lenguaje natural ("añade una moneda en esta posición usando este sprite") produjo una propuesta válida que pasó la validación sin cambios.
+
 ---
 
 ## Hoja de ruta de la IA
 
 | Fase | Alcance IA |
 |---|---|
-| 1 (MVP) | Formato `.aigs` AI-Ready. *Stretch:* panel de chat experimental (Ollama) con lectura del contexto del proyecto. |
-| 4 | Chat IA nativo con escritura sobre el proyecto, agentes especializados, generación de juegos completos. |
+| 1 (MVP) | Formato `.aigs` AI-Ready — el contrato que hace posible todo lo de más abajo. |
+| 4 | Chat IA nativo: de solo lectura (M18) a escritura asistida con propuesta/confirmación (M19, completado) a agentes especializados y generación de juegos completos (M20-M21, pendientes). |
 | 5 | Agentes de comunidad vía SDK de plugins. |

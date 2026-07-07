@@ -196,6 +196,15 @@ input:focus, select:focus { outline: 1px solid var(--accent); }
 .chat-pending { opacity: 0.6; }
 .chat-input { display: flex; gap: 6px; padding: 6px 10px; border-top: 1px solid var(--border); }
 .chat-input input { flex: 1; }
+.chat-header { gap: 8px; }
+.chat-modes { display: flex; gap: 4px; }
+.chat-modes button { font-size: 11px; padding: 2px 8px; text-transform: none; letter-spacing: 0; background: transparent; }
+.chat-modes button.active { background: var(--accent); color: #0e0f14; border-color: var(--accent); }
+.chat-proposal { align-self: stretch; max-width: 100%; background: rgba(79, 156, 255, 0.1); border: 1px solid var(--border); }
+.proposal-summary { font-weight: 600; margin-bottom: 4px; }
+.proposal-details { margin: 0; padding-left: 18px; font-size: 11px; color: var(--text-dim); }
+.proposal-actions { display: flex; gap: 6px; margin-top: 6px; }
+.proposal-status { margin-top: 6px; font-size: 11px; color: var(--text-dim); font-style: italic; }
 
 /* --- welcome --- */
 .welcome {

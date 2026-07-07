@@ -1,7 +1,7 @@
 // Bridge to the Tauri backend (editor/src-tauri/src/lib.rs).
 
 import { invoke } from "@tauri-apps/api/core";
-import type { LoadedProject, Project, Scene } from "./types";
+import type { ChangeProposal, LoadedProject, Project, Scene } from "./types";
 
 export function loadProject(manifestPath: string): Promise<LoadedProject> {
   return invoke("load_project", { manifestPath });
@@ -55,6 +55,41 @@ export function exportProject(
  * currently open in the editor, built by the caller — see ChatPanel). */
 export function askAi(context: string, question: string): Promise<string> {
   return invoke("ai_chat", { context, question });
+}
+
+/** Asks the AI Core to propose a change to the current scene (milestone
+ * M19). `knownAssets`/`knownEntityIds` let the backend reject a proposal
+ * that references something that doesn't exist, before it's ever shown to
+ * the user. Rejects (does not resolve to a partial proposal) if the
+ * model's answer fails validation. */
+export function proposeChange(
+  context: string,
+  instruction: string,
+  knownAssets: { id: string; kind: string }[],
+  knownEntityIds: string[],
+): Promise<ChangeProposal> {
+  return invoke("ai_propose_change", {
+    context,
+    instruction,
+    knownAssets,
+    knownEntityIds,
+  });
+}
+
+/** Persists a script written by an accepted proposal into the project's
+ * `assets/` directory and returns the resulting asset entry. */
+export function writeScriptAsset(
+  projectRoot: string,
+  assetId: string,
+  filename: string,
+  content: string,
+): Promise<{ id: string; path: string }> {
+  return invoke("write_script_asset", {
+    projectRoot,
+    assetId,
+    filename,
+    content,
+  });
 }
 
 const MIME_BY_EXTENSION: Record<string, string> = {

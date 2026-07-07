@@ -1,5 +1,6 @@
-//! AI Core (milestone M18): lets the editor's Chat panel answer questions
-//! about the currently open project, backed by a local model (Ollama) or a
+//! AI Core (milestones M18-M19): lets the editor's Chat panel answer
+//! questions about the currently open project (M18), or propose a concrete,
+//! reviewable change to it (M19) — backed by a local model (Ollama) or a
 //! cloud one (Claude for now — implemented against the public Messages API
 //! but not locally verified, since doing so needs the user's own API key).
 //!
@@ -7,6 +8,9 @@
 //! (`AIGS_AI_PROVIDER`, `OLLAMA_MODEL`, `ANTHROPIC_API_KEY`) — no settings
 //! panel yet, see `docs/plan.md` M18.
 
+use std::collections::HashSet;
+
+use aigs_project::{Components, EntityNode};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -71,9 +75,20 @@ impl Provider {
         }
     }
 
-    pub async fn chat(&self, messages: &[ChatMessage]) -> Result<String, ProviderError> {
+    /// `json_mode` asks Ollama to constrain its output to syntactically
+    /// valid JSON (its `format: "json"` request field) — used by the M19
+    /// "propose a change" flow. Claude has no equivalent knob in this
+    /// design (see `docs/arquitectura.md`), so it's ignored on that branch;
+    /// the system prompt's own instructions carry the weight there instead.
+    pub async fn chat(
+        &self,
+        messages: &[ChatMessage],
+        json_mode: bool,
+    ) -> Result<String, ProviderError> {
         match self {
-            Provider::Ollama { base_url, model } => ollama_chat(base_url, model, messages).await,
+            Provider::Ollama { base_url, model } => {
+                ollama_chat(base_url, model, messages, json_mode).await
+            }
             Provider::Claude { api_key, model } => claude_chat(api_key, model, messages).await,
         }
     }
@@ -84,6 +99,8 @@ struct OllamaRequest<'a> {
     model: &'a str,
     messages: &'a [ChatMessage],
     stream: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    format: Option<&'static str>,
 }
 
 #[derive(Deserialize)]
@@ -100,6 +117,7 @@ async fn ollama_chat(
     base_url: &str,
     model: &str,
     messages: &[ChatMessage],
+    json_mode: bool,
 ) -> Result<String, ProviderError> {
     let client = reqwest::Client::new();
     let response = client
@@ -108,6 +126,7 @@ async fn ollama_chat(
             model,
             messages,
             stream: false,
+            format: if json_mode { Some("json") } else { None },
         })
         .send()
         .await
@@ -214,6 +233,271 @@ async fn claude_chat(
         .join(""))
 }
 
+/// The scripting API manifest (milestone M12), embedded at compile time so
+/// the "propose a change" prompt always ships the same contract a human
+/// reading `sdk/aigs-format/scripting-api.json` would see — no separate
+/// copy to keep in sync, no runtime path to get wrong.
+const SCRIPTING_API_MANIFEST: &str = include_str!("../../../sdk/aigs-format/scripting-api.json");
+
+/// A reference to a project asset (id + kind), just enough for the prompt
+/// to tell the model what it may point `sprite`/`script`/`particles` at.
+#[derive(Debug, Clone, Deserialize)]
+pub struct AssetRef {
+    pub id: String,
+    pub kind: String,
+}
+
+/// One entity to insert into the current scene, at `parent_id` (root if
+/// `None`). `entity` deserializes straight into the format's own type, so a
+/// hallucinated component or wrong field type is rejected here rather than
+/// silently accepted.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityToAdd {
+    pub parent_id: Option<String>,
+    pub entity: EntityNode,
+}
+
+/// A partial component patch merged onto an existing entity. `Components`'
+/// fields are all optional, so a JSON object naming only the fields that
+/// change deserializes cleanly.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EntityToUpdate {
+    pub id: String,
+    pub components_patch: Components,
+}
+
+/// A new `.rhai` script asset the proposal wants to add, referenced by
+/// `asset_id` from any `script: { asset }` component in the same proposal.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ScriptToWrite {
+    pub asset_id: String,
+    pub filename: String,
+    pub content: String,
+}
+
+/// A concrete, reviewable change to the currently open scene (milestone
+/// M19). Applying it is the frontend's job (it owns the document/undo
+/// stack); this struct is just the validated, parsed shape of what the
+/// model proposed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChangeProposal {
+    pub summary: String,
+    #[serde(default)]
+    pub entities_to_add: Vec<EntityToAdd>,
+    #[serde(default)]
+    pub entities_to_update: Vec<EntityToUpdate>,
+    #[serde(default)]
+    pub entities_to_remove: Vec<String>,
+    #[serde(default)]
+    pub scripts: Vec<ScriptToWrite>,
+}
+
+/// Builds the system prompt for the "propose a change" mode: the JSON
+/// schema the model must answer with, the assets/entity ids already in
+/// play (so it doesn't invent or collide with them), the scripting API
+/// manifest as the contract for any script it writes, and the project
+/// context itself (built by the frontend, same as M18's read-only chat).
+pub fn build_propose_system_prompt(
+    context: &str,
+    known_assets: &[AssetRef],
+    known_entity_ids: &[String],
+) -> String {
+    let assets_list = if known_assets.is_empty() {
+        "(none yet)".to_string()
+    } else {
+        known_assets
+            .iter()
+            .map(|a| format!("{} ({})", a.id, a.kind))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    let entity_ids_list = if known_entity_ids.is_empty() {
+        "(none yet)".to_string()
+    } else {
+        known_entity_ids.join(", ")
+    };
+    format!(
+        "You are the \"Programmer\" agent embedded in AI Game Studio's editor. \
+         Given the project state below and an instruction, respond with ONLY a \
+         single JSON object — no markdown code fences, no commentary before or \
+         after it — describing a proposed change to the CURRENTLY OPEN SCENE. \
+         A human will review your proposal and confirm it before anything is \
+         written to disk, so prefer a working, conservative change over a \
+         speculative one.\n\n\
+         JSON schema (all list fields optional, default to an empty list):\n\
+         {{\n\
+         \x20 \"summary\": \"one-line, human-readable description of the change\",\n\
+         \x20 \"entities_to_add\": [ {{ \"parent_id\": string|null, \"entity\": {{ \"id\": string, \"name\": string, \"components\": {{ ... }} }} }} ],\n\
+         \x20 \"entities_to_update\": [ {{ \"id\": string, \"components_patch\": {{ ... }} }} ],\n\
+         \x20 \"entities_to_remove\": [ string ],\n\
+         \x20 \"scripts\": [ {{ \"asset_id\": string, \"filename\": string (must end in \\\".rhai\\\"), \"content\": string }} ]\n\
+         }}\n\n\
+         Component shapes you may use inside \"components\"/\"components_patch\" (all fields optional): \
+         transform2d {{x,y,rotation,scale_x,scale_y}}, sprite {{asset,frame,width,height,opacity,layer}}, \
+         rigidbody2d {{body,gravity_scale,vx,vy,fixed_rotation}}, collider2d {{shape,width,height,radius,sensor,restitution,friction}}, \
+         script {{asset}}, behaviors [ {{on, do}} ].\n\n\
+         Entity ids already in the current scene (do not reuse these for new entities; \
+         \"entities_to_update\"/\"entities_to_remove\" must reference one of these): {entity_ids_list}\n\n\
+         Existing project assets you may reference by id from \"sprite\"/\"particles\": {assets_list}\n\n\
+         To give an entity a script, define it in \"scripts\" with a fresh \"asset_id\" (not in the \
+         list above) and reference that same id from a \"script\": {{ \"asset\": ... }} component. \
+         Script content must be valid rhai using only the API below (functions not listed here do not exist):\n\n\
+         {SCRIPTING_API_MANIFEST}\n\n\
+         Current project/scene state:\n{context}"
+    )
+}
+
+/// Pulls the first balanced `{...}` object out of `raw`, tolerating any
+/// prose or markdown fences a model adds around it (Claude in particular
+/// tends to narrate before answering, despite being told not to).
+fn extract_json_object(raw: &str) -> Result<&str, String> {
+    let start = raw
+        .find('{')
+        .ok_or_else(|| "no JSON object found in the model's response".to_string())?;
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escape = false;
+    for (i, c) in raw.char_indices().skip(start) {
+        if in_string {
+            if escape {
+                escape = false;
+            } else if c == '\\' {
+                escape = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match c {
+            '"' => in_string = true,
+            '{' => depth += 1,
+            '}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Ok(&raw[start..=i]);
+                }
+            }
+            _ => {}
+        }
+    }
+    Err("unterminated JSON object in the model's response".to_string())
+}
+
+fn check_components_asset_refs(
+    components: &Components,
+    available: &HashSet<String>,
+) -> Result<(), String> {
+    if let Some(sprite) = &components.sprite {
+        if !available.contains(&sprite.asset) {
+            return Err(format!("references unknown asset \"{}\"", sprite.asset));
+        }
+    }
+    if let Some(script) = &components.script {
+        if !available.contains(&script.asset) {
+            return Err(format!("references unknown asset \"{}\"", script.asset));
+        }
+    }
+    if let Some(particles) = &components.particles {
+        if !available.contains(&particles.asset) {
+            return Err(format!("references unknown asset \"{}\"", particles.asset));
+        }
+    }
+    Ok(())
+}
+
+fn check_entity_asset_refs(entity: &EntityNode, available: &HashSet<String>) -> Result<(), String> {
+    check_components_asset_refs(&entity.components, available)
+        .map_err(|e| format!("entity \"{}\" {e}", entity.id))?;
+    for child in &entity.children {
+        check_entity_asset_refs(child, available)?;
+    }
+    Ok(())
+}
+
+fn collect_entity_ids(entity: &EntityNode, into: &mut Vec<String>) {
+    into.push(entity.id.clone());
+    for child in &entity.children {
+        collect_entity_ids(child, into);
+    }
+}
+
+/// Parses the model's raw text response into a `ChangeProposal` and rejects
+/// it (with a message fit to show the user) unless every asset reference
+/// resolves, every updated/removed id already exists, no new id collides
+/// with an existing one, and every generated script actually compiles.
+/// "All or nothing": a proposal either fully checks out and can be shown for
+/// confirmation, or it doesn't get shown at all — no partial/best-effort
+/// application.
+pub fn parse_and_validate_proposal(
+    raw: &str,
+    known_asset_ids: &[String],
+    known_entity_ids: &[String],
+) -> Result<ChangeProposal, String> {
+    let json = extract_json_object(raw)?;
+    let proposal: ChangeProposal = serde_json::from_str(json)
+        .map_err(|e| format!("the model's response wasn't a valid change proposal: {e}"))?;
+
+    let mut available: HashSet<String> = known_asset_ids.iter().cloned().collect();
+    for script in &proposal.scripts {
+        if !script.filename.ends_with(".rhai")
+            || script.filename.contains('/')
+            || script.filename.contains('\\')
+            || script.filename.contains("..")
+        {
+            return Err(format!(
+                "proposed script filename \"{}\" is not a plain \"name.rhai\"",
+                script.filename
+            ));
+        }
+        if available.contains(&script.asset_id) {
+            return Err(format!(
+                "proposed script asset id \"{}\" collides with an existing asset",
+                script.asset_id
+            ));
+        }
+        rhai::Engine::new().compile(&script.content).map_err(|e| {
+            format!(
+                "generated script \"{}\" doesn't compile: {e}",
+                script.filename
+            )
+        })?;
+        available.insert(script.asset_id.clone());
+    }
+
+    let existing_entities: HashSet<String> = known_entity_ids.iter().cloned().collect();
+    let mut new_ids: HashSet<String> = HashSet::new();
+    for add in &proposal.entities_to_add {
+        let mut ids = Vec::new();
+        collect_entity_ids(&add.entity, &mut ids);
+        for id in ids {
+            if existing_entities.contains(&id) || !new_ids.insert(id.clone()) {
+                return Err(format!(
+                    "proposed entity id \"{id}\" collides with an existing or another proposed entity"
+                ));
+            }
+        }
+        if let Some(parent_id) = &add.parent_id {
+            if !existing_entities.contains(parent_id) && !new_ids.contains(parent_id) {
+                return Err(format!("references unknown parent entity \"{parent_id}\""));
+            }
+        }
+        check_entity_asset_refs(&add.entity, &available)?;
+    }
+    for update in &proposal.entities_to_update {
+        if !existing_entities.contains(&update.id) {
+            return Err(format!("wants to update unknown entity \"{}\"", update.id));
+        }
+        check_components_asset_refs(&update.components_patch, &available)?;
+    }
+    for id in &proposal.entities_to_remove {
+        if !existing_entities.contains(id) {
+            return Err(format!("wants to remove unknown entity \"{id}\""));
+        }
+    }
+
+    Ok(proposal)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -236,16 +520,65 @@ mod tests {
         let model = std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "llama3.2:latest".to_string());
         let provider = Provider::Ollama { base_url, model };
         let answer = provider
-            .chat(&[ChatMessage {
-                role: "user".to_string(),
-                content: "Reply with exactly the word: pong".to_string(),
-            }])
+            .chat(
+                &[ChatMessage {
+                    role: "user".to_string(),
+                    content: "Reply with exactly the word: pong".to_string(),
+                }],
+                false,
+            )
             .await
             .unwrap();
         assert!(
             !answer.trim().is_empty(),
             "expected a non-empty answer, got {answer:?}"
         );
+    }
+
+    /// Manual, exploratory probe (not part of the regular suite — see
+    /// `#[ignore]`): does a real local model actually follow the "propose a
+    /// change" JSON schema end to end? Run with
+    /// `cargo test -- --ignored propose_change_end_to_end`.
+    #[ignore]
+    #[tokio::test]
+    async fn propose_change_end_to_end_with_real_ollama() {
+        let base_url = "http://localhost:11434".to_string();
+        if reqwest::Client::new()
+            .get(format!("{base_url}/api/tags"))
+            .send()
+            .await
+            .is_err()
+        {
+            eprintln!("skipping: no Ollama reachable at {base_url}");
+            return;
+        }
+        let model =
+            std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5-coder:7b".to_string());
+        let provider = Provider::Ollama { base_url, model };
+        let known_assets = vec![AssetRef {
+            id: "hero".to_string(),
+            kind: "image".to_string(),
+        }];
+        let known_entity_ids = vec!["hero".to_string()];
+        let context = r#"{"project":{"name":"Test"},"current_scene":{"name":"main","entities":[{"id":"hero","name":"Hero","components":{"transform2d":{"x":0,"y":0},"sprite":{"asset":"hero"}}}]}}"#;
+        let system = build_propose_system_prompt(context, &known_assets, &known_entity_ids);
+        let messages = [
+            ChatMessage {
+                role: "system".to_string(),
+                content: system,
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: "Add a coin entity at position (50, 50) using the existing \"hero\" sprite. No script needed.".to_string(),
+            },
+        ];
+        let raw = provider.chat(&messages, true).await.unwrap();
+        eprintln!("raw model response:\n{raw}");
+        let known_asset_ids: Vec<String> = known_assets.into_iter().map(|a| a.id).collect();
+        let proposal = parse_and_validate_proposal(&raw, &known_asset_ids, &known_entity_ids)
+            .expect("model's proposal should pass validation");
+        assert_eq!(proposal.entities_to_add.len(), 1);
+        eprintln!("parsed proposal: {proposal:?}");
     }
 
     // A single test, not three: `std::env::set_var` mutates *process-wide*
@@ -268,5 +601,100 @@ mod tests {
         assert!(Provider::from_env().is_err());
 
         std::env::remove_var("AIGS_AI_PROVIDER");
+    }
+
+    fn drone_proposal_json() -> serde_json::Value {
+        serde_json::json!({
+            "summary": "Adds a patrolling drone",
+            "entities_to_add": [{
+                "parent_id": null,
+                "entity": {
+                    "id": "patrol-drone",
+                    "name": "Patrol Drone",
+                    "components": {
+                        "transform2d": { "x": 100.0, "y": 200.0 },
+                        "sprite": { "asset": "drone" },
+                        "script": { "asset": "patrol-drone-script" }
+                    }
+                }
+            }],
+            "scripts": [{
+                "asset_id": "patrol-drone-script",
+                "filename": "patrol-drone.rhai",
+                "content": "fn on_start() { set_var(\"dir\", 1.0); }\nfn on_update(dt) { move_by(get_var(\"dir\") * 100.0 * dt, 0.0); }"
+            }]
+        })
+    }
+
+    #[test]
+    fn valid_proposal_with_new_entity_and_script_is_accepted() {
+        let raw = drone_proposal_json().to_string();
+        let known_assets = vec!["drone".to_string()];
+        let known_entities = vec!["player".to_string()];
+        let proposal = parse_and_validate_proposal(&raw, &known_assets, &known_entities).unwrap();
+        assert_eq!(proposal.entities_to_add.len(), 1);
+        assert_eq!(proposal.scripts.len(), 1);
+    }
+
+    #[test]
+    fn proposal_wrapped_in_prose_and_code_fences_is_still_extracted() {
+        let inner = drone_proposal_json().to_string();
+        let raw =
+            format!("Sure, here you go:\n```json\n{inner}\n```\nLet me know if you need changes!");
+        let known_assets = vec!["drone".to_string()];
+        let proposal = parse_and_validate_proposal(&raw, &known_assets, &[]).unwrap();
+        assert_eq!(proposal.summary, "Adds a patrolling drone");
+    }
+
+    #[test]
+    fn proposal_referencing_unknown_asset_is_rejected() {
+        let raw = drone_proposal_json().to_string();
+        // "drone" is deliberately absent from the known assets.
+        let error = parse_and_validate_proposal(&raw, &[], &[]).unwrap_err();
+        assert!(error.contains("unknown asset"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn proposal_with_broken_script_is_rejected() {
+        let mut json = drone_proposal_json();
+        json["scripts"][0]["content"] = serde_json::json!("fn on_start( { this is not rhai");
+        let error = parse_and_validate_proposal(&json.to_string(), &["drone".to_string()], &[])
+            .unwrap_err();
+        assert!(
+            error.contains("doesn't compile"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn proposal_reusing_an_existing_entity_id_is_rejected() {
+        let raw = drone_proposal_json().to_string();
+        let known_entities = vec!["patrol-drone".to_string()];
+        let error =
+            parse_and_validate_proposal(&raw, &["drone".to_string()], &known_entities).unwrap_err();
+        assert!(error.contains("collides"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn proposal_updating_an_unknown_entity_is_rejected() {
+        let raw = serde_json::json!({
+            "summary": "Move the boss",
+            "entities_to_update": [{ "id": "no-such-entity", "components_patch": { "transform2d": { "x": 1.0 } } }]
+        })
+        .to_string();
+        let error = parse_and_validate_proposal(&raw, &[], &[]).unwrap_err();
+        assert!(
+            error.contains("unknown entity"),
+            "unexpected error: {error}"
+        );
+    }
+
+    #[test]
+    fn proposal_with_path_traversal_in_script_filename_is_rejected() {
+        let mut json = drone_proposal_json();
+        json["scripts"][0]["filename"] = serde_json::json!("../../etc/passwd.rhai");
+        let error = parse_and_validate_proposal(&json.to_string(), &["drone".to_string()], &[])
+            .unwrap_err();
+        assert!(error.contains("plain"), "unexpected error: {error}");
     }
 }

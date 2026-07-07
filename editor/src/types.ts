@@ -176,3 +176,32 @@ export interface LoadedProject {
   project: Project;
   scenes: LoadedScene[];
 }
+
+// --- AI Core: write-assisted chat (milestone M19) ---
+
+export interface EntityToAdd {
+  parent_id: string | null;
+  entity: EntityNode;
+}
+
+export interface EntityToUpdate {
+  id: string;
+  components_patch: Components;
+}
+
+export interface ScriptToWrite {
+  asset_id: string;
+  filename: string;
+  content: string;
+}
+
+/** A concrete, reviewable change to the current scene proposed by the AI —
+ * validated by the backend against the real format types before it ever
+ * reaches this side (see `editor/src-tauri/src/ai.rs`). */
+export interface ChangeProposal {
+  summary: string;
+  entities_to_add: EntityToAdd[];
+  entities_to_update: EntityToUpdate[];
+  entities_to_remove: string[];
+  scripts: ScriptToWrite[];
+}

@@ -106,6 +106,32 @@ export function patchComponents(
   }));
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** Merges a (possibly partial) component patch onto an entity's current
+ * components field-by-field within each named component — so a patch that
+ * only sets `transform2d.x` doesn't drop `y`/`rotation`/scale — while
+ * arrays (e.g. `behaviors`) and anything else are replaced wholesale.
+ * Used to apply AI-proposed component patches (milestone M19), matching
+ * how the Inspector already spreads-then-overrides a full component before
+ * calling `patchComponents`. */
+export function mergeComponentsPatch(
+  current: Components,
+  patch: Partial<Components>,
+): Components {
+  const merged: Components = { ...current };
+  for (const [key, value] of Object.entries(patch)) {
+    const existing = (current as Record<string, unknown>)[key];
+    merged[key] =
+      isPlainObject(existing) && isPlainObject(value)
+        ? { ...existing, ...value }
+        : value;
+  }
+  return merged;
+}
+
 export function removeEntity(
   entities: EntityNode[],
   id: string,
