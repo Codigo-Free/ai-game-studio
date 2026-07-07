@@ -25,7 +25,7 @@ aigs run examples/robot-rescue/game.aigs        # play the demo
 cd editor && npm install && npm run tauri dev   # open the editor
 ```
 
-Follow the **[quick start guide](docs/guia-inicio.md)** for a tour of the editor and your first game in 8 steps. Editor installers and CLI binaries are available in [Releases](https://github.com/Codigo-Free/ai-game-studio/releases).
+Follow the **[quick start guide](docs/guia-inicio.md)** for a tour of the editor and your first game in 8 steps. Editor installers and CLI binaries are available in [Releases](https://github.com/Codigo-Free/ai-game-studio/releases) — ⚠️ on Wayland, prefer the `.deb`/`.rpm` installer over the AppImage, which can fail with an `EGL_BAD_ALLOC` error on some GPUs (confirmed AppImage-packaging-specific; see the [known issue](docs/guia-inicio.md#1-requisitos)).
 
 ## What works today (0.4.0)
 

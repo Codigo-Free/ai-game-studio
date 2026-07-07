@@ -14,6 +14,11 @@ Crea tu primer juego con AI Game Studio en unos minutos. Sin escribir código.
 
 > También puedes descargar instaladores del editor y binarios del CLI desde [GitHub Releases](https://github.com/Codigo-Free/ai-game-studio/releases).
 
+> ⚠️ **Problema conocido — AppImage del editor en Wayland**: en sesiones Wayland (sobre todo con GPU híbrida Intel+NVIDIA/Optimus), el AppImage puede fallar al arrancar con `Could not create surfaceless EGL display: EGL_BAD_ALLOC` (un bug del renderizador DMA-BUF de WebKitGTK, disparado por las librerías que el AppImage empaqueta por su cuenta). **Confirmado en Arch Linux + Wayland, causa raíz identificada:** el mismo binario, compilado y ejecutado *fuera* del AppImage (`.deb`/`.rpm`, o `npm run tauri dev`), abre y renderiza la UI sin problemas en la misma máquina — porque esas vías usan el `webkit2gtk` del sistema en vez de las librerías empaquetadas dentro del AppImage, que es donde está el conflicto. Si te pasa:
+> 1. **Recomendado:** usá el instalador `.deb`/`.rpm` en vez del AppImage — confirmado que no tiene este problema.
+> 2. Como alternativa siempre disponible, corré el editor desde la fuente con `npm run tauri dev` (ver paso 2 más abajo) — tampoco lo sufre.
+> 3. Si necesitás específicamente el AppImage, probá `WEBKIT_DISABLE_DMABUF_RENDERER=1 ./AI.Game.Studio_*.AppImage` — evita el *crash*, aunque en al menos un caso la ventana quedó en blanco (no es una solución completa).
+
 ## 2. Instalar y arrancar
 
 ```bash

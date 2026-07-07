@@ -26,6 +26,9 @@ El chat del editor pasa de responder preguntas a proponer y aplicar cambios real
 - Los cuatro hitos verificados de punta a punta contra un Ollama real (`qwen2.5-coder:7b`), incluido un caso de estudio de generación de un mini-juego de dos escenas.
 - Recorrido de clics en la UI real no verificado (sin automatización de pantalla en este entorno de desarrollo); proveedor Claude implementado pero no verificado en vivo (necesita una API key propia).
 
+### Limitaciones conocidas
+- **AppImage del editor en Wayland**: puede fallar al arrancar con `Could not create surfaceless EGL display: EGL_BAD_ALLOC` (WebKitGTK, renderizador DMA-BUF), sobre todo en equipos con GPU híbrida (Intel + NVIDIA/Optimus). Confirmado en Arch Linux + Wayland. **Causa confirmada:** el AppImage empaqueta sus propias copias de librerías (vía `linuxdeploy`), que entran en conflicto con la pila WebKitGTK/Mesa del sistema — el binario de por sí (compilado con `npm run tauri build` y verificado ejecutándolo directo, fuera del AppImage) arranca y renderiza la UI sin problemas en la misma máquina, con la misma GPU y la misma sesión Wayland, usando el `webkit2gtk` del sistema. **Los instaladores `.deb`/`.rpm` no sufren este problema** (confirmado: no empaquetan `webkit2gtk`, dependen del paquete del sistema igual que `npm run tauri dev`) — son la alternativa recomendada en Wayland mientras no se resuelva el empaquetado del AppImage. Workaround si de todos modos hace falta usar el AppImage: variable de entorno `WEBKIT_DISABLE_DMABUF_RENDERER=1` antes de ejecutarlo (evita el *crash*, aunque en al menos un caso real la ventana quedó en blanco — no es una solución completa). Ver `docs/guia-inicio.md`.
+
 ## [0.3.0] — 2026-07-06 · Multiplataforma (Fase 3, parcial)
 
 Un mismo proyecto `.aigs`, sin cambios, corre en Desktop, en el navegador y en Android. iOS queda diferido (necesita macOS + Xcode, no disponibles en este ciclo de desarrollo).
