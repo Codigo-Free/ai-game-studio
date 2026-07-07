@@ -10,7 +10,7 @@
 
 use std::collections::HashSet;
 
-use aigs_project::{Components, EntityNode};
+use aigs_project::{Components, EntityNode, Gravity, Music};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -275,10 +275,24 @@ pub struct ScriptToWrite {
     pub content: String,
 }
 
+/// Scene-level fields a proposal may patch, as opposed to per-entity
+/// components (milestone M20 — `gravity`/`music` live on `Scene`, not on
+/// any entity, so they need their own patch shape).
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ScenePatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gravity: Option<Gravity>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub music: Option<Music>,
+}
+
 /// A concrete, reviewable change to the currently open scene (milestone
-/// M19). Applying it is the frontend's job (it owns the document/undo
-/// stack); this struct is just the validated, parsed shape of what the
-/// model proposed.
+/// M19; `scene_patch` added in M20). Applying it is the frontend's job (it
+/// owns the document/undo stack); this struct is just the validated,
+/// parsed shape of what the model proposed. `scene_patch` always
+/// serializes (even when empty) so the frontend can treat it as always
+/// present, the same way the list fields are always `[]` rather than
+/// absent.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChangeProposal {
     pub summary: String,
@@ -290,17 +304,25 @@ pub struct ChangeProposal {
     pub entities_to_remove: Vec<String>,
     #[serde(default)]
     pub scripts: Vec<ScriptToWrite>,
+    #[serde(default)]
+    pub scene_patch: ScenePatch,
 }
 
-/// Builds the system prompt for the "propose a change" mode: the JSON
-/// schema the model must answer with, the assets/entity ids already in
-/// play (so it doesn't invent or collide with them), the scripting API
-/// manifest as the contract for any script it writes, and the project
-/// context itself (built by the frontend, same as M18's read-only chat).
-pub fn build_propose_system_prompt(
+/// Shared core of every "propose a JSON change" prompt (M19's single
+/// unrestricted Programmer and M20's scoped specialists alike): the JSON
+/// schema, the assets/entity/animation ids already in play (so the model
+/// doesn't invent or collide with them), and the project context itself
+/// (built by the frontend, same as M18's read-only chat). `role_preamble`
+/// carries whatever's specific to who's asking; `include_scripting_api`
+/// skips the (sizeable) scripting manifest for agents that never write
+/// scripts, saving them prompt space and latency.
+fn build_json_proposal_prompt(
+    role_preamble: &str,
     context: &str,
     known_assets: &[AssetRef],
     known_entity_ids: &[String],
+    known_animation_names: &[String],
+    include_scripting_api: bool,
 ) -> String {
     let assets_list = if known_assets.is_empty() {
         "(none yet)".to_string()
@@ -316,34 +338,104 @@ pub fn build_propose_system_prompt(
     } else {
         known_entity_ids.join(", ")
     };
+    let animations_list = if known_animation_names.is_empty() {
+        "(none yet)".to_string()
+    } else {
+        known_animation_names.join(", ")
+    };
+    let scripting_section = if include_scripting_api {
+        format!(
+            "To give an entity a script, define it in \"scripts\" with a fresh \"asset_id\" \
+             (not in the asset list above) and reference that same id from a \
+             \"script\": {{ \"asset\": ... }} component. Script content must be valid rhai \
+             using only the API below (functions not listed here do not exist):\n\n{SCRIPTING_API_MANIFEST}\n\n"
+        )
+    } else {
+        String::new()
+    };
     format!(
-        "You are the \"Programmer\" agent embedded in AI Game Studio's editor. \
-         Given the project state below and an instruction, respond with ONLY a \
-         single JSON object — no markdown code fences, no commentary before or \
+        "{role_preamble} Given the project state below and an instruction, respond with \
+         ONLY a single JSON object — no markdown code fences, no commentary before or \
          after it — describing a proposed change to the CURRENTLY OPEN SCENE. \
          A human will review your proposal and confirm it before anything is \
          written to disk, so prefer a working, conservative change over a \
          speculative one.\n\n\
-         JSON schema (all list fields optional, default to an empty list):\n\
+         JSON schema (all list fields optional, default to an empty list/object):\n\
          {{\n\
          \x20 \"summary\": \"one-line, human-readable description of the change\",\n\
          \x20 \"entities_to_add\": [ {{ \"parent_id\": string|null, \"entity\": {{ \"id\": string, \"name\": string, \"components\": {{ ... }} }} }} ],\n\
          \x20 \"entities_to_update\": [ {{ \"id\": string, \"components_patch\": {{ ... }} }} ],\n\
          \x20 \"entities_to_remove\": [ string ],\n\
-         \x20 \"scripts\": [ {{ \"asset_id\": string, \"filename\": string (must end in \\\".rhai\\\"), \"content\": string }} ]\n\
+         \x20 \"scripts\": [ {{ \"asset_id\": string, \"filename\": string (must end in \\\".rhai\\\"), \"content\": string }} ],\n\
+         \x20 \"scene_patch\": {{ \"gravity\": {{x,y}}, \"music\": {{asset,volume,looped}} }}\n\
          }}\n\n\
-         Component shapes you may use inside \"components\"/\"components_patch\" (all fields optional): \
+         Component shapes you may use inside \"components\"/\"components_patch\" (all fields optional \
+         unless noted; exact string values matter, there is no synonym matching): \
          transform2d {{x,y,rotation,scale_x,scale_y}}, sprite {{asset,frame,width,height,opacity,layer}}, \
-         rigidbody2d {{body,gravity_scale,vx,vy,fixed_rotation}}, collider2d {{shape,width,height,radius,sensor,restitution,friction}}, \
-         script {{asset}}, behaviors [ {{on, do}} ].\n\n\
+         rigidbody2d {{body: \"dynamic\"|\"kinematic\"|\"static\",gravity_scale,vx,vy,fixed_rotation}}, \
+         collider2d {{shape: \"box\"|\"circle\" (NOT \"rectangle\"/\"square\"/\"sphere\"),width,height,radius,sensor,restitution,friction}}, \
+         animator {{initial,states,transitions}}, script {{asset}}, behaviors [ {{on, do}} ].\n\n\
          Entity ids already in the current scene (do not reuse these for new entities; \
          \"entities_to_update\"/\"entities_to_remove\" must reference one of these): {entity_ids_list}\n\n\
          Existing project assets you may reference by id from \"sprite\"/\"particles\": {assets_list}\n\n\
-         To give an entity a script, define it in \"scripts\" with a fresh \"asset_id\" (not in the \
-         list above) and reference that same id from a \"script\": {{ \"asset\": ... }} component. \
-         Script content must be valid rhai using only the API below (functions not listed here do not exist):\n\n\
-         {SCRIPTING_API_MANIFEST}\n\n\
+         Existing scene animations you may reference by name from an \"animator\" component \
+         (do not invent new ones — authoring keyframes is a separate, manual step): {animations_list}\n\n\
+         {scripting_section}\
          Current project/scene state:\n{context}"
+    )
+}
+
+/// Builds the system prompt for M19's "propose a change" mode: a single,
+/// unrestricted "Programmer" agent with full access to entity structure,
+/// components, behaviors and scripts (no per-agent scope — see M20's
+/// `agents::build_scoped_agent_prompt` for the restricted version used by
+/// orchestration specialists).
+pub fn build_propose_system_prompt(
+    context: &str,
+    known_assets: &[AssetRef],
+    known_entity_ids: &[String],
+    known_animation_names: &[String],
+) -> String {
+    build_json_proposal_prompt(
+        "You are the \"Programmer\" agent embedded in AI Game Studio's editor.",
+        context,
+        known_assets,
+        known_entity_ids,
+        known_animation_names,
+        true,
+    )
+}
+
+/// Builds the system prompt for one scoped specialist within an M20
+/// orchestration plan: same JSON schema as M19, but told (and, separately,
+/// enforced by `parse_and_validate_proposal`'s `scope`) which components it
+/// may set. The scripting manifest is only included for the Programmer —
+/// every other specialist never writes a script, so it would just be
+/// unused prompt weight.
+pub(crate) fn build_scoped_agent_prompt(
+    agent: AgentKind,
+    context: &str,
+    known_assets: &[AssetRef],
+    known_entity_ids: &[String],
+    known_animation_names: &[String],
+) -> String {
+    let preamble = format!(
+        "You are the \"{label}\" specialist in a team of agents working on a game project \
+         in AI Game Studio, coordinated by an Architect that already broke a larger \
+         instruction into steps — the instruction below is YOUR step. You may ONLY set \
+         these components on entities you add or update, and only these scene-level \
+         fields in \"scene_patch\": {keys:?}. Anything else is another specialist's job; \
+         leave it out of your proposal.",
+        label = agent.label(),
+        keys = agent.allowed_component_keys(),
+    );
+    build_json_proposal_prompt(
+        &preamble,
+        context,
+        known_assets,
+        known_entity_ids,
+        known_animation_names,
+        agent == AgentKind::Programmer,
     )
 }
 
@@ -383,6 +475,121 @@ fn extract_json_object(raw: &str) -> Result<&str, String> {
     Err("unterminated JSON object in the model's response".to_string())
 }
 
+/// A specialist's area of responsibility within a `ChangeProposal` — which
+/// component keys (and scene-level fields) it may set. The system prompt
+/// already tells each specialist what it owns, but a model can ignore
+/// that, so this is enforced server-side too (milestone M20).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AgentKind {
+    Architect,
+    LevelDesigner,
+    Programmer,
+    Physics,
+    Audio,
+    Animator,
+}
+
+impl AgentKind {
+    pub fn label(&self) -> &'static str {
+        match self {
+            AgentKind::Architect => "Architect",
+            AgentKind::LevelDesigner => "Level Designer",
+            AgentKind::Programmer => "Programmer",
+            AgentKind::Physics => "Physics",
+            AgentKind::Audio => "Audio",
+            AgentKind::Animator => "Animator",
+        }
+    }
+
+    /// Component keys this agent may set on an entity it adds or updates.
+    pub fn allowed_component_keys(&self) -> &'static [&'static str] {
+        match self {
+            AgentKind::Architect => &["transform2d", "sprite"],
+            AgentKind::LevelDesigner => &["transform2d", "sprite", "collider2d"],
+            AgentKind::Programmer => &["script", "behaviors"],
+            AgentKind::Physics => &["rigidbody2d", "collider2d"],
+            AgentKind::Audio => &["behaviors"],
+            AgentKind::Animator => &["animator"],
+        }
+    }
+
+    fn may_set_gravity(&self) -> bool {
+        matches!(self, AgentKind::Physics)
+    }
+
+    fn may_set_music(&self) -> bool {
+        matches!(self, AgentKind::Audio)
+    }
+}
+
+fn used_component_keys(components: &Components) -> Vec<&'static str> {
+    let mut used = Vec::new();
+    if components.transform2d.is_some() {
+        used.push("transform2d");
+    }
+    if components.sprite.is_some() {
+        used.push("sprite");
+    }
+    if components.camera2d.is_some() {
+        used.push("camera2d");
+    }
+    if components.rigidbody2d.is_some() {
+        used.push("rigidbody2d");
+    }
+    if components.collider2d.is_some() {
+        used.push("collider2d");
+    }
+    if components.animator.is_some() {
+        used.push("animator");
+    }
+    if components.particles.is_some() {
+        used.push("particles");
+    }
+    if components.script.is_some() {
+        used.push("script");
+    }
+    if components.virtual_button.is_some() {
+        used.push("virtual_button");
+    }
+    if !components.behaviors.is_empty() {
+        used.push("behaviors");
+    }
+    if !components.extra.is_empty() {
+        used.push("extra (plugin components)");
+    }
+    used
+}
+
+fn check_components_scope(components: &Components, agent: AgentKind) -> Result<(), String> {
+    let allowed = agent.allowed_component_keys();
+    for key in used_component_keys(components) {
+        if !allowed.contains(&key) {
+            return Err(format!(
+                "the \"{}\" agent isn't allowed to set component \"{key}\" (allowed: {allowed:?})",
+                agent.label()
+            ));
+        }
+    }
+    Ok(())
+}
+
+fn check_scene_patch_scope(patch: &ScenePatch, agent: AgentKind) -> Result<(), String> {
+    if patch.gravity.is_some() && !agent.may_set_gravity() {
+        return Err(format!(
+            "the \"{}\" agent isn't allowed to set scene gravity",
+            agent.label()
+        ));
+    }
+    if patch.music.is_some() && !agent.may_set_music() {
+        return Err(format!(
+            "the \"{}\" agent isn't allowed to set scene music",
+            agent.label()
+        ));
+    }
+    Ok(())
+}
+
 fn check_components_asset_refs(
     components: &Components,
     available: &HashSet<String>,
@@ -405,6 +612,27 @@ fn check_components_asset_refs(
     Ok(())
 }
 
+fn check_components_animator_refs(
+    components: &Components,
+    known_animations: &HashSet<String>,
+) -> Result<(), String> {
+    let Some(animator) = &components.animator else {
+        return Ok(());
+    };
+    if !known_animations.contains(&animator.initial) {
+        return Err(format!(
+            "animator references unknown animation \"{}\"",
+            animator.initial
+        ));
+    }
+    for name in animator.states.values() {
+        if !known_animations.contains(name) {
+            return Err(format!("animator references unknown animation \"{name}\""));
+        }
+    }
+    Ok(())
+}
+
 fn check_entity_asset_refs(entity: &EntityNode, available: &HashSet<String>) -> Result<(), String> {
     check_components_asset_refs(&entity.components, available)
         .map_err(|e| format!("entity \"{}\" {e}", entity.id))?;
@@ -414,7 +642,28 @@ fn check_entity_asset_refs(entity: &EntityNode, available: &HashSet<String>) -> 
     Ok(())
 }
 
-fn collect_entity_ids(entity: &EntityNode, into: &mut Vec<String>) {
+fn check_entity_animator_refs(
+    entity: &EntityNode,
+    known_animations: &HashSet<String>,
+) -> Result<(), String> {
+    check_components_animator_refs(&entity.components, known_animations)
+        .map_err(|e| format!("entity \"{}\" {e}", entity.id))?;
+    for child in &entity.children {
+        check_entity_animator_refs(child, known_animations)?;
+    }
+    Ok(())
+}
+
+fn check_entity_scope(entity: &EntityNode, agent: AgentKind) -> Result<(), String> {
+    check_components_scope(&entity.components, agent)
+        .map_err(|e| format!("entity \"{}\" {e}", entity.id))?;
+    for child in &entity.children {
+        check_entity_scope(child, agent)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn collect_entity_ids(entity: &EntityNode, into: &mut Vec<String>) {
     into.push(entity.id.clone());
     for child in &entity.children {
         collect_entity_ids(child, into);
@@ -422,20 +671,28 @@ fn collect_entity_ids(entity: &EntityNode, into: &mut Vec<String>) {
 }
 
 /// Parses the model's raw text response into a `ChangeProposal` and rejects
-/// it (with a message fit to show the user) unless every asset reference
-/// resolves, every updated/removed id already exists, no new id collides
-/// with an existing one, and every generated script actually compiles.
-/// "All or nothing": a proposal either fully checks out and can be shown for
-/// confirmation, or it doesn't get shown at all — no partial/best-effort
-/// application.
+/// it (with a message fit to show the user) unless every asset/animation
+/// reference resolves, every updated/removed id already exists, no new id
+/// collides with an existing one, every generated script actually compiles,
+/// and — when `scope` is given (milestone M20's per-agent write scope) —
+/// every component/scene field it touches is one that agent is allowed to
+/// set. "All or nothing": a proposal either fully checks out and can be
+/// shown for confirmation, or it doesn't get shown at all — no
+/// partial/best-effort application.
 pub fn parse_and_validate_proposal(
     raw: &str,
     known_asset_ids: &[String],
     known_entity_ids: &[String],
+    known_animation_names: &[String],
+    scope: Option<AgentKind>,
 ) -> Result<ChangeProposal, String> {
     let json = extract_json_object(raw)?;
     let proposal: ChangeProposal = serde_json::from_str(json)
         .map_err(|e| format!("the model's response wasn't a valid change proposal: {e}"))?;
+
+    if let Some(agent) = scope {
+        check_scene_patch_scope(&proposal.scene_patch, agent)?;
+    }
 
     let mut available: HashSet<String> = known_asset_ids.iter().cloned().collect();
     for script in &proposal.scripts {
@@ -464,6 +721,7 @@ pub fn parse_and_validate_proposal(
         available.insert(script.asset_id.clone());
     }
 
+    let known_animations: HashSet<String> = known_animation_names.iter().cloned().collect();
     let existing_entities: HashSet<String> = known_entity_ids.iter().cloned().collect();
     let mut new_ids: HashSet<String> = HashSet::new();
     for add in &proposal.entities_to_add {
@@ -482,12 +740,20 @@ pub fn parse_and_validate_proposal(
             }
         }
         check_entity_asset_refs(&add.entity, &available)?;
+        check_entity_animator_refs(&add.entity, &known_animations)?;
+        if let Some(agent) = scope {
+            check_entity_scope(&add.entity, agent)?;
+        }
     }
     for update in &proposal.entities_to_update {
         if !existing_entities.contains(&update.id) {
             return Err(format!("wants to update unknown entity \"{}\"", update.id));
         }
         check_components_asset_refs(&update.components_patch, &available)?;
+        check_components_animator_refs(&update.components_patch, &known_animations)?;
+        if let Some(agent) = scope {
+            check_components_scope(&update.components_patch, agent)?;
+        }
     }
     for id in &proposal.entities_to_remove {
         if !existing_entities.contains(id) {
@@ -561,7 +827,7 @@ mod tests {
         }];
         let known_entity_ids = vec!["hero".to_string()];
         let context = r#"{"project":{"name":"Test"},"current_scene":{"name":"main","entities":[{"id":"hero","name":"Hero","components":{"transform2d":{"x":0,"y":0},"sprite":{"asset":"hero"}}}]}}"#;
-        let system = build_propose_system_prompt(context, &known_assets, &known_entity_ids);
+        let system = build_propose_system_prompt(context, &known_assets, &known_entity_ids, &[]);
         let messages = [
             ChatMessage {
                 role: "system".to_string(),
@@ -575,8 +841,9 @@ mod tests {
         let raw = provider.chat(&messages, true).await.unwrap();
         eprintln!("raw model response:\n{raw}");
         let known_asset_ids: Vec<String> = known_assets.into_iter().map(|a| a.id).collect();
-        let proposal = parse_and_validate_proposal(&raw, &known_asset_ids, &known_entity_ids)
-            .expect("model's proposal should pass validation");
+        let proposal =
+            parse_and_validate_proposal(&raw, &known_asset_ids, &known_entity_ids, &[], None)
+                .expect("model's proposal should pass validation");
         assert_eq!(proposal.entities_to_add.len(), 1);
         eprintln!("parsed proposal: {proposal:?}");
     }
@@ -631,7 +898,8 @@ mod tests {
         let raw = drone_proposal_json().to_string();
         let known_assets = vec!["drone".to_string()];
         let known_entities = vec!["player".to_string()];
-        let proposal = parse_and_validate_proposal(&raw, &known_assets, &known_entities).unwrap();
+        let proposal =
+            parse_and_validate_proposal(&raw, &known_assets, &known_entities, &[], None).unwrap();
         assert_eq!(proposal.entities_to_add.len(), 1);
         assert_eq!(proposal.scripts.len(), 1);
     }
@@ -642,7 +910,7 @@ mod tests {
         let raw =
             format!("Sure, here you go:\n```json\n{inner}\n```\nLet me know if you need changes!");
         let known_assets = vec!["drone".to_string()];
-        let proposal = parse_and_validate_proposal(&raw, &known_assets, &[]).unwrap();
+        let proposal = parse_and_validate_proposal(&raw, &known_assets, &[], &[], None).unwrap();
         assert_eq!(proposal.summary, "Adds a patrolling drone");
     }
 
@@ -650,7 +918,7 @@ mod tests {
     fn proposal_referencing_unknown_asset_is_rejected() {
         let raw = drone_proposal_json().to_string();
         // "drone" is deliberately absent from the known assets.
-        let error = parse_and_validate_proposal(&raw, &[], &[]).unwrap_err();
+        let error = parse_and_validate_proposal(&raw, &[], &[], &[], None).unwrap_err();
         assert!(error.contains("unknown asset"), "unexpected error: {error}");
     }
 
@@ -658,8 +926,9 @@ mod tests {
     fn proposal_with_broken_script_is_rejected() {
         let mut json = drone_proposal_json();
         json["scripts"][0]["content"] = serde_json::json!("fn on_start( { this is not rhai");
-        let error = parse_and_validate_proposal(&json.to_string(), &["drone".to_string()], &[])
-            .unwrap_err();
+        let error =
+            parse_and_validate_proposal(&json.to_string(), &["drone".to_string()], &[], &[], None)
+                .unwrap_err();
         assert!(
             error.contains("doesn't compile"),
             "unexpected error: {error}"
@@ -671,7 +940,8 @@ mod tests {
         let raw = drone_proposal_json().to_string();
         let known_entities = vec!["patrol-drone".to_string()];
         let error =
-            parse_and_validate_proposal(&raw, &["drone".to_string()], &known_entities).unwrap_err();
+            parse_and_validate_proposal(&raw, &["drone".to_string()], &known_entities, &[], None)
+                .unwrap_err();
         assert!(error.contains("collides"), "unexpected error: {error}");
     }
 
@@ -682,7 +952,7 @@ mod tests {
             "entities_to_update": [{ "id": "no-such-entity", "components_patch": { "transform2d": { "x": 1.0 } } }]
         })
         .to_string();
-        let error = parse_and_validate_proposal(&raw, &[], &[]).unwrap_err();
+        let error = parse_and_validate_proposal(&raw, &[], &[], &[], None).unwrap_err();
         assert!(
             error.contains("unknown entity"),
             "unexpected error: {error}"
@@ -693,8 +963,83 @@ mod tests {
     fn proposal_with_path_traversal_in_script_filename_is_rejected() {
         let mut json = drone_proposal_json();
         json["scripts"][0]["filename"] = serde_json::json!("../../etc/passwd.rhai");
-        let error = parse_and_validate_proposal(&json.to_string(), &["drone".to_string()], &[])
-            .unwrap_err();
+        let error =
+            parse_and_validate_proposal(&json.to_string(), &["drone".to_string()], &[], &[], None)
+                .unwrap_err();
         assert!(error.contains("plain"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn proposal_setting_a_component_outside_the_agents_scope_is_rejected() {
+        // The drone proposal sets transform2d/sprite/script, none of which
+        // the Physics agent (rigidbody2d/collider2d only) may touch.
+        let raw = drone_proposal_json().to_string();
+        let error = parse_and_validate_proposal(
+            &raw,
+            &["drone".to_string()],
+            &[],
+            &[],
+            Some(AgentKind::Physics),
+        )
+        .unwrap_err();
+        assert!(error.contains("Physics"), "unexpected error: {error}");
+        assert!(error.contains("isn't allowed"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn proposal_setting_a_component_within_the_agents_scope_is_accepted() {
+        // Architect owns transform2d/sprite, both present on "coin".
+        let coin = serde_json::json!({
+            "summary": "Adds a coin",
+            "entities_to_add": [{
+                "parent_id": null,
+                "entity": {
+                    "id": "coin",
+                    "name": "Coin",
+                    "components": { "transform2d": { "x": 50.0 }, "sprite": { "asset": "hero" } }
+                }
+            }]
+        })
+        .to_string();
+        let proposal = parse_and_validate_proposal(
+            &coin,
+            &["hero".to_string()],
+            &[],
+            &[],
+            Some(AgentKind::Architect),
+        )
+        .unwrap();
+        assert_eq!(proposal.entities_to_add.len(), 1);
+    }
+
+    #[test]
+    fn proposal_referencing_unknown_animation_is_rejected() {
+        let raw = serde_json::json!({
+            "summary": "Wire up idle/walk",
+            "entities_to_add": [{
+                "parent_id": null,
+                "entity": {
+                    "id": "robot",
+                    "name": "Robot",
+                    "components": { "animator": { "initial": "idle", "states": { "idle": "idle", "walk": "no-such-anim" } } }
+                }
+            }]
+        })
+        .to_string();
+        let error =
+            parse_and_validate_proposal(&raw, &[], &[], &["idle".to_string()], None).unwrap_err();
+        assert!(error.contains("no-such-anim"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn proposal_setting_scene_gravity_from_a_non_physics_agent_is_rejected() {
+        let raw = serde_json::json!({
+            "summary": "Change gravity",
+            "scene_patch": { "gravity": { "x": 0.0, "y": -500.0 } }
+        })
+        .to_string();
+        let error =
+            parse_and_validate_proposal(&raw, &[], &[], &[], Some(AgentKind::Audio)).unwrap_err();
+        assert!(error.contains("gravity"), "unexpected error: {error}");
     }
 }

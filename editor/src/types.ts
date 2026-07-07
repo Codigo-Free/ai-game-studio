@@ -195,6 +195,13 @@ export interface ScriptToWrite {
   content: string;
 }
 
+/** Scene-level fields a proposal may patch (milestone M20 — `gravity`/
+ * `music` live on the scene itself, not on any entity). */
+export interface ScenePatch {
+  gravity?: { x: number; y: number };
+  music?: { asset: string; volume: number; looped: boolean };
+}
+
 /** A concrete, reviewable change to the current scene proposed by the AI —
  * validated by the backend against the real format types before it ever
  * reaches this side (see `editor/src-tauri/src/ai.rs`). */
@@ -204,4 +211,5 @@ export interface ChangeProposal {
   entities_to_update: EntityToUpdate[];
   entities_to_remove: string[];
   scripts: ScriptToWrite[];
+  scene_patch: ScenePatch;
 }

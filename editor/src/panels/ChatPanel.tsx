@@ -7,7 +7,7 @@ import {
   patchComponents,
   removeEntity,
 } from "../document";
-import { askAi, proposeChange, writeScriptAsset } from "../ipc";
+import { askAi, orchestrateChange, proposeChange, writeScriptAsset } from "../ipc";
 import { useStore } from "../store";
 import type { Asset, ChangeProposal, Project, Scene } from "../types";
 
@@ -17,7 +17,7 @@ import type { Asset, ChangeProposal, Project, Scene } from "../types";
 // yet, see docs/plan.md).
 const MAX_CONTEXT_CHARS = 12000;
 
-type ChatMode = "ask" | "propose";
+type ChatMode = "ask" | "propose" | "orchestrate";
 
 type ChatEntry =
   | { role: "user" | "assistant" | "error"; text: string }
@@ -83,12 +83,24 @@ export function ChatPanel() {
           kind: a.kind,
         }));
         const knownEntityIds = allEntityIds(currentScene?.entities ?? []);
-        const proposal = await proposeChange(
-          context,
-          trimmed,
-          knownAssets,
-          knownEntityIds,
+        const knownAnimationNames = (currentScene?.animations ?? []).map(
+          (a) => a.name,
         );
+        const proposal = await (mode === "orchestrate"
+          ? orchestrateChange(
+              context,
+              trimmed,
+              knownAssets,
+              knownEntityIds,
+              knownAnimationNames,
+            )
+          : proposeChange(
+              context,
+              trimmed,
+              knownAssets,
+              knownEntityIds,
+              knownAnimationNames,
+            ));
         setHistory((h) => [...h, { role: "proposal", proposal, status: "pending" }]);
       }
     } catch (error) {
@@ -140,7 +152,12 @@ export function ChatPanel() {
         entities = removeEntity(entities, id);
       }
 
-      const newScene: Scene = { ...currentScene, entities };
+      const newScene: Scene = {
+        ...currentScene,
+        entities,
+        gravity: proposal.scene_patch.gravity ?? currentScene.gravity,
+        music: proposal.scene_patch.music ?? currentScene.music,
+      };
       const newProject: Project = {
         ...state.loaded.project,
         assets: [...state.loaded.project.assets, ...newScriptAssets],
@@ -195,6 +212,12 @@ export function ChatPanel() {
           >
             Proponer cambios
           </button>
+          <button
+            className={mode === "orchestrate" ? "active" : ""}
+            onClick={() => setMode("orchestrate")}
+          >
+            Orquestar agentes
+          </button>
         </div>
         <button
           className="panel-header-action"
@@ -207,9 +230,12 @@ export function ChatPanel() {
       <div className="panel-body chat-body" ref={bodyRef}>
         {history.length === 0 && (
           <p className="chat-hint">
-            {mode === "ask"
-              ? 'Pregunta algo sobre el proyecto abierto, por ejemplo "¿qué comportamientos tiene la entidad robot?".'
-              : 'Describe un cambio y revísalo antes de aplicarlo, por ejemplo "añade un enemigo que patrulle entre estos dos puntos".'}
+            {mode === "ask" &&
+              'Pregunta algo sobre el proyecto abierto, por ejemplo "¿qué comportamientos tiene la entidad robot?".'}
+            {mode === "propose" &&
+              'Describe un cambio y revísalo antes de aplicarlo, por ejemplo "añade un enemigo que patrulle entre estos dos puntos".'}
+            {mode === "orchestrate" &&
+              'Describe algo de más alcance: un Arquitecto lo repartirá entre especialistas (estructura, física, audio…), por ejemplo "crea una plataforma con colisión y ponle música de fondo".'}
           </p>
         )}
         {history.map((entry, index) => {
@@ -235,6 +261,17 @@ export function ChatPanel() {
                       📜 Script nuevo "{script.filename}"
                     </li>
                   ))}
+                  {proposal.scene_patch.gravity && (
+                    <li key="scene-gravity">
+                      ~ Gravedad de la escena → ({proposal.scene_patch.gravity.x},{" "}
+                      {proposal.scene_patch.gravity.y})
+                    </li>
+                  )}
+                  {proposal.scene_patch.music && (
+                    <li key="scene-music">
+                      🎵 Música de la escena → "{proposal.scene_patch.music.asset}"
+                    </li>
+                  )}
                 </ul>
                 {status === "pending" ? (
                   <div className="proposal-actions">
@@ -281,12 +318,14 @@ export function ChatPanel() {
           placeholder={
             mode === "ask"
               ? "Pregunta sobre el proyecto…"
-              : "Describe el cambio que quieres…"
+              : mode === "propose"
+                ? "Describe el cambio que quieres…"
+                : "Describe el objetivo de alto nivel…"
           }
           disabled={!state.loaded || asking}
         />
         <button type="submit" disabled={!state.loaded || asking}>
-          {mode === "ask" ? "Enviar" : "Proponer"}
+          {mode === "ask" ? "Enviar" : mode === "propose" ? "Proponer" : "Orquestar"}
         </button>
       </form>
     </div>

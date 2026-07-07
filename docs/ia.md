@@ -33,18 +33,18 @@ La IA crea el proyecto, genera el personaje, diseña el escenario, construye ene
 
 ## Agentes especializados
 
-Sobre el AI Core se construirán agentes que colaboran compartiendo el contexto completo del proyecto:
+Sobre el AI Core se construyen agentes que colaboran compartiendo el contexto completo del proyecto:
 
-| Agente | Rol |
-|---|---|
-| Arquitecto | Estructura del proyecto, escenas y componentes. |
-| Diseñador UI | Interfaces y menús del juego. |
-| Programador | Comportamientos y lógica. |
-| Animador | Timelines, keyframes y transiciones. |
-| Diseñador de niveles | Composición de escenarios. |
-| Especialista en física | Colisiones y dinámicas. |
-| Especialista en audio | Música y efectos de sonido. |
-| Especialista en optimización | Rendimiento y tamaño. |
+| Agente | Rol | Estado |
+|---|---|---|
+| Arquitecto | Estructura del proyecto, escenas y componentes; coordina al resto. | 🟢 M20 |
+| Diseñador de niveles | Composición de escenarios (entidades + colisión). | 🟢 M20 |
+| Programador | Comportamientos, behaviors y scripts. | 🟢 M19/M20 |
+| Especialista en física | Cuerpos, colisionadores y gravedad de la escena. | 🟢 M20 |
+| Especialista en audio | Música de la escena y efectos de sonido. | 🟢 M20 |
+| Animador | Conecta animaciones **ya existentes** vía el componente `animator`. | 🟡 M20 (sin autoría de keyframes — eso sigue siendo del Timeline, manual) |
+| Diseñador UI | Interfaces y menús del juego. | ⚪ Sin implementar |
+| Especialista en optimización | Rendimiento y tamaño. | 🟤 Diferido — no hay datos de perfilado (tamaño de assets, FPS reales) que lleguen al modelo todavía |
 
 ---
 
@@ -75,6 +75,17 @@ El Chat gana un segundo modo, **"Proponer cambios"**, elegido explícitamente po
 - **El manifiesto de la API de scripting** (`scripting-api.json`, M12) se incluye en el prompt como contrato de funciones válidas, tal como preveía el plan.
 - **Aplicar es un cambio más del historial de undo/redo del editor** (ya existente desde M3): deshacer una propuesta de la IA es `Ctrl+Z`, sin mecanismo especial.
 - **Verificado de punta a punta con Ollama real** (`qwen2.5-coder:7b`): un pedido en lenguaje natural ("añade una moneda en esta posición usando este sprite") produjo una propuesta válida que pasó la validación sin cambios.
+
+### Orquestación multi-agente (M20)
+
+El Chat gana un tercer modo, **"Orquestar agentes"**: una instrucción de alto nivel se reparte automáticamente entre varios especialistas sin que el usuario tenga que invocarlos uno a uno.
+
+- **Planificación en dos fases, determinista** (no un agente conversacional con bucle de herramientas): el **Arquitecto** responde un plan (`{"summary", "steps": [{"agent", "instruction"}]}`, máximo 8 pasos) con el mismo mecanismo de JSON validado de M19; cada paso se ejecuta **en secuencia** contra el *prompt* de su especialista.
+- **Alcance de escritura por lista blanca de componentes**, comprobado en Rust (no solo pedido en el *prompt*): cada agente solo puede tocar los componentes que le corresponden — Arquitecto (`transform2d`/`sprite`), Diseñador de niveles (+ `collider2d`), Programador (`script`/`behaviors`), Física (`rigidbody2d`/`collider2d`/gravedad de escena), Audio (`behaviors`/música de escena), Animador (`animator`, solo animaciones ya existentes).
+- **Un paso puede referenciar lo que creó el paso anterior**: los ids/assets/animaciones de cada paso se acumulan para el siguiente, dentro del mismo plan.
+- **Todo o nada**: si cualquier paso falla la validación, se rechaza la orquestación completa, señalando qué paso y qué agente falló — nunca una aplicación parcial.
+- **El resultado se fusiona en el mismo `ChangeProposal` de M19**: la tarjeta de propuesta y el aplicar/deshacer del editor no cambiaron nada para soportar esto.
+- **Verificado de punta a punta con Ollama real** (`qwen2.5-coder:7b`, planificación + 2 pasos): una primera ejecución real expuso la validación funcionando exactamente como se diseñó — el paso de Diseñador de niveles propuso `"shape": "rectangle"` (valor que el formato no admite, solo `"box"`/`"circle"`) y la orquestación completa se rechazó con un mensaje señalando el paso y el motivo; se ajustó el *prompt* para deletrear los valores exactos de esos enums, y una segunda ejecución confirmó un plan de dos pasos (Arquitecto coloca la plataforma, Diseñador de niveles le añade un colisionador de caja) generado, validado y fusionado correctamente.
 
 ---
 

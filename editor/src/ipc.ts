@@ -58,21 +58,44 @@ export function askAi(context: string, question: string): Promise<string> {
 }
 
 /** Asks the AI Core to propose a change to the current scene (milestone
- * M19). `knownAssets`/`knownEntityIds` let the backend reject a proposal
- * that references something that doesn't exist, before it's ever shown to
- * the user. Rejects (does not resolve to a partial proposal) if the
- * model's answer fails validation. */
+ * M19). `knownAssets`/`knownEntityIds`/`knownAnimationNames` let the
+ * backend reject a proposal that references something that doesn't exist,
+ * before it's ever shown to the user. Rejects (does not resolve to a
+ * partial proposal) if the model's answer fails validation. */
 export function proposeChange(
   context: string,
   instruction: string,
   knownAssets: { id: string; kind: string }[],
   knownEntityIds: string[],
+  knownAnimationNames: string[],
 ): Promise<ChangeProposal> {
   return invoke("ai_propose_change", {
     context,
     instruction,
     knownAssets,
     knownEntityIds,
+    knownAnimationNames,
+  });
+}
+
+/** Asks the AI Core to fulfill a high-level instruction by coordinating
+ * several specialized agents (milestone M20: an Architect plans steps,
+ * each step runs through its own scoped specialist). Returns the same
+ * `ChangeProposal` shape as `proposeChange`, so callers can reuse the same
+ * review/apply UI for both. */
+export function orchestrateChange(
+  context: string,
+  instruction: string,
+  knownAssets: { id: string; kind: string }[],
+  knownEntityIds: string[],
+  knownAnimationNames: string[],
+): Promise<ChangeProposal> {
+  return invoke("ai_orchestrate", {
+    context,
+    instruction,
+    knownAssets,
+    knownEntityIds,
+    knownAnimationNames,
   });
 }
 
