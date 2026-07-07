@@ -12,12 +12,12 @@ Crea tu primer juego con AI Game Studio en unos minutos. Sin escribir código.
 | Node.js | 20+ | frontend del editor |
 | Linux | `webkit2gtk-4.1` | `sudo pacman -S webkit2gtk-4.1` (Arch) / `sudo apt install libwebkit2gtk-4.1-dev` (Debian/Ubuntu) |
 
-> También puedes descargar instaladores del editor y binarios del CLI desde [GitHub Releases](https://github.com/agilphp/ai-game-studio/releases).
+> También puedes descargar instaladores del editor y binarios del CLI desde [GitHub Releases](https://github.com/Codigo-Free/ai-game-studio/releases).
 
 ## 2. Instalar y arrancar
 
 ```bash
-git clone https://github.com/agilphp/ai-game-studio
+git clone https://github.com/Codigo-Free/ai-game-studio
 cd ai-game-studio
 
 # CLI (lo usa el botón ▶ Play del editor)

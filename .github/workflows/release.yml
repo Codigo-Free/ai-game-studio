@@ -46,7 +46,7 @@ jobs:
           projectPath: editor
           tagName: ${{ github.ref_name }}
           releaseName: "AI Game Studio ${{ github.ref_name }}"
-          releaseBody: "See [CHANGELOG.md](https://github.com/agilphp/ai-game-studio/blob/main/CHANGELOG.md) for details."
+          releaseBody: "See [CHANGELOG.md](https://github.com/Codigo-Free/ai-game-studio/blob/main/CHANGELOG.md) for details."
           releaseDraft: false
           prerelease: true
 

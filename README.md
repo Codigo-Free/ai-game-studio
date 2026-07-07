@@ -4,8 +4,8 @@
 
 > **Build Games at the Speed of Imagination.**
 
-[![CI](https://github.com/agilphp/ai-game-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/agilphp/ai-game-studio/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/agilphp/ai-game-studio?include_prereleases&label=release)](https://github.com/agilphp/ai-game-studio/releases)
+[![CI](https://github.com/Codigo-Free/ai-game-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/Codigo-Free/ai-game-studio/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Codigo-Free/ai-game-studio?include_prereleases&label=release)](https://github.com/Codigo-Free/ai-game-studio/releases)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 **AI Game Studio** is an **AI-First**, **open source** 2D game development platform that combines the productivity of Adobe Flash's visual paradigm (timeline, keyframes, direct editing) with modern architectures (Rust, ECS, WGPU) and integrates Artificial Intelligence as an active member of the development team.
@@ -19,13 +19,13 @@
 ## Get started in 3 minutes
 
 ```bash
-git clone https://github.com/agilphp/ai-game-studio && cd ai-game-studio
+git clone https://github.com/Codigo-Free/ai-game-studio && cd ai-game-studio
 cargo install --path cli
 aigs run examples/robot-rescue/game.aigs        # play the demo
 cd editor && npm install && npm run tauri dev   # open the editor
 ```
 
-Follow the **[quick start guide](docs/guia-inicio.md)** for a tour of the editor and your first game in 8 steps. Editor installers and CLI binaries are available in [Releases](https://github.com/agilphp/ai-game-studio/releases).
+Follow the **[quick start guide](docs/guia-inicio.md)** for a tour of the editor and your first game in 8 steps. Editor installers and CLI binaries are available in [Releases](https://github.com/Codigo-Free/ai-game-studio/releases).
 
 ## What works today (0.4.0)
 

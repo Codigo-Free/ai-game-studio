@@ -23,7 +23,7 @@ exclude = ["editor/src-tauri", "exporters/web-player", "exporters/android-player
 version = "0.4.0"
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/agilphp/ai-game-studio"
+repository = "https://github.com/Codigo-Free/ai-game-studio"
 authors = ["efrasoft and AI Game Studio contributors"]
 
 [workspace.dependencies]

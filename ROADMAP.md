@@ -4,7 +4,7 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 
 ---
 
-## Fase 1 — MVP 🟢 *completada* ([release 0.1.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.1.0))
+## Fase 1 — MVP 🟢 *completada* ([release 0.1.0](https://github.com/Codigo-Free/ai-game-studio/releases/tag/v0.1.0))
 
 **Objetivo:** crear un juego 2D jugable usando solo el editor, ejecutado por el runtime propio en modo Play. ✔ Demostrado con [Robot Rescue](examples/robot-rescue/).
 
@@ -18,7 +18,7 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M5 | Escenas múltiples y modo Play | 🟢 Completado (validado manualmente) |
 | M6 | Demo, calidad y release **0.1** | 🟢 Completado — v0.1.0 publicado con instaladores para 3 SO |
 
-## Fase 2 — Motor completo 🟢 *completada* ([release 0.2.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.2.0))
+## Fase 2 — Motor completo 🟢 *completada* ([release 0.2.0](https://github.com/Codigo-Free/ai-game-studio/releases/tag/v0.2.0))
 
 **Objetivo:** juegos distribuibles y con sensación de juego real. Detalle en [docs/plan.md](docs/plan.md).
 
@@ -32,7 +32,7 @@ Resumen ejecutivo de la evolución del proyecto. El detalle completo del MVP est
 | M12 | Scripting de usuario (rhai) | 🟢 Completado |
 | M13 | Persistencia de scripts + demo **Tamagotchi**, release **0.2** (reemplaza al platformer original) | 🟢 Completado (validado manualmente) |
 
-## Fase 3 — Multiplataforma 🟡 *cerrada sobre Desktop/Web/Android* ([release 0.3.0](https://github.com/agilphp/ai-game-studio/releases/tag/v0.3.0))
+## Fase 3 — Multiplataforma 🟡 *cerrada sobre Desktop/Web/Android* ([release 0.3.0](https://github.com/Codigo-Free/ai-game-studio/releases/tag/v0.3.0))
 
 **Objetivo:** el mismo proyecto `.aigs`, sin cambios, exportado a Web/Android/iOS además de Desktop. Detalle en [docs/plan.md](docs/plan.md). iOS (M16) queda diferido; el resto de la fase se da por cerrada con validación pendiente en dispositivos reales.
 
