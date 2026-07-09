@@ -463,15 +463,24 @@ pub(crate) fn build_scoped_agent_prompt(
     known_entity_ids: &[String],
     known_animation_names: &[String],
 ) -> String {
+    let scene_patch_fields = agent.allowed_scene_patch_fields();
+    let scene_patch_rule = if scene_patch_fields.is_empty() {
+        "You may NOT set \"scene_patch\" at all — omit it entirely.".to_string()
+    } else {
+        format!(
+            "You may ONLY set these fields in \"scene_patch\": {scene_patch_fields:?} — omit any \
+             other scene_patch field entirely."
+        )
+    };
     let preamble = format!(
         "You are the \"{label}\" specialist in a team of agents working on a game project \
          in AI Game Studio, coordinated by an Architect that already broke a larger \
-         instruction into steps — the instruction below is YOUR step. You may ONLY set \
-         these components on entities you add or update, and only these scene-level \
-         fields in \"scene_patch\": {keys:?}. Anything else is another specialist's job; \
-         leave it out of your proposal.",
+         instruction into steps — the instruction below is YOUR step. You may ONLY set these \
+         components on entities you add or update: {component_keys:?}. {scene_patch_rule} \
+         Anything else (any other component, any other scene_patch field) is another \
+         specialist's job; leave it out of your proposal.",
         label = agent.label(),
-        keys = agent.allowed_component_keys(),
+        component_keys = agent.allowed_component_keys(),
     );
     build_json_proposal_prompt(
         &preamble,
@@ -564,6 +573,18 @@ impl AgentKind {
 
     fn may_set_music(&self) -> bool {
         matches!(self, AgentKind::Audio)
+    }
+
+    /// `scene_patch` field names this agent may set — a completely
+    /// different vocabulary from `allowed_component_keys()` (component
+    /// names like "sprite" aren't scene_patch fields at all), so it needs
+    /// its own list rather than reusing that one in the prompt.
+    pub fn allowed_scene_patch_fields(&self) -> &'static [&'static str] {
+        match self {
+            AgentKind::Physics => &["gravity"],
+            AgentKind::Audio => &["music"],
+            _ => &[],
+        }
     }
 }
 
@@ -1205,5 +1226,32 @@ mod tests {
         let error =
             parse_and_validate_proposal(&raw, &[], &[], &[], Some(AgentKind::Audio)).unwrap_err();
         assert!(error.contains("gravity"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn scoped_agent_prompt_tells_each_agent_its_real_scene_patch_fields() {
+        // Real failure observed live: the prompt used to reuse
+        // `allowed_component_keys()` (component names like "sprite") for
+        // the scene_patch sentence too, so an Architect's prompt claimed
+        // it could set scene_patch fields "transform2d"/"sprite" — neither
+        // of which is a real scene_patch field — and never actually told
+        // it gravity/music were off limits. It then set gravity anyway.
+        let architect_prompt = build_scoped_agent_prompt(AgentKind::Architect, "", &[], &[], &[]);
+        assert!(
+            architect_prompt.contains("You may NOT set \"scene_patch\""),
+            "Architect's prompt should forbid scene_patch entirely: {architect_prompt}"
+        );
+
+        let physics_prompt = build_scoped_agent_prompt(AgentKind::Physics, "", &[], &[], &[]);
+        assert!(
+            physics_prompt.contains("[\"gravity\"]"),
+            "Physics's prompt should mention gravity as its scene_patch field: {physics_prompt}"
+        );
+
+        let audio_prompt = build_scoped_agent_prompt(AgentKind::Audio, "", &[], &[], &[]);
+        assert!(
+            audio_prompt.contains("[\"music\"]"),
+            "Audio's prompt should mention music as its scene_patch field: {audio_prompt}"
+        );
     }
 }
