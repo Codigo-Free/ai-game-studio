@@ -411,12 +411,15 @@ fn build_json_proposal_prompt(
          in this list.\n\n\
          Existing project assets you may reference by id from \"sprite\"/\"particles\"/\"script\", \
          \"scene_patch.music\" and the \"play_sound\" action: {assets_list}\n\
-         If the asset you need for one of those (e.g. an audio asset for \"scene_patch.music\" or \
-         \"play_sound\") is NOT in this list, DO NOT invent an id and DO NOT set that field to \
-         `null` — just leave the whole field/section out of your JSON entirely (e.g. omit \
-         \"scene_patch\", or omit that one behavior) and mention the gap in \"summary\" instead. \
-         A smaller, honest proposal that only uses what actually exists is always better than one \
-         that references or nulls out something that isn't there.\n\n\
+         Every one of those components is OPTIONAL — an entity can have just \"transform2d\" and \
+         nothing else. If the asset you'd need (e.g. an image for \"sprite\", an audio asset for \
+         \"scene_patch.music\" or \"play_sound\") is NOT in the list above, DO NOT invent an id \
+         and DO NOT set \"asset\" to `null` — instead leave that WHOLE component/field/behavior \
+         out of your JSON entirely (e.g. an entity with no fitting image gets no \"sprite\" key at \
+         all; omit \"scene_patch\" if there's no music asset; drop a behavior if it needs a sound \
+         that doesn't exist) and mention the gap in \"summary\" instead. A smaller, honest proposal \
+         that only uses what actually exists is always better than one that references or nulls \
+         out something that isn't there.\n\n\
          Existing scene animations you may reference by name from an \"animator\" component \
          (do not invent new ones — authoring keyframes is a separate, manual step): {animations_list}\n\n\
          Never use `null` for a required string field (\"id\", \"name\", \"asset\", \"filename\", \
