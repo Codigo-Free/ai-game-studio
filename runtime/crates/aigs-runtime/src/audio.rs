@@ -2,6 +2,15 @@
 //!
 //! On machines without an audio device (CI, headless) the player degrades
 //! to a disabled no-op so games and tests still run.
+//!
+//! Supported audio file formats: `wav`, `mp3`, `ogg` and `flac` — kira
+//! features enabled to match the editor's own `AUDIO_EXTENSIONS`
+//! (`editor/src/ipc.ts`), since the editor happily imports/previews any of
+//! those (it just uses the browser's own `<audio>` tag) but the runtime
+//! can only play what kira's enabled features actually decode. Anything
+//! else fails with a warning pushed to `AudioPlayer::take_warnings` rather
+//! than a crash — this was a real gap hit live (an imported `.mp3` failed
+//! to play before `mp3` was added here).
 
 use std::collections::HashMap;
 use std::io::Cursor;
