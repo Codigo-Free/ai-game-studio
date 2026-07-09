@@ -422,11 +422,13 @@ fn build_json_proposal_prompt(
          out something that isn't there.\n\n\
          Existing scene animations you may reference by name from an \"animator\" component \
          (do not invent new ones — authoring keyframes is a separate, manual step): {animations_list}\n\n\
-         Never use `null` for a required string field (\"id\", \"name\", \"asset\", \"filename\", \
-         \"content\", ...) — either give it a real value from the lists above, or omit the whole \
-         field/object/list entry it belongs to. The only field allowed to be `null` is \
-         \"parent_id\"; every other optional field should simply be left out of the JSON entirely \
-         rather than set to `null`.\n\n\
+         NEVER write `null` as the value of ANY field, of ANY type (string, number, or boolean) — \
+         not \"id\"/\"name\"/\"asset\"/\"filename\"/\"content\", and not numeric ones either like \
+         \"frame\"/\"width\"/\"height\"/\"layer\"/\"volume\"/\"count\". If you don't want to set a \
+         field, or don't have a real value for it, DO NOT INCLUDE THAT KEY AT ALL — leaving a key \
+         out is always valid and uses its default; writing `null` for it is a syntax error and \
+         gets the whole proposal rejected. The ONLY field allowed to be `null` is \"parent_id\" \
+         (which means \"no parent\", a real, meaningful value there).\n\n\
          {scripting_section}\
          Current project/scene state:\n{context}"
     )
