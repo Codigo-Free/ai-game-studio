@@ -23,6 +23,7 @@ import type {
   ProjectProposal,
   Scene,
 } from "../types";
+import { SettingsPanel } from "./SettingsPanel";
 
 // Cap on how much of the project we hand to the model — a crude but
 // simple guard against blowing past a smaller local model's context
@@ -151,6 +152,7 @@ export function ChatPanel() {
   const [question, setQuestion] = useState("");
   const [asking, setAsking] = useState(false);
   const [busyIndex, setBusyIndex] = useState<number | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -420,12 +422,20 @@ export function ChatPanel() {
         </div>
         <button
           className="panel-header-action"
+          onClick={() => setShowSettings(true)}
+          title="Ajustes de IA (proveedor, modelo, API key)"
+        >
+          ⚙ Ajustes
+        </button>
+        <button
+          className="panel-header-action"
           onClick={() => setHistory([])}
           disabled={history.length === 0}
         >
           Limpiar
         </button>
       </div>
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       <div className="panel-body chat-body" ref={bodyRef}>
         {history.length === 0 && (
           <p className="chat-hint">

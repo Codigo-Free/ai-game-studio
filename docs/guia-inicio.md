@@ -82,6 +82,14 @@ aigs validate mi-juego/game.aigs   # valida manifiesto, escenas y assets
 aigs run mi-juego/game.aigs        # ejecuta el juego (AIGS_MAX_FRAMES=N para smoke tests)
 ```
 
+## 7. Chat con IA (opcional)
+
+El editor tiene un panel de **Chat** (junto a Timeline/Consola) para preguntar sobre el proyecto abierto, pedir cambios, orquestar varios agentes especializados o generar un juego entero a partir de una instrucción en lenguaje natural.
+
+Por defecto usa **Ollama local** (`http://localhost:11434`, modelo `llama3.2:latest`) — instala [Ollama](https://ollama.com) y descarga un modelo (`ollama pull qwen2.5-coder:7b` funciona bien para propuestas de cambios) y el Chat funciona sin configuración adicional.
+
+Para usar Claude u OpenAI en la nube, o cambiar el modelo/URL de Ollama, abrí el botón **⚙ Ajustes** dentro del panel de Chat: elegí el proveedor y pegá tu API key ahí. Se guarda en un archivo local de tu usuario (no en la nube ni en el repositorio) — ver [docs/ia.md](ia.md) para el detalle de dónde y cómo. Si preferís no tocar la UI, las variables de entorno de siempre (`AIGS_AI_PROVIDER`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, …) siguen funcionando y tienen prioridad sobre lo que esté guardado en Ajustes.
+
 ## ¿Y ahora?
 
 - Formato `.aigs` a fondo: [sdk/aigs-format/SPEC.md](../sdk/aigs-format/SPEC.md)

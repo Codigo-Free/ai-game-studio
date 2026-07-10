@@ -7,15 +7,17 @@
 
 mod agents;
 mod ai;
+mod settings;
 
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
-use ai::{AssetRef, ChangeProposal, ChatMessage, Provider};
+use ai::{AssetRef, ChangeProposal, ChatMessage};
 use aigs_project::{Project, Scene};
 use base64::Engine;
 use serde::Serialize;
+use settings::AiSettings;
 use tauri::Emitter;
 
 /// A project loaded from disk: the manifest plus every scene, already parsed
@@ -256,8 +258,12 @@ fn export_project(
 /// in-memory document (whatever the user has open right now, saved or
 /// not) — the backend never re-reads the project from disk for this.
 #[tauri::command]
-async fn ai_chat(context: String, question: String) -> Result<String, String> {
-    let provider = Provider::from_env()?;
+async fn ai_chat(
+    app: tauri::AppHandle,
+    context: String,
+    question: String,
+) -> Result<String, String> {
+    let provider = settings::resolve_provider(&app)?;
     let messages = [
         ChatMessage {
             role: "system".to_string(),
@@ -286,13 +292,14 @@ async fn ai_chat(context: String, question: String) -> Result<String, String> {
 /// something partially applied.
 #[tauri::command]
 async fn ai_propose_change(
+    app: tauri::AppHandle,
     context: String,
     instruction: String,
     known_assets: Vec<AssetRef>,
     known_entity_ids: Vec<String>,
     known_animation_names: Vec<String>,
 ) -> Result<ChangeProposal, String> {
-    let provider = Provider::from_env()?;
+    let provider = settings::resolve_provider(&app)?;
     let system = ai::build_propose_system_prompt(
         &context,
         &known_assets,
@@ -332,13 +339,14 @@ async fn ai_propose_change(
 /// unchanged.
 #[tauri::command]
 async fn ai_orchestrate(
+    app: tauri::AppHandle,
     context: String,
     instruction: String,
     known_assets: Vec<AssetRef>,
     known_entity_ids: Vec<String>,
     known_animation_names: Vec<String>,
 ) -> Result<ChangeProposal, String> {
-    let provider = Provider::from_env()?;
+    let provider = settings::resolve_provider(&app)?;
     agents::orchestrate(
         &provider,
         &context,
@@ -359,6 +367,7 @@ async fn ai_orchestrate(
 /// atomic change.
 #[tauri::command]
 async fn ai_generate_project(
+    app: tauri::AppHandle,
     context: String,
     instruction: String,
     known_assets: Vec<AssetRef>,
@@ -366,7 +375,7 @@ async fn ai_generate_project(
     current_entity_ids: Vec<String>,
     current_animation_names: Vec<String>,
 ) -> Result<agents::ProjectProposal, String> {
-    let provider = Provider::from_env()?;
+    let provider = settings::resolve_provider(&app)?;
     agents::generate_project(
         &provider,
         &context,
@@ -405,6 +414,19 @@ fn write_script_asset(
     })
 }
 
+/// Reads the AI provider settings (fast-follow of M18) from the app's local
+/// settings file, or `AiSettings::default()` if none has been saved yet.
+#[tauri::command]
+fn get_ai_settings(app: tauri::AppHandle) -> AiSettings {
+    settings::load_settings(&app)
+}
+
+/// Persists the AI provider settings to the app's local settings file.
+#[tauri::command]
+fn save_ai_settings(app: tauri::AppHandle, settings: AiSettings) -> Result<(), String> {
+    settings::save_settings(&app, &settings)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -422,7 +444,9 @@ pub fn run() {
             ai_propose_change,
             ai_orchestrate,
             ai_generate_project,
-            write_script_asset
+            write_script_asset,
+            get_ai_settings,
+            save_ai_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

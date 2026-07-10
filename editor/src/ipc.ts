@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type {
+  AiSettings,
   ChangeProposal,
   LoadedProject,
   Project,
@@ -163,4 +164,17 @@ export async function readImageDataUrl(path: string): Promise<string> {
   const mime = MIME_BY_EXTENSION[extension] ?? "image/png";
   const base64 = await readFileBase64(path);
   return `data:${mime};base64,${base64}`;
+}
+
+/** Reads the AI provider settings (fast-follow of M18) from the app's
+ * local settings file, or sensible defaults if none was saved yet. */
+export function getAiSettings(): Promise<AiSettings> {
+  return invoke("get_ai_settings");
+}
+
+/** Persists the AI provider settings to the app's local settings file.
+ * Environment variables (AIGS_AI_PROVIDER, etc.) still override this if
+ * set — see `editor/src-tauri/src/settings.rs`. */
+export function saveAiSettings(settings: AiSettings): Promise<void> {
+  return invoke("save_ai_settings", { settings });
 }

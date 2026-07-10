@@ -371,3 +371,41 @@ code { background: #10121a; padding: 1px 5px; border-radius: 3px; }
   margin-bottom: 6px;
   background: #14151c;
 }
+
+/* --- settings panel (AI provider) --- */
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.settings-panel {
+  width: 360px;
+  max-width: 90vw;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--panel-header);
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+}
+.settings-header h3 { margin: 0; font-size: 13px; }
+.settings-body { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.settings-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+.settings-error { color: #ff6b6b; font-size: 11px; margin: 0; }

@@ -1,12 +1,12 @@
 //! AI Core (milestones M18-M19): lets the editor's Chat panel answer
 //! questions about the currently open project (M18), or propose a concrete,
 //! reviewable change to it (M19) — backed by a local model (Ollama) or a
-//! cloud one (Claude for now — implemented against the public Messages API
-//! but not locally verified, since doing so needs the user's own API key).
+//! cloud one (Claude/OpenAI — implemented against their public APIs but
+//! not locally verified, since doing so needs the user's own API key).
 //!
-//! Provider/model selection is by environment variable for now
-//! (`AIGS_AI_PROVIDER`, `OLLAMA_MODEL`, `ANTHROPIC_API_KEY`) — no settings
-//! panel yet, see `docs/plan.md` M18.
+//! Provider/model selection is resolved in `settings.rs` (a settings-panel
+//! fast-follow of M18): an environment variable, if set, always wins;
+//! otherwise a local settings file, with hardcoded defaults under that.
 
 use std::collections::HashSet;
 
@@ -37,47 +37,46 @@ pub enum ProviderError {
     Parse(String),
 }
 
-/// One model provider, chosen at request time from the environment. An
-/// `enum` rather than `dyn Trait`: with two or three variants and async
+/// One model provider, chosen at request time by `settings::resolve_provider`.
+/// An `enum` rather than `dyn Trait`: with two or three variants and async
 /// calls, a trait object would need `async-trait` (boxed futures) just to
 /// get the same dynamic dispatch a `match` already gives us for free.
 pub enum Provider {
     Ollama { base_url: String, model: String },
     Claude { api_key: String, model: String },
+    OpenAi { api_key: String, model: String },
+}
+
+impl std::fmt::Debug for Provider {
+    /// Hand-written rather than derived so an API key can never end up in a
+    /// panic/log message — e.g. `Result::unwrap_err` prints the `Ok` value's
+    /// `Debug` if a test unexpectedly succeeds.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Provider::Ollama { base_url, model } => f
+                .debug_struct("Ollama")
+                .field("base_url", base_url)
+                .field("model", model)
+                .finish(),
+            Provider::Claude { model, .. } => f
+                .debug_struct("Claude")
+                .field("api_key", &"<redacted>")
+                .field("model", model)
+                .finish(),
+            Provider::OpenAi { model, .. } => f
+                .debug_struct("OpenAi")
+                .field("api_key", &"<redacted>")
+                .field("model", model)
+                .finish(),
+        }
+    }
 }
 
 impl Provider {
-    /// Picks a provider from `AIGS_AI_PROVIDER` (`"ollama"`, the default, or
-    /// `"claude"`), reading whatever other environment variables that
-    /// provider needs.
-    pub fn from_env() -> Result<Self, String> {
-        let choice = std::env::var("AIGS_AI_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
-        match choice.as_str() {
-            "ollama" => Ok(Provider::Ollama {
-                base_url: std::env::var("OLLAMA_BASE_URL")
-                    .unwrap_or_else(|_| "http://localhost:11434".to_string()),
-                model: std::env::var("OLLAMA_MODEL")
-                    .unwrap_or_else(|_| "llama3.2:latest".to_string()),
-            }),
-            "claude" => {
-                let api_key = std::env::var("ANTHROPIC_API_KEY").map_err(|_| {
-                    "AIGS_AI_PROVIDER=claude needs ANTHROPIC_API_KEY set".to_string()
-                })?;
-                Ok(Provider::Claude {
-                    api_key,
-                    model: std::env::var("ANTHROPIC_MODEL")
-                        .unwrap_or_else(|_| "claude-sonnet-5".to_string()),
-                })
-            }
-            other => Err(format!(
-                "unknown AIGS_AI_PROVIDER \"{other}\" (expected \"ollama\" or \"claude\")"
-            )),
-        }
-    }
-
-    /// `json_mode` asks Ollama to constrain its output to syntactically
-    /// valid JSON (its `format: "json"` request field) — used by the M19
-    /// "propose a change" flow. Claude has no equivalent knob in this
+    /// `json_mode` asks Ollama/OpenAI to constrain their output to
+    /// syntactically valid JSON (Ollama's `format: "json"` request field,
+    /// OpenAI's `response_format: {"type": "json_object"}`) — used by the
+    /// M19 "propose a change" flow. Claude has no equivalent knob in this
     /// design (see `docs/arquitectura.md`), so it's ignored on that branch;
     /// the system prompt's own instructions carry the weight there instead.
     pub async fn chat(
@@ -90,6 +89,9 @@ impl Provider {
                 ollama_chat(base_url, model, messages, json_mode).await
             }
             Provider::Claude { api_key, model } => claude_chat(api_key, model, messages).await,
+            Provider::OpenAi { api_key, model } => {
+                openai_chat(api_key, model, messages, json_mode).await
+            }
         }
     }
 }
@@ -231,6 +233,86 @@ async fn claude_chat(
         .map(|block| block.text)
         .collect::<Vec<_>>()
         .join(""))
+}
+
+/// OpenAI's Chat Completions API: unlike Claude, the system message is just
+/// another entry in the same array (same shape as Ollama's), and it has a
+/// native JSON-forcing knob (`response_format`).
+#[derive(Serialize)]
+struct OpenAiRequest<'a> {
+    model: &'a str,
+    messages: &'a [ChatMessage],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    response_format: Option<OpenAiResponseFormat>,
+}
+
+#[derive(Serialize)]
+struct OpenAiResponseFormat {
+    #[serde(rename = "type")]
+    kind: &'static str,
+}
+
+#[derive(Deserialize)]
+struct OpenAiResponse {
+    choices: Vec<OpenAiChoice>,
+}
+
+#[derive(Deserialize)]
+struct OpenAiChoice {
+    message: OpenAiResponseMessage,
+}
+
+#[derive(Deserialize)]
+struct OpenAiResponseMessage {
+    content: String,
+}
+
+async fn openai_chat(
+    api_key: &str,
+    model: &str,
+    messages: &[ChatMessage],
+    json_mode: bool,
+) -> Result<String, ProviderError> {
+    let client = reqwest::Client::new();
+    let response = client
+        .post("https://api.openai.com/v1/chat/completions")
+        .header("Authorization", format!("Bearer {api_key}"))
+        .json(&OpenAiRequest {
+            model,
+            messages,
+            response_format: if json_mode {
+                Some(OpenAiResponseFormat {
+                    kind: "json_object",
+                })
+            } else {
+                None
+            },
+        })
+        .send()
+        .await
+        .map_err(|source| ProviderError::Request {
+            provider: "OpenAI",
+            source,
+        })?;
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        return Err(ProviderError::Status {
+            provider: "OpenAI",
+            status,
+            body,
+        });
+    }
+    let parsed: OpenAiResponse = response
+        .json()
+        .await
+        .map_err(|error| ProviderError::Parse(error.to_string()))?;
+    parsed
+        .choices
+        .into_iter()
+        .next()
+        .map(|choice| choice.message.content)
+        .ok_or_else(|| ProviderError::Parse("OpenAI returned no choices".to_string()))
 }
 
 /// The scripting API manifest (milestone M12), embedded at compile time so
@@ -941,28 +1023,6 @@ mod tests {
                 .expect("model's proposal should pass validation");
         assert_eq!(proposal.entities_to_add.len(), 1);
         eprintln!("parsed proposal: {proposal:?}");
-    }
-
-    // A single test, not three: `std::env::set_var` mutates *process-wide*
-    // state, and Rust runs test functions in parallel by default — three
-    // separate tests each touching AIGS_AI_PROVIDER raced and flaked. One
-    // test body is inherently sequential, so the scenarios can't interleave.
-    #[test]
-    fn from_env_reads_the_provider_and_validates_its_requirements() {
-        std::env::remove_var("AIGS_AI_PROVIDER");
-        assert!(matches!(
-            Provider::from_env().unwrap(),
-            Provider::Ollama { .. }
-        ));
-
-        std::env::set_var("AIGS_AI_PROVIDER", "not-a-real-provider");
-        assert!(Provider::from_env().is_err());
-
-        std::env::set_var("AIGS_AI_PROVIDER", "claude");
-        std::env::remove_var("ANTHROPIC_API_KEY");
-        assert!(Provider::from_env().is_err());
-
-        std::env::remove_var("AIGS_AI_PROVIDER");
     }
 
     fn drone_proposal_json() -> serde_json::Value {

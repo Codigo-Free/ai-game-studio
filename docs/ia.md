@@ -56,7 +56,7 @@ Sobre el AI Core se construyen agentes que colaboran compartiendo el contexto co
 | Tipo | Proveedor |
 |---|---|
 | Local | **Ollama** (privacidad, sin coste, offline) |
-| Cloud | **Claude, GPT, Gemini** |
+| Cloud | **Claude, OpenAI**, Gemini (pendiente) |
 
 La capa AI Core abstrae el proveedor: los agentes funcionan igual con modelos locales o cloud.
 
@@ -64,11 +64,20 @@ La capa AI Core abstrae el proveedor: los agentes funcionan igual con modelos lo
 
 Vive en el backend Tauri (`editor/src-tauri/src/ai.rs`), no en el frontend: necesita hacer peticiones HTTP (a Ollama o a la nube) y ahí es donde ya vive el resto de IO del editor; además evita exponer API keys de proveedores cloud en el bundle del frontend.
 
-- **`Provider`** es un `enum` (`Ollama { .. } | Claude { .. }`), no un `dyn Trait` — con dos o tres proveedores y llamadas async, un trait object habría necesitado el crate `async-trait` solo para tener el mismo despacho dinámico que ya da un `match`.
-- **Selección de proveedor/modelo por variable de entorno** (`AIGS_AI_PROVIDER` = `ollama` (default) | `claude`, `OLLAMA_MODEL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`) — todavía sin panel de ajustes en el editor (fast-follow).
+- **`Provider`** es un `enum` (`Ollama { .. } | Claude { .. } | OpenAi { .. }`), no un `dyn Trait` — con dos o tres proveedores y llamadas async, un trait object habría necesitado el crate `async-trait` solo para tener el mismo despacho dinámico que ya da un `match`. Implementa `Debug` a mano para redactar `api_key` como `"<redacted>"` (evita que un panic/log filtre secretos).
+- **Selección de proveedor/modelo por el panel de Ajustes del editor** (botón "⚙ Ajustes" en el Chat, fast-follow de M18 — ver más abajo). Las variables de entorno originales de M18 (`AIGS_AI_PROVIDER`, `OLLAMA_MODEL`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, más `OPENAI_API_KEY`/`OPENAI_MODEL` nuevas) siguen funcionando y tienen prioridad sobre el archivo de ajustes — pensado para docs/CI, no para el uso diario.
 - **El contexto lo construye el frontend**, no el backend: `ChatPanel.tsx` serializa el proyecto/escena tal como están en memoria (incluyendo cambios sin guardar) y se lo pasa al comando Tauri `ai_chat` como texto; el backend nunca vuelve a leer el proyecto de disco para esto. Límite simple de tamaño (~12000 caracteres) para no desbordar la ventana de contexto de un modelo local pequeño.
 - **Panel de Chat** en el editor (pestaña junto a Timeline/Consola): de momento solo lectura — responde preguntas sobre el proyecto abierto, no aplica cambios (eso es M19).
-- Verificado con **Ollama real** corriendo en local (`llama3.2`, `qwen2.5-coder`, `deepseek-r1` ya instalados). El proveedor Claude se implementó contra la documentación pública de la Messages API pero no se ha podido probar sin una API key real de un usuario.
+- Verificado con **Ollama real** corriendo en local (`llama3.2`, `qwen2.5-coder`, `deepseek-r1` ya instalados). Los proveedores Claude y OpenAI se implementaron contra la documentación pública de sus respectivas APIs pero no se han podido probar en vivo sin una API key real de un usuario.
+
+### Panel de Ajustes de IA (fast-follow de M18)
+
+Configurar el proveedor por variable de entorno resultó poco práctico para el uso diario (pedido explícito del usuario tras varias sesiones reales de prueba). El botón **"⚙ Ajustes"** del panel de Chat abre un modal (`editor/src/panels/SettingsPanel.tsx`) para elegir proveedor, modelo y API key sin tocar la terminal.
+
+- **Persistencia:** `editor/src-tauri/src/settings.rs` guarda `AiSettings` como JSON en `app_data_dir()/ai-settings.json` (ruta correcta por SO, vía `tauri::path`). **Se decidió guardar la API key en texto plano en ese archivo, no en el llavero del sistema (`keyring`/`libsecret`)** — el usuario eligió explícitamente esta opción; es el mismo nivel de confianza que ya se documenta como aceptable para tener la key en `.zshrc`/variables de entorno, y evita añadir una dependencia nueva (`keyring`, con su propio backend por SO) para una ganancia de seguridad marginal en un editor de escritorio de un solo usuario.
+- **Resolución en capas:** `settings::resolve_provider()` arma el `Provider` combinando, campo a campo, variable de entorno (si existe y no está vacía) > valor guardado en el archivo > default embebido (`env_or()`). Esto es intencional: no reemplaza el mecanismo de M18, lo complementa — así los ejemplos de la documentación y el uso en CI que ya dependen de variables de entorno siguen funcionando sin cambios.
+- **Comandos Tauri nuevos:** `get_ai_settings`/`save_ai_settings`. Los 4 comandos de IA existentes (`ai_chat`, `ai_propose_change`, `ai_orchestrate`, `ai_generate_project`) ahora resuelven el proveedor desde `settings::resolve_provider(&app)` en vez de la vieja `Provider::from_env()` (eliminada).
+- **Tercer proveedor: OpenAI.** `openai_chat()` en `ai.rs` contra `POST https://api.openai.com/v1/chat/completions`, header `Authorization: Bearer <key>`, y `response_format: {"type":"json_object"}` cuando se necesita JSON forzado (Claude no tiene un knob equivalente; Ollama usa su propio `format:"json"`). Mismo estado que Claude en M18: implementado contra la documentación pública, **no verificado en vivo** (sin API key de prueba disponible en este entorno).
 
 ### Escritura asistida: primer agente "Programador" (M19)
 

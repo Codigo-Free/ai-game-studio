@@ -231,3 +231,20 @@ export interface ProjectProposal {
   summary: string;
   scenes: ScenedProposal[];
 }
+
+// --- AI Core: provider settings (fast-follow of M18) ---
+
+export type AiProvider = "ollama" | "claude" | "openai";
+
+/** Mirrors `editor/src-tauri/src/settings.rs`'s `AiSettings`. API keys are
+ * stored in plain text in a local per-user file — see `docs/arquitectura.md`
+ * for why that's the accepted trade-off here. */
+export interface AiSettings {
+  provider: AiProvider;
+  ollama_base_url: string;
+  ollama_model: string;
+  claude_api_key: string;
+  claude_model: string;
+  openai_api_key: string;
+  openai_model: string;
+}
