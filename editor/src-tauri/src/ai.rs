@@ -463,7 +463,9 @@ fn build_json_proposal_prompt(
          {{\n\
          \x20 \"summary\": \"one-line, human-readable description of the change\",\n\
          \x20 \"entities_to_add\": [ {{ \"parent_id\": string|null, \"entity\": {{ \"id\": string, \"name\": string, \"components\": {{ ... }} }} }} ],\n\
-         \x20 \"entities_to_update\": [ {{ \"id\": string, \"components_patch\": {{ ... }} }} ],\n\
+         \x20 \"entities_to_update\": [ {{ \"id\": string, \"components_patch\": {{ ... }} }} ] \
+         (the key holding the changed components is EXACTLY \"components_patch\" here — NOT \"components\", \
+         that name is only used inside \"entities_to_add\"),\n\
          \x20 \"entities_to_remove\": [ string ],\n\
          \x20 \"scripts\": [ {{ \"asset_id\": string, \"filename\": string (must end in \\\".rhai\\\"), \"content\": string }} ],\n\
          \x20 \"scene_patch\": {{ \"gravity\": {{x,y}}, \"music\": {{asset,volume,looped}} }}\n\
@@ -473,6 +475,10 @@ fn build_json_proposal_prompt(
          transform2d {{x,y,rotation,scale_x,scale_y}}, sprite {{asset,frame,width,height,opacity,layer}}, \
          rigidbody2d {{body: \"dynamic\"|\"kinematic\"|\"static\",gravity_scale,vx,vy,fixed_rotation}}, \
          collider2d {{shape: \"box\"|\"circle\" (NOT \"rectangle\"/\"square\"/\"sphere\"),width,height,radius,sensor,restitution,friction}}, \
+         shape {{kind: \"box\"|\"circle\" (NOT \"rectangle\"/\"square\"/\"sphere\"),width,height,radius,color,opacity,layer}} — a FLAT-COLOR \
+         rectangle or circle with NO image asset; \"color\" is a hex string like \"#7f5af0\" or \"#e0af68ff\" (never an \
+         {{r,g,b,a}} object). Use this whenever you'd want a visual (a bar, a block, an indicator, a placeholder shape) \
+         and there is no fitting image asset — do NOT stretch or squash an unrelated sprite to fake one, use \"shape\" instead, \
          animator {{initial,states,transitions}}, script {{asset}}.\n\n\
          behaviors is a list of {{\"on\": EventSpec, \"do\": ActionSpec}} rules. EventSpec and \
          ActionSpec are each a JSON OBJECT with a \"type\" field naming the exact variant below \
@@ -645,8 +651,8 @@ impl AgentKind {
     /// Component keys this agent may set on an entity it adds or updates.
     pub fn allowed_component_keys(&self) -> &'static [&'static str] {
         match self {
-            AgentKind::Architect => &["transform2d", "sprite"],
-            AgentKind::LevelDesigner => &["transform2d", "sprite", "collider2d"],
+            AgentKind::Architect => &["transform2d", "sprite", "shape"],
+            AgentKind::LevelDesigner => &["transform2d", "sprite", "collider2d", "shape"],
             AgentKind::Programmer => &["script", "behaviors"],
             AgentKind::Physics => &["rigidbody2d", "collider2d"],
             AgentKind::Audio => &["behaviors"],
@@ -697,6 +703,9 @@ fn used_component_keys(components: &Components) -> Vec<&'static str> {
     }
     if components.particles.is_some() {
         used.push("particles");
+    }
+    if components.shape.is_some() {
+        used.push("shape");
     }
     if components.script.is_some() {
         used.push("script");
@@ -773,6 +782,27 @@ fn check_components_asset_refs(
     Ok(())
 }
 
+/// Accepts `"#rrggbb"`/`"#rrggbbaa"` (leading `#` optional) — kept separate
+/// from `aigs_render::Color::from_hex` since this crate deliberately avoids
+/// depending on `aigs-render` (it would pull in wgpu for a plain string
+/// check; see docs/arquitectura.md, 2026-07-10).
+fn is_valid_hex_color(color: &str) -> bool {
+    let hex = color.strip_prefix('#').unwrap_or(color);
+    matches!(hex.len(), 6 | 8) && hex.chars().all(|c| c.is_ascii_hexdigit())
+}
+
+fn check_components_shape_color(components: &Components) -> Result<(), String> {
+    if let Some(shape) = &components.shape {
+        if !is_valid_hex_color(&shape.color) {
+            return Err(format!(
+                "shape has an invalid color \"{}\" (expected \"#rrggbb\" or \"#rrggbbaa\")",
+                shape.color
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn check_scene_patch_asset_refs(
     patch: &ScenePatch,
     available: &HashSet<String>,
@@ -814,6 +844,15 @@ fn check_entity_asset_refs(entity: &EntityNode, available: &HashSet<String>) -> 
         .map_err(|e| format!("entity \"{}\" {e}", entity.id))?;
     for child in &entity.children {
         check_entity_asset_refs(child, available)?;
+    }
+    Ok(())
+}
+
+fn check_entity_shape_color(entity: &EntityNode) -> Result<(), String> {
+    check_components_shape_color(&entity.components)
+        .map_err(|e| format!("entity \"{}\" {e}", entity.id))?;
+    for child in &entity.children {
+        check_entity_shape_color(child)?;
     }
     Ok(())
 }
@@ -918,6 +957,7 @@ pub fn parse_and_validate_proposal(
         }
         check_entity_asset_refs(&add.entity, &available)?;
         check_entity_animator_refs(&add.entity, &known_animations)?;
+        check_entity_shape_color(&add.entity)?;
         if let Some(agent) = scope {
             check_entity_scope(&add.entity, agent)?;
         }
@@ -928,6 +968,7 @@ pub fn parse_and_validate_proposal(
         }
         check_components_asset_refs(&update.components_patch, &available)?;
         check_components_animator_refs(&update.components_patch, &known_animations)?;
+        check_components_shape_color(&update.components_patch)?;
         if let Some(agent) = scope {
             check_components_scope(&update.components_patch, agent)?;
         }
@@ -1023,6 +1064,82 @@ mod tests {
                 .expect("model's proposal should pass validation");
         assert_eq!(proposal.entities_to_add.len(), 1);
         eprintln!("parsed proposal: {proposal:?}");
+    }
+
+    /// Regression test for the real case that motivated the `shape`
+    /// component: asking for stat indicators used to make the model squish
+    /// existing icons (`icon-feed` etc.) to a near-zero `scale_y`, producing
+    /// unreadable slivers — because the format had no flat-color visual that
+    /// didn't need an image asset. Run with
+    /// `cargo test -- --ignored stat_bars_end_to_end`.
+    #[ignore]
+    #[tokio::test]
+    async fn stat_bars_use_shape_not_a_squished_icon_with_real_ollama() {
+        let base_url = "http://localhost:11434".to_string();
+        if reqwest::Client::new()
+            .get(format!("{base_url}/api/tags"))
+            .send()
+            .await
+            .is_err()
+        {
+            eprintln!("skipping: no Ollama reachable at {base_url}");
+            return;
+        }
+        let model =
+            std::env::var("OLLAMA_MODEL").unwrap_or_else(|_| "qwen2.5-coder:14b".to_string());
+        let provider = Provider::Ollama { base_url, model };
+        let known_assets = vec![
+            AssetRef {
+                id: "pet".to_string(),
+                kind: "image".to_string(),
+            },
+            AssetRef {
+                id: "icon-feed".to_string(),
+                kind: "image".to_string(),
+            },
+            AssetRef {
+                id: "icon-play".to_string(),
+                kind: "image".to_string(),
+            },
+            AssetRef {
+                id: "icon-medicine".to_string(),
+                kind: "image".to_string(),
+            },
+        ];
+        let known_entity_ids = vec!["pet".to_string(), "icon-feed".to_string()];
+        let context = r#"{"project":{"name":"Tamagotchi"},"current_scene":{"name":"pet","entities":[
+            {"id":"pet","name":"Pet","components":{"transform2d":{"x":0,"y":20},"sprite":{"asset":"pet"}}},
+            {"id":"icon-feed","name":"Feed Icon","components":{"transform2d":{"x":-140,"y":-180},"sprite":{"asset":"icon-feed"}}}
+        ]}}"#;
+        let system = build_propose_system_prompt(context, &known_assets, &known_entity_ids, &[]);
+        let messages = [
+            ChatMessage {
+                role: "system".to_string(),
+                content: system,
+            },
+            ChatMessage {
+                role: "user".to_string(),
+                content: "Improve the interface with visual indicators clearly showing hunger, \
+                          happiness and health levels."
+                    .to_string(),
+            },
+        ];
+        let raw = provider.chat(&messages, true).await.unwrap();
+        eprintln!("raw model response:\n{raw}");
+        let known_asset_ids: Vec<String> = known_assets.into_iter().map(|a| a.id).collect();
+        let proposal =
+            parse_and_validate_proposal(&raw, &known_asset_ids, &known_entity_ids, &[], None)
+                .expect("model's proposal should pass validation");
+        eprintln!("parsed proposal: {proposal:?}");
+        let uses_shape = proposal
+            .entities_to_add
+            .iter()
+            .any(|add| add.entity.components.shape.is_some());
+        assert!(
+            uses_shape,
+            "expected at least one added entity to use the new \"shape\" component \
+             for a stat indicator, got: {proposal:?}"
+        );
     }
 
     fn drone_proposal_json() -> serde_json::Value {
@@ -1121,6 +1238,45 @@ mod tests {
         let error =
             parse_and_validate_proposal(&raw, &[], &["player".to_string()], &[], None).unwrap_err();
         assert!(error.contains("made-up-sfx"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn proposal_with_a_well_formed_shape_is_accepted() {
+        let raw = serde_json::json!({
+            "summary": "Adds a hunger indicator bar",
+            "entities_to_add": [{
+                "parent_id": null,
+                "entity": {
+                    "id": "hunger-bar",
+                    "name": "Hunger Bar",
+                    "components": {
+                        "transform2d": { "x": 0.0, "y": 150.0 },
+                        "shape": { "kind": "box", "width": 80.0, "height": 10.0, "color": "#e0af68" }
+                    }
+                }
+            }]
+        })
+        .to_string();
+        let proposal = parse_and_validate_proposal(&raw, &[], &[], &[], None).unwrap();
+        assert_eq!(proposal.entities_to_add.len(), 1);
+    }
+
+    #[test]
+    fn proposal_with_an_invalid_shape_color_is_rejected() {
+        let raw = serde_json::json!({
+            "summary": "Adds a hunger indicator bar",
+            "entities_to_add": [{
+                "parent_id": null,
+                "entity": {
+                    "id": "hunger-bar",
+                    "name": "Hunger Bar",
+                    "components": { "shape": { "color": "orange" } }
+                }
+            }]
+        })
+        .to_string();
+        let error = parse_and_validate_proposal(&raw, &[], &[], &[], None).unwrap_err();
+        assert!(error.contains("orange"), "unexpected error: {error}");
     }
 
     #[test]
@@ -1234,6 +1390,45 @@ mod tests {
         .unwrap_err();
         assert!(error.contains("Physics"), "unexpected error: {error}");
         assert!(error.contains("isn't allowed"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn shape_outside_a_non_visual_agents_scope_is_rejected() {
+        let raw = serde_json::json!({
+            "summary": "Adds a hunger indicator bar",
+            "entities_to_add": [{
+                "parent_id": null,
+                "entity": {
+                    "id": "hunger-bar",
+                    "name": "Hunger Bar",
+                    "components": { "shape": { "color": "#e0af68" } }
+                }
+            }]
+        })
+        .to_string();
+        let error =
+            parse_and_validate_proposal(&raw, &[], &[], &[], Some(AgentKind::Physics)).unwrap_err();
+        assert!(error.contains("Physics"), "unexpected error: {error}");
+        assert!(error.contains("shape"), "unexpected error: {error}");
+    }
+
+    #[test]
+    fn shape_within_the_architects_scope_is_accepted() {
+        let raw = serde_json::json!({
+            "summary": "Adds a hunger indicator bar",
+            "entities_to_add": [{
+                "parent_id": null,
+                "entity": {
+                    "id": "hunger-bar",
+                    "name": "Hunger Bar",
+                    "components": { "shape": { "color": "#e0af68" } }
+                }
+            }]
+        })
+        .to_string();
+        let proposal =
+            parse_and_validate_proposal(&raw, &[], &[], &[], Some(AgentKind::Architect)).unwrap();
+        assert_eq!(proposal.entities_to_add.len(), 1);
     }
 
     #[test]

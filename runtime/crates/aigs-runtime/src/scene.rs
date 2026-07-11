@@ -12,7 +12,7 @@ use aigs_project::{EntityNode, Scene};
 
 use crate::assets::{AssetStore, TextureInfo};
 use crate::components::{
-    Camera2D, Collider2DShape, Name, RigidBody2D, Sprite, Transform2D, Visibility,
+    Camera2D, Collider2DShape, Name, RigidBody2D, Shape, Sprite, Transform2D, Visibility,
 };
 use crate::particles::ParticleEmitter;
 
@@ -22,6 +22,8 @@ pub enum SceneError {
     UnknownAsset { entity: String, asset: String },
     #[error("duplicated entity id \"{0}\" in scene")]
     DuplicatedId(String),
+    #[error("entity \"{entity}\" has an invalid shape color \"{color}\" (expected \"#rrggbb\" or \"#rrggbbaa\")")]
+    InvalidColor { entity: String, color: String },
 }
 
 /// Maps authored entity ids to live ECS entities, for animation tracks (M4)
@@ -150,6 +152,29 @@ fn spawn_node(
         );
     }
 
+    if let Some(shape) = &node.components.shape {
+        let color =
+            aigs_render::Color::from_hex(&shape.color).ok_or_else(|| SceneError::InvalidColor {
+                entity: node.id.clone(),
+                color: shape.color.clone(),
+            })?;
+        let (half_width, half_height) = match shape.kind {
+            aigs_project::ShapeKind::Box => (shape.width / 2.0, shape.height / 2.0),
+            aigs_project::ShapeKind::Circle => (shape.radius, shape.radius),
+        };
+        world.insert(
+            entity,
+            Shape {
+                is_circle: shape.kind == aigs_project::ShapeKind::Circle,
+                half_width,
+                half_height,
+                color: [color.r, color.g, color.b, color.a],
+                opacity: shape.opacity,
+                layer: shape.layer,
+            },
+        );
+    }
+
     if let Some(body) = &node.components.rigidbody2d {
         world.insert(
             entity,
@@ -271,6 +296,52 @@ mod tests {
         let camera = instance.entity("camera").unwrap();
         assert_eq!(world.get::<Camera2D>(camera).unwrap().zoom, 2.0);
         assert_eq!(world.get::<Name>(hero).unwrap().0, "Hero");
+    }
+
+    #[test]
+    fn instantiates_a_shape() {
+        let scene = scene_from_json(
+            r##"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "main",
+                "entities": [{
+                    "id": "bar", "name": "Bar",
+                    "components": {
+                        "transform2d": { "scale_x": 2.0, "scale_y": 1.0 },
+                        "shape": { "kind": "box", "width": 40.0, "height": 10.0, "color": "#7f5af0" }
+                    }
+                }]
+            }"##,
+        );
+        let mut world = World::new();
+        let instance = instantiate_scene(&mut world, &scene, &FakeTextures).unwrap();
+        let bar = instance.entity("bar").unwrap();
+        let shape = world.get::<crate::components::Shape>(bar).unwrap();
+        assert!(!shape.is_circle);
+        assert_eq!(shape.half_width, 20.0);
+        assert_eq!(shape.half_height, 5.0);
+        let expected = aigs_render::Color::from_hex("#7f5af0").unwrap();
+        assert_eq!(
+            shape.color,
+            [expected.r, expected.g, expected.b, expected.a]
+        );
+    }
+
+    #[test]
+    fn invalid_shape_color_is_an_error() {
+        let scene = scene_from_json(
+            r#"{
+                "format": { "kind": "aigs-scene", "version": 0 },
+                "name": "main",
+                "entities": [{
+                    "id": "e", "name": "E",
+                    "components": { "shape": { "color": "not-a-color" } }
+                }]
+            }"#,
+        );
+        let mut world = World::new();
+        let result = instantiate_scene(&mut world, &scene, &FakeTextures);
+        assert!(matches!(result, Err(SceneError::InvalidColor { .. })));
     }
 
     #[test]

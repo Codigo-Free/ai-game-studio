@@ -136,6 +136,8 @@ mi-juego/
 
 **`particles`** — emisor de partículas (M11): `asset` (imagen, obligatorio), `rate` (partículas/s mientras `emitting`, default `20`; `0` = solo ráfagas), `lifetime` (s, default `0.8`), `speed` (unidades/s, default `120`), `direction` (grados, `90` = arriba), `spread` (arco en grados centrado en `direction`, default `360`), `gravity` (aceleración vertical, default `0`), `start_scale`/`end_scale` (default `1`/`0.2`), `start_opacity`/`end_opacity` (default `1`/`0`), `layer` (default `5`), `emitting` (default `true`). Las partículas se simulan en el runtime y **no** forman parte del documento.
 
+**`shape`** — primitivo visual de color plano, sin asset de imagen: `kind` = `"box"` (default) | `"circle"`; `width`/`height` (unidades de mundo, default `40`, usados si `kind` es `box`); `radius` (default `20`, usado si `kind` es `circle`); `color` (hex `"#rrggbb"` o `"#rrggbbaa"`, default `"#7f5af0"`); `opacity` (default `1.0`); `layer` (default `0`). Se dibuja reutilizando el mismo pipeline instanciado que `sprite` (una textura blanca 1×1 compartida, teñida por `color`); igual que un sprite, su tamaño se multiplica por `transform2d.scale_x`/`scale_y`, así que `set_scale` desde un script ya sirve para encogerlo/agrandarlo en tiempo real (p. ej. una barra de stats).
+
 **`script`** — script de usuario (M12): `{ "asset": id }` donde el asset es de tipo `script` (archivo `.rhai`). Ver sección Scripting.
 
 **`behaviors`** — lista de reglas sin código `{ "on": Evento, "do": Acción }` (ver sección Comportamientos).

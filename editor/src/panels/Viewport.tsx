@@ -16,7 +16,7 @@ import {
 } from "../document";
 import { ensureImageUrl } from "./AssetsPanel";
 import { snapshotOf, useStore } from "../store";
-import type { Asset, EntityNode, SpriteComponent } from "../types";
+import type { Asset, EntityNode, ShapeComponent, SpriteComponent } from "../types";
 
 interface ViewState {
   x: number;
@@ -24,11 +24,19 @@ interface ViewState {
   zoom: number;
 }
 
+type Visual =
+  | { kind: "sprite"; sprite: SpriteComponent }
+  | { kind: "shape"; shape: ShapeComponent };
+
 interface RenderItem {
   id: string;
   world: WorldTransform;
-  sprite: SpriteComponent;
+  visual: Visual;
   order: number;
+}
+
+function layerOf(visual: Visual): number {
+  return (visual.kind === "sprite" ? visual.sprite.layer : visual.shape.layer) ?? 0;
 }
 
 function collectRenderList(
@@ -42,7 +50,15 @@ function collectRenderList(
       into.push({
         id: node.id,
         world,
-        sprite: node.components.sprite,
+        visual: { kind: "sprite", sprite: node.components.sprite },
+        order: into.length,
+      });
+    }
+    if (node.components?.shape) {
+      into.push({
+        id: node.id,
+        world,
+        visual: { kind: "shape", shape: node.components.shape },
         order: into.length,
       });
     }
@@ -121,14 +137,22 @@ export function Viewport() {
     };
   };
 
+  const shapeSize = (shape: ShapeComponent) =>
+    (shape.kind ?? "box") === "circle"
+      ? { w: (shape.radius ?? 20) * 2, h: (shape.radius ?? 20) * 2 }
+      : { w: shape.width ?? 40, h: shape.height ?? 40 };
+
+  const visualSize = (visual: Visual) =>
+    visual.kind === "sprite" ? spriteSize(visual.sprite) : shapeSize(visual.shape);
+
   const hitTest = (worldX: number, worldY: number): string | null => {
     if (!displayScene) return null;
     const items: RenderItem[] = [];
     collectRenderList(displayScene.entities, IDENTITY, items);
-    items.sort((a, b) => (a.sprite.layer ?? 0) - (b.sprite.layer ?? 0) || a.order - b.order);
+    items.sort((a, b) => layerOf(a.visual) - layerOf(b.visual) || a.order - b.order);
     for (let i = items.length - 1; i >= 0; i -= 1) {
-      const { world, sprite } = items[i];
-      const { w, h } = spriteSize(sprite);
+      const { world, visual } = items[i];
+      const { w, h } = visualSize(visual);
       const m = (world.rotation * Math.PI) / 180;
       const dx = worldX - world.x;
       const dy = worldY - world.y;
@@ -193,33 +217,47 @@ export function Viewport() {
       y: height / 2 - (wy - view.y) * view.zoom,
     });
 
-    // Sprites, sorted by layer (painter's algorithm, like the runtime).
+    // Sprites and shapes, sorted by layer (painter's algorithm, like the runtime).
     const items: RenderItem[] = [];
     collectRenderList(displayScene.entities, IDENTITY, items);
-    items.sort((a, b) => (a.sprite.layer ?? 0) - (b.sprite.layer ?? 0) || a.order - b.order);
+    items.sort((a, b) => layerOf(a.visual) - layerOf(b.visual) || a.order - b.order);
     for (const item of items) {
-      const { world, sprite } = item;
-      const img = imagesRef.current.get(sprite.asset);
-      const { w, h } = spriteSize(sprite);
+      const { world, visual } = item;
+      const { w, h } = visualSize(visual);
       const screen = toScreen(world.x, world.y);
       ctx.save();
       ctx.translate(screen.x, screen.y);
       ctx.rotate((world.rotation * Math.PI) / 180);
       ctx.scale(world.scaleX * view.zoom, world.scaleY * view.zoom);
-      ctx.globalAlpha = sprite.opacity ?? 1;
-      const sheet = sheetOf(sprite.asset);
-      if (img && img.complete && img.naturalWidth > 0 && sheet) {
-        const columns = Math.max(1, Math.floor(img.naturalWidth / sheet.frame_width));
-        const rows = Math.max(1, Math.floor(img.naturalHeight / sheet.frame_height));
-        const index = Math.floor(Math.max(0, sprite.frame ?? 0)) % (columns * rows);
-        const sx = (index % columns) * sheet.frame_width;
-        const sy = Math.floor(index / columns) * sheet.frame_height;
-        ctx.drawImage(img, sx, sy, sheet.frame_width, sheet.frame_height, -w / 2, -h / 2, w, h);
-      } else if (img && img.complete && img.naturalWidth > 0) {
-        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      if (visual.kind === "sprite") {
+        const sprite = visual.sprite;
+        const img = imagesRef.current.get(sprite.asset);
+        ctx.globalAlpha = sprite.opacity ?? 1;
+        const sheet = sheetOf(sprite.asset);
+        if (img && img.complete && img.naturalWidth > 0 && sheet) {
+          const columns = Math.max(1, Math.floor(img.naturalWidth / sheet.frame_width));
+          const rows = Math.max(1, Math.floor(img.naturalHeight / sheet.frame_height));
+          const index = Math.floor(Math.max(0, sprite.frame ?? 0)) % (columns * rows);
+          const sx = (index % columns) * sheet.frame_width;
+          const sy = Math.floor(index / columns) * sheet.frame_height;
+          ctx.drawImage(img, sx, sy, sheet.frame_width, sheet.frame_height, -w / 2, -h / 2, w, h);
+        } else if (img && img.complete && img.naturalWidth > 0) {
+          ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        } else {
+          ctx.fillStyle = "#7f5af0";
+          ctx.fillRect(-w / 2, -h / 2, w, h);
+        }
       } else {
-        ctx.fillStyle = "#7f5af0";
-        ctx.fillRect(-w / 2, -h / 2, w, h);
+        const shape = visual.shape;
+        ctx.globalAlpha = shape.opacity ?? 1;
+        ctx.fillStyle = shape.color ?? "#7f5af0";
+        if ((shape.kind ?? "box") === "circle") {
+          ctx.beginPath();
+          ctx.ellipse(0, 0, w / 2, h / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.fillRect(-w / 2, -h / 2, w, h);
+        }
       }
       ctx.restore();
 
@@ -229,12 +267,26 @@ export function Viewport() {
         ctx.rotate((world.rotation * Math.PI) / 180);
         ctx.strokeStyle = "#4f9cff";
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(
-          (-w / 2) * world.scaleX * view.zoom,
-          (-h / 2) * world.scaleY * view.zoom,
-          w * world.scaleX * view.zoom,
-          h * world.scaleY * view.zoom,
-        );
+        if (visual.kind === "shape" && (visual.shape.kind ?? "box") === "circle") {
+          ctx.beginPath();
+          ctx.ellipse(
+            0,
+            0,
+            (w / 2) * world.scaleX * view.zoom,
+            (h / 2) * world.scaleY * view.zoom,
+            0,
+            0,
+            Math.PI * 2,
+          );
+          ctx.stroke();
+        } else {
+          ctx.strokeRect(
+            (-w / 2) * world.scaleX * view.zoom,
+            (-h / 2) * world.scaleY * view.zoom,
+            w * world.scaleX * view.zoom,
+            h * world.scaleY * view.zoom,
+          );
+        }
         ctx.restore();
       }
     }

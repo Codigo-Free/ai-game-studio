@@ -97,6 +97,20 @@ impl Sprite {
     }
 }
 
+/// A flat-color box/circle primitive (no image asset). Drawn through the
+/// same instanced pipeline as [`Sprite`], tinting a shared white texture.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Shape {
+    pub is_circle: bool,
+    /// Half extents in world units, before the transform scale.
+    pub half_width: f32,
+    pub half_height: f32,
+    pub color: [f32; 4],
+    pub opacity: f32,
+    /// Higher layers draw on top.
+    pub layer: i32,
+}
+
 /// Marks the entity whose view renders the scene. The first live entity with
 /// both a `Camera2D` and a `Transform2D` wins.
 #[derive(Debug, Clone, Copy, PartialEq)]

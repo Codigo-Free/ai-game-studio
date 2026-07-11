@@ -6,7 +6,9 @@
 
 mod renderer;
 
-pub use renderer::{CameraView, RenderError, Renderer, SpriteInstance, TextureId, FULL_TEXTURE};
+pub use renderer::{
+    CameraView, RenderError, Renderer, SpriteInstance, TextureId, FULL_TEXTURE, NO_TINT,
+};
 pub use wgpu::SurfaceError;
 
 /// RGBA color with components in `0.0..=1.0`.

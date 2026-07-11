@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use aigs_ecs::World;
+use aigs_ecs::{Entity, World};
 use aigs_render::{CameraView, Color, RenderError, Renderer, SpriteInstance, SurfaceError};
 use winit::application::ApplicationHandler;
 use winit::event::{MouseButton, WindowEvent};
@@ -222,7 +222,7 @@ impl App {
 
         let alpha = self.accumulator / FIXED_DT;
         let camera = extract_camera(&self.world);
-        let mut sprites = extract_sprites(&self.world, alpha);
+        let mut sprites = extract_sprites(&self.world, alpha, renderer.white_texture());
         match renderer.render(self.config.clear_color, camera, &mut sprites) {
             Ok(()) => {}
             Err(SurfaceError::Lost | SurfaceError::Outdated) => {
@@ -430,9 +430,34 @@ fn extract_camera(world: &World) -> CameraView {
     camera
 }
 
+/// Interpolates an entity's transform between the previous and current
+/// simulation state with factor `alpha` (falls back to the current state if
+/// there's no previous snapshot yet, e.g. the entity's first tick).
+fn interpolated_transform(
+    world: &World,
+    entity: Entity,
+    transform: &Transform2D,
+    alpha: f32,
+) -> (f32, f32, f32) {
+    match world.get::<PrevTransform2D>(entity) {
+        Some(prev) => (
+            lerp(prev.0.x, transform.x, alpha),
+            lerp(prev.0.y, transform.y, alpha),
+            lerp(prev.0.rotation, transform.rotation, alpha),
+        ),
+        None => (transform.x, transform.y, transform.rotation),
+    }
+}
+
 /// Builds the sprite list for this frame, interpolating between the previous
-/// and current simulation states with factor `alpha`.
-fn extract_sprites(world: &World, alpha: f32) -> Vec<SpriteInstance> {
+/// and current simulation states with factor `alpha`. `white_texture` backs
+/// `shape` primitives, which reuse this same instanced pipeline as tinted
+/// quads.
+fn extract_sprites(
+    world: &World,
+    alpha: f32,
+    white_texture: aigs_render::TextureId,
+) -> Vec<SpriteInstance> {
     let mut sprites = Vec::new();
     world.for_each2::<Transform2D, Sprite>(|entity, transform, sprite| {
         if let Some(visibility) = world.get::<Visibility>(entity) {
@@ -440,14 +465,7 @@ fn extract_sprites(world: &World, alpha: f32) -> Vec<SpriteInstance> {
                 return;
             }
         }
-        let (x, y, rotation) = match world.get::<PrevTransform2D>(entity) {
-            Some(prev) => (
-                lerp(prev.0.x, transform.x, alpha),
-                lerp(prev.0.y, transform.y, alpha),
-                lerp(prev.0.rotation, transform.rotation, alpha),
-            ),
-            None => (transform.x, transform.y, transform.rotation),
-        };
+        let (x, y, rotation) = interpolated_transform(world, entity, transform, alpha);
         sprites.push(SpriteInstance {
             x,
             y,
@@ -458,6 +476,29 @@ fn extract_sprites(world: &World, alpha: f32) -> Vec<SpriteInstance> {
             layer: sprite.layer,
             texture: sprite.texture,
             uv: sprite.uv(),
+            tint: aigs_render::NO_TINT,
+            is_circle: false,
+        });
+    });
+    world.for_each2::<Transform2D, crate::components::Shape>(|entity, transform, shape| {
+        if let Some(visibility) = world.get::<Visibility>(entity) {
+            if !visibility.0 {
+                return;
+            }
+        }
+        let (x, y, rotation) = interpolated_transform(world, entity, transform, alpha);
+        sprites.push(SpriteInstance {
+            x,
+            y,
+            rotation: -rotation.to_radians(),
+            half_width: shape.half_width * transform.scale_x,
+            half_height: shape.half_height * transform.scale_y,
+            opacity: shape.opacity,
+            layer: shape.layer,
+            texture: white_texture,
+            uv: aigs_render::FULL_TEXTURE,
+            tint: shape.color,
+            is_circle: shape.is_circle,
         });
     });
     sprites

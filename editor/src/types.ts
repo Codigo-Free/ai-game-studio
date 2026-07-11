@@ -98,6 +98,19 @@ export interface ParticlesComponent {
   emitting?: boolean;
 }
 
+/** Flat-color box/circle primitive: no image asset needed, rendered by
+ * tinting a shared white texture (see docs/arquitectura.md, 2026-07-10). */
+export interface ShapeComponent {
+  kind?: "box" | "circle";
+  width?: number;
+  height?: number;
+  radius?: number;
+  /** Hex color, `"#rrggbb"` or `"#rrggbbaa"`. */
+  color?: string;
+  opacity?: number;
+  layer?: number;
+}
+
 export interface Components {
   transform2d?: Transform2D;
   sprite?: SpriteComponent;
@@ -106,6 +119,7 @@ export interface Components {
   collider2d?: Collider2DComponent;
   animator?: AnimatorComponent;
   particles?: ParticlesComponent;
+  shape?: ShapeComponent;
   script?: { asset: string };
   behaviors?: Behavior[];
   // Plugin components (namespaced keys) must survive round-trips.

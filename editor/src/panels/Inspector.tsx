@@ -10,6 +10,7 @@ import type {
   Components,
   EventSpec,
   ParticlesComponent,
+  ShapeComponent,
 } from "../types";
 
 const COMMON_KEYS = [
@@ -538,6 +539,56 @@ function ParticlesSection({
   );
 }
 
+function ShapeSection({
+  shape,
+  onChange,
+}: {
+  shape?: ShapeComponent;
+  onChange: (shape: ShapeComponent | undefined) => void;
+}) {
+  return (
+    <section>
+      <h4>
+        Figura
+        {!shape && <button onClick={() => onChange({})}>＋</button>}
+        {shape && <button onClick={() => onChange(undefined)}>✕</button>}
+      </h4>
+      {shape && (
+        <div className="field-grid">
+          <label className="field">
+            <span>Forma</span>
+            <select
+              value={shape.kind ?? "box"}
+              onChange={(e) => onChange({ ...shape, kind: e.target.value as "box" | "circle" })}
+            >
+              <option value="box">caja</option>
+              <option value="circle">círculo</option>
+            </select>
+          </label>
+          {(shape.kind ?? "box") === "box" ? (
+            <>
+              <NumberField label="Ancho" value={shape.width ?? 40} onCommit={(width) => onChange({ ...shape, width })} />
+              <NumberField label="Alto" value={shape.height ?? 40} onCommit={(height) => onChange({ ...shape, height })} />
+            </>
+          ) : (
+            <NumberField label="Radio" value={shape.radius ?? 20} onCommit={(radius) => onChange({ ...shape, radius })} />
+          )}
+          <label className="field">
+            <span>Color</span>
+            <input
+              type="color"
+              value={shape.color ?? "#7f5af0"}
+              onChange={(e) => onChange({ ...shape, color: e.target.value })}
+            />
+          </label>
+          <NumberField label="Opacidad" value={shape.opacity ?? 1} step={0.05} onCommit={(opacity) => onChange({ ...shape, opacity })} />
+          <NumberField label="Capa" value={shape.layer ?? 0} onCommit={(layer) => onChange({ ...shape, layer: Math.floor(layer) })} />
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function Inspector() {
   const { state, dispatch, currentScene } = useStore();
   const selection = state.selection;
@@ -799,6 +850,11 @@ export function Inspector() {
             .filter((a) => a.kind === "image")
             .map((a) => a.id)}
           onChange={(particles) => patch({ particles })}
+        />
+
+        <ShapeSection
+          shape={node.components?.shape}
+          onChange={(shape) => patch({ shape })}
         />
 
         <AnimatorSection

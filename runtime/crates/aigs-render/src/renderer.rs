@@ -42,7 +42,18 @@ pub struct SpriteInstance {
     pub texture: TextureId,
     /// Texture sub-rectangle `(u0, v0, u1, v1)`; `FULL_TEXTURE` for all of it.
     pub uv: [f32; 4],
+    /// Multiplies the sampled color (RGB) and alpha; `[1.0; 4]` for a normal,
+    /// untinted image sprite. Used by `shape` primitives to tint the shared
+    /// white texture.
+    pub tint: [f32; 4],
+    /// `true` masks the quad to a circle inscribed in it (fragment-shader
+    /// distance discard); `false` draws the full quad, as any image sprite.
+    pub is_circle: bool,
 }
+
+/// Untinted, non-circle instance tint/mask — the no-op values a normal image
+/// sprite uses.
+pub const NO_TINT: [f32; 4] = [1.0, 1.0, 1.0, 1.0];
 
 /// UV rect covering the whole texture.
 pub const FULL_TEXTURE: [f32; 4] = [0.0, 0.0, 1.0, 1.0];
@@ -73,6 +84,8 @@ struct RawInstance {
     rotation: f32,
     opacity: f32,
     uv_rect: [f32; 4],
+    tint: [f32; 4],
+    shape_kind: f32,
 }
 
 #[repr(C)]
@@ -99,6 +112,9 @@ pub struct Renderer {
     textures: Vec<GpuTexture>,
     instance_buffer: wgpu::Buffer,
     instance_capacity: usize,
+    /// A 1×1 white texture, used to draw `shape` primitives as tinted quads
+    /// through the same textured pipeline as sprites (no separate draw path).
+    white_texture: TextureId,
 }
 
 impl Renderer {
@@ -208,6 +224,8 @@ impl Renderer {
             2 => Float32,
             3 => Float32,
             4 => Float32x4,
+            5 => Float32x4,
+            6 => Float32,
         ];
         let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             label: Some("aigs-sprite-pipeline"),
@@ -254,7 +272,7 @@ impl Renderer {
             mapped_at_creation: false,
         });
 
-        Ok(Self {
+        let mut renderer = Self {
             surface,
             device,
             queue,
@@ -267,7 +285,16 @@ impl Renderer {
             textures: Vec::new(),
             instance_buffer,
             instance_capacity,
-        })
+            white_texture: TextureId::default(),
+        };
+        renderer.white_texture = renderer.create_texture_rgba(1, 1, &[255, 255, 255, 255]);
+        Ok(renderer)
+    }
+
+    /// Shared 1×1 white texture, for drawing `shape` primitives as tinted
+    /// quads through the same instanced pipeline as image sprites.
+    pub fn white_texture(&self) -> TextureId {
+        self.white_texture
     }
 
     pub fn viewport(&self) -> Viewport {
@@ -379,6 +406,8 @@ impl Renderer {
                 rotation: sprite.rotation,
                 opacity: sprite.opacity,
                 uv_rect: sprite.uv,
+                tint: sprite.tint,
+                shape_kind: if sprite.is_circle { 1.0 } else { 0.0 },
             })
             .collect();
         if !raw.is_empty() {

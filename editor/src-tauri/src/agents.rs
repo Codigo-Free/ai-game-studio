@@ -49,9 +49,10 @@ fn agent_roster_description() -> String {
         format!(
             "- {}: owns {:?}.",
             match agent {
-                AgentKind::Architect => "architect (creates/places basic entities)",
+                AgentKind::Architect =>
+                    "architect (creates/places basic entities, including flat-color shapes for indicators/blocks with no image asset)",
                 AgentKind::LevelDesigner =>
-                    "level_designer (composes several entities into a level layout)",
+                    "level_designer (composes several entities into a level layout, including flat-color shapes)",
                 AgentKind::Programmer => "programmer (writes rhai scripts and behaviors)",
                 AgentKind::Physics => "physics (rigidbody2d/collider2d and scene gravity)",
                 AgentKind::Audio => "audio (scene music and play_sound behaviors)",

@@ -203,6 +203,9 @@ pub struct Components {
     /// Particle emitter (milestone M11).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub particles: Option<Particles>,
+    /// Flat-color box/circle primitive, no image asset needed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub shape: Option<Shape>,
     /// User script (milestone M12): a `script` asset driving this entity.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub script: Option<Script>,
@@ -503,6 +506,46 @@ impl Default for Particles {
             emitting: true,
         }
     }
+}
+
+/// Flat-color box/circle primitive: no image asset, drawn as a tinted quad
+/// reusing the sprite render pipeline (a shared 1×1 white texture).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Shape {
+    pub kind: ShapeKind,
+    /// Box extents in world units; used when `kind` is `box`.
+    pub width: f32,
+    pub height: f32,
+    /// Circle radius in world units; used when `kind` is `circle`.
+    pub radius: f32,
+    /// `"#rrggbb"` or `"#rrggbbaa"` (leading `#` optional).
+    pub color: String,
+    pub opacity: f32,
+    /// Draw order; higher layers render on top.
+    pub layer: i32,
+}
+
+impl Default for Shape {
+    fn default() -> Self {
+        Self {
+            kind: ShapeKind::Box,
+            width: 40.0,
+            height: 40.0,
+            radius: 20.0,
+            color: "#7f5af0".to_string(),
+            opacity: 1.0,
+            layer: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ShapeKind {
+    #[default]
+    Box,
+    Circle,
 }
 
 // ---------------------------------------------------------------------------
@@ -855,6 +898,35 @@ mod tests {
             ActionSpec::EmitParticles { count: 20 },
             "default burst count"
         );
+        let saved = scene.to_json().unwrap();
+        assert_eq!(Scene::from_json(&saved).unwrap(), scene);
+    }
+
+    #[test]
+    fn shape_round_trip() {
+        let json = r##"{
+            "format": { "kind": "aigs-scene", "version": 0 },
+            "name": "hud",
+            "entities": [{
+                "id": "hunger-bar", "name": "Hunger Bar",
+                "components": {
+                    "shape": { "kind": "box", "width": 80.0, "height": 10.0, "color": "#e0af68" }
+                }
+            }, {
+                "id": "dot", "name": "Dot",
+                "components": { "shape": { "kind": "circle" } }
+            }]
+        }"##;
+        let scene = Scene::from_json(json).unwrap();
+        let bar = scene.entities[0].components.shape.as_ref().unwrap();
+        assert_eq!(bar.kind, ShapeKind::Box);
+        assert_eq!(bar.width, 80.0);
+        assert_eq!(bar.color, "#e0af68");
+        assert_eq!(bar.opacity, 1.0, "defaults fill in");
+        assert_eq!(bar.layer, 0, "defaults fill in");
+        let dot = scene.entities[1].components.shape.as_ref().unwrap();
+        assert_eq!(dot.kind, ShapeKind::Circle);
+        assert_eq!(dot.radius, 20.0, "defaults fill in");
         let saved = scene.to_json().unwrap();
         assert_eq!(Scene::from_json(&saved).unwrap(), scene);
     }

@@ -16,12 +16,20 @@ struct InstanceInput {
     @location(3) opacity: f32,
     // Sub-rectangle of the texture to sample (spritesheet frame).
     @location(4) uv_rect: vec4<f32>, // (u0, v0, u1, v1)
+    // Multiplies the sampled color; [1,1,1,1] for a normal, untinted sprite.
+    @location(5) tint: vec4<f32>,
+    // > 0.5 masks the quad to an inscribed circle (`shape` primitives).
+    @location(6) shape_kind: f32,
 };
 
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) opacity: f32,
+    // Unrotated quad-local position in -1..1, for the circle mask test.
+    @location(2) local: vec2<f32>,
+    @location(3) tint: vec4<f32>,
+    @location(4) shape_kind: f32,
 };
 
 const CORNERS = array<vec2<f32>, 6>(
@@ -56,11 +64,17 @@ fn vs_main(
         mix(instance.uv_rect.y, instance.uv_rect.w, unit_v),
     );
     out.opacity = instance.opacity;
+    out.local = corner;
+    out.tint = instance.tint;
+    out.shape_kind = instance.shape_kind;
     return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    if (in.shape_kind > 0.5 && dot(in.local, in.local) > 1.0) {
+        discard;
+    }
     let color = textureSample(sprite_texture, sprite_sampler, in.uv);
-    return vec4<f32>(color.rgb, color.a * in.opacity);
+    return vec4<f32>(color.rgb * in.tint.rgb, color.a * in.opacity * in.tint.a);
 }
